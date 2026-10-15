@@ -67,6 +67,8 @@ before(async () => {
     app = await electron.launch({ args: [MAIN], cwd: root });
     window = await app.firstWindow();
     window.on('console', message => message.type() === 'error' && consoleErrors.push(message.text()));
+    // The layout depends on the window size, which runners with small screens would shrink.
+    await window.setViewportSize({ width: 1400, height: 900 });
     await window.locator('.rail').waitFor();
     // View settings live in the shared browser storage of the app, so earlier runs must not leak in.
     await window.evaluate(() => localStorage.clear());
@@ -105,8 +107,11 @@ test('opening an order shows its cards with a summary', async () => {
 });
 
 test('the summary strikes out what the printed cards are worth before the pack price', async () => {
-    assert.match(await window.locator('.summary .headline').innerText(), /50 cards fill 1 pack of 55, about 60[.,]00\s€ 19[.,]95\s€ plus shipping\./);
-    assert.match(await window.locator('.summary .headline s').innerText(), /60[.,]00/);
+    // Amounts are written in the system's locale, e.g. "60,00 €" or "€60.00".
+    const [value, pack] = await window.evaluate(() => [60, 19.95].map(amount => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(amount)));
+
+    assert.equal((await window.locator('.summary .headline').innerText()).replace(/\s/g, ' '), `50 cards fill 1 pack of 55, about ${value} ${pack} plus shipping.`.replace(/\s/g, ' '));
+    assert.equal(await window.locator('.summary .headline s').innerText(), value);
 });
 
 test('switching a card off updates the summary', async () => {
