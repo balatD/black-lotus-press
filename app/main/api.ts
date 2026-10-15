@@ -1,0 +1,163 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import sharp from "sharp";
+import { app, type BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { deleteOrder, loadOrders, saveOrder } from "../../src/config/orderConfigManager.js";
+import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
+import { orderDir } from "../../src/config/paths.js";
+import { downloadDriveImage } from "../../src/clients/googleDrive.js";
+import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
+import { DefaultProfile, type OnProgress } from "../../src/model.js";
+import { importDeck } from "../../src/pipeline/importDecks.js";
+import { searchPrintings } from "../../src/clients/scryfall.js";
+import { MANUAL_UPLOAD_URL, type MeinspielSession, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
+import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
+import { buildPdfs } from "../../src/output/meinspielPdf.js";
+import { ensureIccProfile } from "../../src/output/iccProfile.js";
+import { importCustomImage } from "../../src/pipeline/customImage.js";
+import { gpuStatsReader } from "../../src/utils/gpuStats.js";
+import { API_METHODS, type Api, type Task } from "../shared/api.js";
+
+export function registerApi(window: BrowserWindow) {
+    let nextTaskId = 1;
+    let job: { task: Task, controller: AbortController } | undefined;
+    let upload: { task: Task, session: MeinspielSession } | undefined;
+
+    const gpuTemperature = app.isPackaged
+        ? path.join(process.resourcesPath, 'native', 'gpu-temperature')
+        : path.join(import.meta.dirname, '../../build/native/gpu-temperature');
+    const gpuStats = gpuStatsReader(process.platform === 'darwin' ? gpuTemperature : undefined);
+
+    const listTasks = () => [job?.task, upload?.task].filter(task => task !== undefined);
+
+    function publishTasks() {
+        if (!window.isDestroyed()) window.webContents.send('tasks', listTasks());
+    }
+
+    async function closeUploadBrowser() {
+        const session = upload?.session;
+        upload = undefined;
+        publishTasks();
+        await session?.browser.close();
+    }
+
+    window.on('closed', () => void closeUploadBrowser());
+
+    async function runJob<T>(task: Omit<Task, 'id'>, work: (onProgress: OnProgress, signal: AbortSignal) => Promise<T>): Promise<T> {
+        if (job) throw new Error('Another task is still running. Wait for it or cancel it first.');
+        const controller = new AbortController();
+        job = { task: { ...task, id: nextTaskId++ }, controller };
+        publishTasks();
+        try {
+            return await work(event => window.webContents.send('progress', event), controller.signal);
+        } catch (error) {
+            // Stopping a browser task closes the browser, which surfaces as some Playwright error.
+            controller.signal.throwIfAborted();
+            throw error;
+        } finally {
+            job = undefined;
+            publishTasks();
+        }
+    }
+
+    const handlers: Api = {
+        async listProfiles() {
+            const profiles = await loadProcessingProfiles();
+            if (profiles.length > 0) return profiles;
+
+            // The packaged app has no project folder, so orders go to the documents folder.
+            const profile = app.isPackaged
+                ? { ...DefaultProfile, outputDirectory: path.join(app.getPath('documents'), 'Black Lotus Press', 'orders') }
+                : DefaultProfile;
+            await saveProcessingProfile(profile);
+            return [profile];
+        },
+        saveProfile: saveProcessingProfile,
+        deleteProfile: deleteProcessingProfile,
+        installUpscayl: (binaryFile, modelsDirectory) => runJob({ kind: 'upscayl', title: 'Installing Upscayl', stoppable: false }, async onProgress => {
+            onProgress({ type: 'progress', done: 0, total: 0, message: 'Downloading the Upscayl program from GitHub' });
+            await downloadUpscaylBinary(binaryFile);
+            onProgress({ type: 'progress', done: 0, total: 0, message: 'Downloading the Upscayl models from GitHub' });
+            await downloadUpscaylModels(modelsDirectory);
+            return await getUpscaylModels(modelsDirectory);
+        }),
+        listUpscaylModels: getUpscaylModels,
+        async chooseFolder() {
+            const result = await dialog.showOpenDialog(window, { properties: ['openDirectory', 'createDirectory'] });
+            return result.filePaths[0];
+        },
+
+        listOrders: loadOrders,
+        saveOrder,
+        deleteOrder,
+        async previewCardBack(driveId) {
+            const preview = await sharp(await downloadDriveImage(driveId)).resize(240).jpeg({ quality: 80 }).toBuffer();
+            return `data:image/jpeg;base64,${preview.toString('base64')}`;
+        },
+        async openOrderFolder(order) {
+            const folder = orderDir(order);
+            await fs.mkdir(folder, { recursive: true });
+            await shell.openPath(folder);
+        },
+
+        importDeck: (deck, channel) => runJob(
+            { kind: 'import', title: `Loading ${deck.name ?? 'a deck'} from Moxfield`, deck: deck.url, stoppable: true },
+            (onProgress, signal) => importDeck(deck, channel, onProgress, signal)),
+        processImages: order => runJob(
+            { kind: 'process', title: `Processing the images of ${order.name}`, order: order.name, stoppable: true },
+            async (onProgress, signal) => processImages(order, await ensureIccProfile(), onProgress, signal)),
+        reprocessImages: (order, files) => runJob(
+            { kind: 'process', title: `Processing images of ${order.name} again`, order: order.name, stoppable: true },
+            async (onProgress, signal) => {
+                await forgetImages(order, files);
+                await processImages(order, await ensureIccProfile(), onProgress, signal);
+            }),
+        buildPdfs: order => runJob(
+            { kind: 'pdfs', title: `Writing the PDFs of ${order.name}`, order: order.name, stoppable: false },
+            async onProgress => buildPdfs(order, await fs.readFile(await ensureIccProfile()), onProgress)),
+        uploadPacks: (orderName, packs, channel) => runJob(
+            { kind: 'upload', title: `Uploading ${orderName} to meinspiel.de`, order: orderName, stoppable: true },
+            async (onProgress, signal) => {
+                await closeUploadBrowser();
+                try {
+                    const { session, games } = await uploadToMeinspiel(orderName, packs, channel, onProgress, signal);
+                    upload = { task: { id: nextTaskId++, kind: 'browser', title: `meinspiel.de with the games of ${orderName}`, order: orderName, stoppable: true }, session };
+                    // Closing the browser window by hand ends the task as well.
+                    session.browser.on('disconnected', () => {
+                        if (upload?.session !== session) return;
+                        upload = undefined;
+                        publishTasks();
+                    });
+                    return games;
+                } catch (error) {
+                    if (signal.aborted) throw error;
+                    const message = error instanceof Error ? error.message : String(error);
+                    throw new Error(`${message} You can upload the PDFs by hand at ${MANUAL_UPLOAD_URL}`);
+                }
+            }),
+        imageStatus,
+        gpuStats,
+        async listTasks() {
+            return listTasks();
+        },
+        async stopTask(id) {
+            if (job?.task.id === id) job.controller.abort();
+            if (upload?.task.id === id) await closeUploadBrowser();
+        },
+
+        searchPrintings,
+        async pickCustomImage() {
+            const result = await dialog.showOpenDialog(window, {
+                properties: ['openFile'],
+                filters: [{ name: 'Card images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+            });
+            const file = result.filePaths[0];
+            return file ? await importCustomImage(file) : undefined;
+        }
+    };
+
+    ipcMain.handle('api', (_event, method: string, ...args: unknown[]) => {
+        if (!(API_METHODS as readonly string[]).includes(method)) throw new Error(`Unknown method ${method}`);
+        return (handlers[method as keyof Api] as (...params: unknown[]) => unknown)(...args);
+    });
+}

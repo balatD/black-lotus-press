@@ -1,0 +1,54 @@
+import { randomUUID } from "node:crypto";
+import { getMoxfieldDetails, type MoxfieldBoard, type MoxfieldCardDetails, type MoxfieldDeck } from "../clients/moxfield.js";
+import { findScryfallCard } from "../clients/scryfall.js";
+import { type DeckConfig, DeckData, type OnProgress, type OrderCard, type PlaywrightChannel, type ScryfallCard } from "../model.js";
+
+export function toOrderCards(deck: DeckConfig, moxfield: MoxfieldDeck): { card: OrderCard, source: MoxfieldCardDetails }[] {
+    const boards = ['commanders', 'companions', ...deck.data, 'signatureSpells'];
+
+    const entries = boards.flatMap(board => {
+        const cards = (moxfield.boards as Partial<Record<string, MoxfieldBoard>>)[board]?.cards ?? {};
+        return Object.values(cards)
+            .flatMap(card => card.printingData || [card])
+            .map(printing => ({ board, quantity: printing.quantity, source: printing.card, foil: printing.finish === 'foil' || printing.finish === 'etched' }));
+    });
+
+    if (deck.data.includes(DeckData.Tokens)) {
+        moxfield.tokens.filter(token => token.isToken).forEach(token => entries.push({ board: 'tokens', quantity: 1, source: token, foil: false }));
+    }
+
+    return entries.map(({ board, quantity, source, foil }) => ({
+        card: {
+            id: randomUUID(), deck: deck.url, board, name: source.name, quantity, isToken: source.isToken, excluded: false,
+            ...(foil ? { foil } : {}),
+            imported: { moxfieldId: source.id, quantity }
+        },
+        source
+    }));
+}
+
+export async function importDeck(deck: DeckConfig, channel: PlaywrightChannel, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ name: string, cards: OrderCard[] }> {
+    onProgress?.({ type: 'progress', done: 0, total: 0, message: 'Loading the deck from Moxfield' });
+    const moxfield = await getMoxfieldDetails(deck, channel, signal);
+    const entries = toOrderCards(deck, moxfield);
+
+    const lookups = new Map<string, Promise<ScryfallCard | undefined>>();
+    let done = 0;
+    for (const { source } of entries) {
+        if (lookups.has(source.id)) continue;
+        lookups.set(source.id, findScryfallCard(source).then(printing => {
+            // Lookups already queued still finish after a cancel, but must not report into the next job.
+            if (!signal?.aborted) onProgress?.({ type: 'progress', done: ++done, total: lookups.size, message: `Looking up ${source.name} on Scryfall` });
+            return printing;
+        }));
+    }
+
+    const cards: OrderCard[] = [];
+    for (const { card, source } of entries) {
+        const printing = await lookups.get(source.id);
+        signal?.throwIfAborted();
+        cards.push(printing ? { ...card, printing, imported: { ...card.imported!, printingId: printing.id } } : card);
+    }
+
+    return { name: moxfield.name, cards };
+}

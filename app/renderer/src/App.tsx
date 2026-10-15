@@ -1,0 +1,113 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DefaultOrder, type Order, type ProcessingProfile } from "../../../src/model.js";
+import { api, errorMessage } from "./api.js";
+import { Rail } from "./components/Rail.js";
+import { OrderScreen } from "./screens/OrderScreen.js";
+import { ProfilesScreen } from "./screens/ProfilesScreen.js";
+import { RegistrationMark } from "./components/Decor.js";
+import { Splash } from "./components/Splash.js";
+
+type View = { type: 'order', name: string } | { type: 'profiles' } | { type: 'none' };
+
+const SAVE_DELAY_MS = 600;
+
+export function App() {
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [profiles, setProfiles] = useState<ProcessingProfile[]>([]);
+    const [view, setView] = useState<View>({ type: 'none' });
+    const [error, setError] = useState<string>();
+    const [splash, setSplash] = useState(true);
+    const endSplash = useCallback(() => setSplash(false), []);
+    const pendingSaves = useRef(new Map<string, { order: Order, timer: number }>());
+
+    const reload = useCallback(async () => {
+        const [loadedOrders, loadedProfiles] = await Promise.all([api.listOrders(), api.listProfiles()]);
+        setOrders(loadedOrders);
+        setProfiles(loadedProfiles);
+    }, []);
+
+    useEffect(() => {
+        reload().catch(e => setError(errorMessage(e)));
+    }, [reload]);
+
+    const save = useCallback(async (order: Order) => {
+        pendingSaves.current.delete(order.name);
+        try {
+            await api.saveOrder(order);
+        } catch (e) {
+            setError(errorMessage(e));
+        }
+    }, []);
+
+    // Edits are saved shortly after the last change, so typing does not write the file on every key.
+    const updateOrder = useCallback((order: Order) => {
+        setOrders(current => current.map(existing => existing.name === order.name ? order : existing));
+        const pending = pendingSaves.current.get(order.name);
+        if (pending) window.clearTimeout(pending.timer);
+        pendingSaves.current.set(order.name, { order, timer: window.setTimeout(() => void save(order), SAVE_DELAY_MS) });
+    }, [save]);
+
+    const flushSaves = useCallback(async () => {
+        const pending = [...pendingSaves.current.values()];
+        pending.forEach(({ timer }) => window.clearTimeout(timer));
+        await Promise.all(pending.map(({ order }) => save(order)));
+    }, [save]);
+
+    async function createOrder(name: string) {
+        const order: Order = { ...DefaultOrder, name, profile: profiles[0] ?? DefaultOrder.profile };
+        await api.saveOrder(order);
+        await reload();
+        setView({ type: 'order', name });
+    }
+
+    async function deleteOrder(order: Order) {
+        await flushSaves();
+        await api.deleteOrder(order);
+        await reload();
+        setView({ type: 'none' });
+    }
+
+    async function show(next: View) {
+        await flushSaves();
+        setView(next);
+    }
+
+    const order = view.type === 'order' ? orders.find(o => o.name === view.name) : undefined;
+
+    return (
+        <>
+        {splash && <Splash onDone={endSplash}/>}
+        <div className={`app ${splash ? 'waiting' : 'revealed'}`}>
+            <Rail
+                orders={orders}
+                selected={view.type === 'order' ? view.name : undefined}
+                profilesSelected={view.type === 'profiles'}
+                onSelectOrder={name => void show({ type: 'order', name })}
+                onSelectProfiles={() => void show({ type: 'profiles' })}
+                onCreateOrder={createOrder}
+            />
+            <main className="content">
+                {error && <p className="error" role="alert" style={{ padding: '0.75rem 1.75rem' }}>{error}</p>}
+                {order && (
+                    <OrderScreen
+                        key={order.name}
+                        order={order}
+                        profiles={profiles}
+                        onChange={updateOrder}
+                        onFlush={flushSaves}
+                        onDelete={() => void deleteOrder(order).catch(e => setError(errorMessage(e)))}
+                    />
+                )}
+                {view.type === 'profiles' && <ProfilesScreen profiles={profiles} onSaved={reload}/>}
+                {view.type === 'none' && (
+                    <div className="empty">
+                        <RegistrationMark size={72} className="empty-mark"/>
+                        <h1>Pick an order on the left</h1>
+                        <p>Or create a new one to turn Moxfield decks into print files for meinspiel.de.</p>
+                    </div>
+                )}
+            </main>
+        </div>
+        </>
+    );
+}

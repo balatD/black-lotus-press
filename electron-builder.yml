@@ -1,0 +1,39 @@
+appId: io.github.balatd.black-lotus-press
+productName: Black Lotus Press
+# Without the version, so "releases/latest/download/<name>" always points at the newest build.
+artifactName: Black-Lotus-Press-${os}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - out/**
+asarUnpack:
+  # Native libvips binaries and the Playwright driver cannot run from inside the asar archive.
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@img/**/*"
+  - "**/node_modules/playwright-core/**/*"
+npmRebuild: false
+mac:
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  extraResources:
+    - from: build/native
+      to: native
+  # Ad-hoc signature: Apple Silicon refuses to start unsigned apps at all.
+  identity: "-"
+  hardenedRuntime: false
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: zip
+      arch: x64
+nsis:
+  artifactName: Black-Lotus-Press-${os}-${arch}-setup.${ext}
+linux:
+  target:
+    - target: AppImage
+      arch: x64
+  category: Graphics

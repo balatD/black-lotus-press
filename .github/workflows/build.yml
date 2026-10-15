@@ -1,0 +1,171 @@
+name: Build
+
+# A version tag (v1.2.3) builds everything and creates a draft release to check and publish by hand.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  app:
+    name: App (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos-arm64
+            target: --mac --arm64
+          - os: windows-latest
+            platform: windows-x64
+            target: --win --x64
+          - os: ubuntu-latest
+            platform: linux-x64
+            target: --linux --x64
+    runs-on: ${{ matrix.os }}
+
+    env:
+      # Not signed with a certificate; macOS gets an ad-hoc signature (see electron-builder.yml).
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run gui:package -- ${{ matrix.target }} --publish never
+
+      - name: Start the built app
+        if: runner.os != 'Linux'
+        run: npm run test:packaged
+
+      - name: Start the built app on a virtual display
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:packaged
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            release/Black-Lotus-Press-*.dmg
+            release/Black-Lotus-Press-*.zip
+            release/Black-Lotus-Press-*.exe
+            release/Black-Lotus-Press-*.AppImage
+
+  cli:
+    name: Command-line tool (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x64
+          - os: ubuntu-latest
+            platform: linux-x64
+    runs-on: ${{ matrix.os }}
+
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Collect the build with its production dependencies
+        shell: bash
+        run: |
+          mkdir cli
+          cp package.json package-lock.json LICENSE cli/
+          cp -R dist cli/
+          (cd cli && npm ci --omit=dev && rm package-lock.json)
+
+      - name: Add Node and a launcher (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item (node -p "process.execPath") cli\node.exe
+          @'
+          @echo off
+          "%~dp0\node.exe" "%~dp0\dist\index.js" %*
+          '@ | Set-Content cli\black-lotus-press.cmd
+
+      - name: Add Node and a launcher (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cp "$(node -p 'process.execPath')" cli/node
+          chmod +x cli/node
+          cat > cli/black-lotus-press <<'LAUNCHER'
+          #!/bin/sh
+          DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+          exec "$DIR/node" "$DIR/dist/index.js" "$@"
+          LAUNCHER
+          chmod +x cli/black-lotus-press
+
+      - name: Zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path cli\* -DestinationPath Black-Lotus-Press-cli-${{ matrix.platform }}.zip
+
+      - name: Zip (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: cd cli && zip -qr "../Black-Lotus-Press-cli-${{ matrix.platform }}.zip" .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli-${{ matrix.platform }}
+          if-no-files-found: error
+          path: Black-Lotus-Press-cli-${{ matrix.platform }}.zip
+
+  release:
+    name: Draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, app, cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The section of this version in CHANGELOG.md, without its heading.
+          awk -v heading="## ${version}" '$0 ~ "^## " { inside = index($0, heading) == 1; next } inside' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no section for ${version}"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" assets/* --draft --title "Black Lotus Press ${version}" --notes-file notes.md

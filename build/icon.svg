@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="plate" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#3e3e41"/>
+      <stop offset="1" stop-color="#1a1a1c"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <radialGradient id="glow" cx="0.5" cy="0.66" r="0.62">
+      <stop offset="0" stop-color="#ec008c" stop-opacity="0.75"/>
+      <stop offset="0.45" stop-color="#00aeef" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="petal" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#6b4785"/>
+      <stop offset="1" stop-color="#0d0b10"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#626265"/>
+      <stop offset="1" stop-color="#2b2b2e"/>
+    </linearGradient>
+    <!-- Fine grain against the banding of the dark gradient. -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <clipPath id="plate-shape">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+    <clipPath id="above-slot">
+      <rect x="0" y="0" width="1024" height="590"/>
+    </clipPath>
+    <clipPath id="art">
+      <rect x="371" y="196" width="282" height="330" rx="6"/>
+    </clipPath>
+  </defs>
+
+  <!-- macOS icon grid: 824 px plate with a soft shadow. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#plate)" filter="url(#drop)"/>
+  <rect x="100" y="100" width="824" height="824" filter="url(#grain)" opacity="0.07" clip-path="url(#plate-shape)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="3"/>
+
+  <!-- The printed card: a Black Lotus coming out of the slot. -->
+  <g clip-path="url(#above-slot)">
+    <rect x="345" y="170" width="334" height="466" rx="24" fill="#0c0c0e" stroke="#5a5a5e" stroke-width="3"/>
+    <g clip-path="url(#art)">
+      <rect x="371" y="196" width="282" height="330" fill="#14101a"/>
+      <rect x="371" y="196" width="282" height="330" fill="url(#glow)"/>
+      <g transform="translate(512 482) scale(1.9)">
+        <g fill="url(#petal)" stroke="#dcaef5" stroke-width="2.2" stroke-linejoin="round">
+          <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(-62)"/>
+          <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(62)"/>
+          <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(-31)"/>
+          <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(31)"/>
+          <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z"/>
+        </g>
+        <circle r="9.5" fill="#fff200"/>
+      </g>
+    </g>
+    <rect x="371" y="196" width="282" height="330" rx="6" fill="none" stroke="#3a3a3e" stroke-width="2"/>
+  </g>
+
+  <!-- The printer, with the card coming out of its slot. -->
+  <rect x="176" y="568" width="672" height="252" rx="58" fill="url(#body)" stroke="#6e6e72" stroke-width="3"/>
+  <rect x="196" y="584" width="632" height="18" rx="9" fill="#ffffff" fill-opacity="0.07"/>
+  <rect x="300" y="574" width="424" height="30" rx="15" fill="#0a0a0b"/>
+  <!-- Control strip of the four process inks. -->
+  <rect x="248" y="712" width="44" height="44" rx="9" fill="#00aeef"/>
+  <rect x="304" y="712" width="44" height="44" rx="9" fill="#ec008c"/>
+  <rect x="360" y="712" width="44" height="44" rx="9" fill="#fff200"/>
+  <rect x="416" y="712" width="44" height="44" rx="9" fill="#e9e9e7"/>
+  <rect x="640" y="722" width="136" height="24" rx="12" fill="#1c1c1e"/>
+</svg>

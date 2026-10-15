@@ -1,0 +1,62 @@
+{
+  "name": "black-lotus-press",
+  "version": "1.0.0",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "bin": {
+    "cli": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node ./dist/index.js",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "gui:dev": "install-electron && node native/build.mjs && electron-vite dev",
+    "gui:build": "node native/build.mjs && electron-vite build",
+    "typecheck:app": "tsc -p app/tsconfig.json && tsc -p app/renderer/tsconfig.json",
+    "test:e2e": "install-electron && electron-vite build && node --import tsx --test --test-concurrency=1 \"app/e2e/*.test.ts\"",
+    "test:packaged": "node --import tsx --test app/e2e/packaged/packaged.test.ts",
+    "gui:package": "install-electron && node native/build.mjs && electron-vite build && electron-builder"
+  },
+  "keywords": [],
+  "author": "balatD",
+  "homepage": "https://balatd.github.io/black-lotus-press/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/balatD/black-lotus-press.git"
+  },
+  "bugs": {
+    "url": "https://github.com/balatD/black-lotus-press/issues"
+  },
+  "private": true,
+  "license": "MIT",
+  "description": "Turns Moxfield decks into print-ready PDFs for meinspiel.de",
+  "devDependencies": {
+    "@fontsource/barlow-semi-condensed": "5.3.0",
+    "@types/adm-zip": "^0.5.8",
+    "@types/node": "^25.9.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.6.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "lucide-react": "^1.53.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "7.3.7"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.17",
+    "bottleneck": "^2.19.5",
+    "chalk": "^5.6.2",
+    "gradient-string": "^3.0.0",
+    "inquirer": "^14.0.2",
+    "listr2": "^10.2.1",
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.61.1",
+    "sharp": "^0.35.2"
+  }
+}

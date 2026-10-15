@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Black Lotus Press</title>
+    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de: Scryfall scans, cleaned up, upscaled, in CMYK, 55 cards per pack.">
+    <meta property="og:title" content="Black Lotus Press">
+    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de, made from Scryfall scans.">
+    <meta property="og:image" content="https://balatd.github.io/black-lotus-press/img/social.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/png" href="img/icon-64.png">
+    <link rel="preload" href="fonts/barlow-semi-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="./">
+            <svg class="registration-mark" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 0v24M0 12h24" stroke="currentColor" stroke-width="1.2"/></svg>
+            Black Lotus Press
+        </a>
+        <nav aria-label="Site">
+            <a href="docs.html">Documentation</a>
+            <a class="wide-only" href="docs.html#faq">FAQ</a>
+            <a href="https://github.com/balatD/black-lotus-press">GitHub</a>
+        </nav>
+    </div>
+    <div class="color-bar" aria-hidden="true"></div>
+</header>
+
+<main id="main">
+    <section class="hero">
+        <div>
+            <h1><span>Your Moxfield deck,</span> <span>printed.</span></h1>
+            <p class="lead">
+                Black Lotus Press turns Moxfield decks into print-ready playtest cards from meinspiel.de.
+                It takes the exact printings from Scryfall, cleans them up, upscales them, converts them to the printer's CMYK
+                and uploads the packs to your meinspiel.de account.
+            </p>
+            <div class="downloads" id="downloads">
+                <a class="button" data-os="mac" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-mac-arm64.dmg">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.8 1.2 1.8 2.6 3.1 2.5 1.3-.1 1.7-.8 3.3-.8 1.5 0 1.9.8 3.3.8 1.4 0 2.2-1.2 3-2.5.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-4.2zM14 5.2c.7-.8 1.2-2 1-3.2-1 .1-2.3.7-3 1.5-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.4z"/></svg>
+                    macOS <small>Apple Silicon</small>
+                </a>
+                <a class="button" data-os="windows" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-win-x64-setup.exe">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.4 4.5v7H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v7L3 18.5zM11.4 12.5H21V21l-9.6-1.4z"/></svg>
+                    Windows <small>64-bit</small>
+                </a>
+                <a class="button" data-os="linux" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-linux-x86_64.AppImage">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5c-2.2 0-3.4 1.9-3.4 4.4 0 1.2.2 2-.7 3.4-.9 1.4-2.8 3.7-2.8 6.3 0 .9.3 1.5.8 1.9-.6.4-1.4.7-1.4 1.4 0 .9 1.3 1.4 3.2 1.6 1.3.1 2.2-.6 2.6-.9.4.1 1 .1 1.7.1s1.3 0 1.7-.1c.4.3 1.3 1 2.6.9 1.9-.2 3.2-.7 3.2-1.6 0-.7-.8-1-1.4-1.4.5-.4.8-1 .8-1.9 0-2.6-1.9-4.9-2.8-6.3-.9-1.4-.7-2.2-.7-3.4 0-2.5-1.2-4.4-3.4-4.4zm-1.3 4.2c.4 0 .7.5.7 1.1s-.3 1.1-.7 1.1-.7-.5-.7-1.1.3-1.1.7-1.1zm2.6 0c.4 0 .7.5.7 1.1s-.3 1.1-.7 1.1-.7-.5-.7-1.1.3-1.1.7-1.1zM12 9.4c.8 0 1.6.5 1.6.8s-.8.9-1.6.9-1.6-.6-1.6-.9.8-.8 1.6-.8z"/></svg>
+                    Linux <small>AppImage</small>
+                </a>
+            </div>
+            <p class="fineprint">
+                Free and open source under the MIT license. Portable ZIPs, the command-line tool and release notes are on the
+                <a href="https://github.com/balatD/black-lotus-press/releases/latest">release page</a>.
+            </p>
+        </div>
+
+        <div class="press" aria-hidden="true">
+            <div class="press-stage">
+                <svg class="press-printer" viewBox="0 0 560 320">
+                    <defs>
+                        <linearGradient id="printer-body" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4a4a4a"/><stop offset="1" stop-color="#2c2c2c"/></linearGradient>
+                        <linearGradient id="printer-head" x1="0" x2="1"><stop offset="0" stop-color="#00aeef" stop-opacity="0"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="1" stop-color="#ec008c" stop-opacity="0"/></linearGradient>
+                    </defs>
+                    <path d="M150 70 L410 70 L440 18 L120 18 Z" fill="#2a2a2a" stroke="#555" stroke-width="2"/>
+                    <rect x="170" y="28" width="220" height="6" rx="2" fill="#d6d6d3"/>
+                    <rect x="172" y="35" width="216" height="6" rx="2" fill="#e9e9e7"/>
+                    <rect x="174" y="42" width="212" height="6" rx="2" fill="#d6d6d3"/>
+                    <rect x="176" y="49" width="208" height="6" rx="2" fill="#e9e9e7"/>
+                    <rect x="20" y="66" width="520" height="210" rx="26" fill="url(#printer-body)" stroke="#5c5c5c" stroke-width="2"/>
+                    <rect x="34" y="78" width="492" height="14" rx="7" fill="#ffffff" opacity="0.06"/>
+                    <rect x="120" y="108" width="320" height="58" rx="10" fill="#161616" stroke="#0e0e0e" stroke-width="2"/>
+                    <rect class="printer-sweep" x="120" y="108" width="80" height="58" rx="10" fill="url(#printer-head)"/>
+                    <rect x="462" y="112" width="58" height="50" rx="8" fill="#222"/>
+                    <circle class="printer-led" cx="476" cy="126" r="6" fill="#00aeef"/>
+                    <circle class="printer-led" cx="506" cy="126" r="6" fill="#ec008c" style="animation-delay: 0.18s"/>
+                    <circle class="printer-led" cx="476" cy="148" r="6" fill="#fff200" style="animation-delay: 0.36s"/>
+                    <circle class="printer-led" cx="506" cy="148" r="6" fill="#e9e9e7" style="animation-delay: 0.54s"/>
+                    <text x="60" y="146" fill="#8a8a8a" font-size="15" font-weight="700" letter-spacing="2">BLP-55</text>
+                    <rect x="140" y="226" width="280" height="16" rx="8" fill="#0b0b0b"/>
+                    <rect x="140" y="226" width="280" height="4" rx="2" fill="#000"/>
+                    <rect x="60" y="276" width="40" height="18" rx="4" fill="#202020"/>
+                    <rect x="460" y="276" width="40" height="18" rx="4" fill="#202020"/>
+                </svg>
+                <div class="press-output">
+                    <div class="mini-card" style="--frame: #e8e2cf; --fly: -260px; --turn: -24deg; --delay: 0.55s"><span class="mini-name"></span><span class="mini-art"></span><span class="mini-type"></span><span class="mini-text"></span></div>
+                    <div class="mini-card" style="--frame: #2f7fc1; --fly: 230px; --turn: 20deg; --delay: 0.88s"><span class="mini-name"></span><span class="mini-art"></span><span class="mini-type"></span><span class="mini-text"></span></div>
+                    <div class="mini-card" style="--frame: #3b3536; --fly: -190px; --turn: -12deg; --delay: 1.21s"><span class="mini-name"></span><span class="mini-art"></span><span class="mini-type"></span><span class="mini-text"></span></div>
+                    <div class="mini-card" style="--frame: #c8452f; --fly: 270px; --turn: 28deg; --delay: 1.54s"><span class="mini-name"></span><span class="mini-art"></span><span class="mini-type"></span><span class="mini-text"></span></div>
+                    <div class="mini-card" style="--frame: #3f8a4e; --fly: -120px; --turn: -30deg; --delay: 1.87s"><span class="mini-name"></span><span class="mini-art"></span><span class="mini-type"></span><span class="mini-text"></span></div>
+                </div>
+                <div class="hero-card">
+                    <div class="hero-frame">
+                        <div class="hero-title"><span>Black Lotus Press</span><span class="hero-cost">0</span></div>
+                        <div class="hero-art">
+                            <svg viewBox="0 0 200 140">
+                                <defs>
+                                    <radialGradient id="lotus-glow" cx="0.5" cy="0.62" r="0.6"><stop offset="0" stop-color="#ec008c" stop-opacity="0.55"/><stop offset="0.45" stop-color="#00aeef" stop-opacity="0.25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+                                    <linearGradient id="lotus-petal" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5a3d6e"/><stop offset="1" stop-color="#0d0b10"/></linearGradient>
+                                </defs>
+                                <rect width="200" height="140" fill="#14101a"/>
+                                <rect width="200" height="140" fill="url(#lotus-glow)"/>
+                                <g transform="translate(100 104)" fill="url(#lotus-petal)" stroke="#c08ad8" stroke-width="1.2">
+                                    <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(-72)"/>
+                                    <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(72)"/>
+                                    <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(-36)"/>
+                                    <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z" transform="rotate(36)"/>
+                                    <path d="M0 0 C -18 -30 -16 -62 0 -82 C 16 -62 18 -30 0 0 Z"/>
+                                    <circle r="9" fill="#fff200" stroke="none" opacity="0.85"/>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="hero-type">Legendary Artifact — Printing Press</div>
+                        <div class="hero-text">
+                            <p>{T}: Print 55 cards.</p>
+                            <p class="hero-flavor">"Proxy them all."</p>
+                        </div>
+                        <div class="hero-pt">55/55</div>
+                        <span class="hero-shine"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="strip">
+        <ul>
+            <li style="--ink: var(--ink-c)"><strong>55 cards per pack</strong><span>meinspiel.de's deck format, about 19,95 € plus shipping</span></li>
+            <li style="--ink: var(--ink-m)"><strong>69 × 94 mm</strong><span>63 × 88 mm cards with 3 mm bleed, corners and borders cleaned up</span></li>
+            <li style="--ink: var(--ink-y)"><strong>CMYK, ISO Coated v2</strong><span>the printer's own colour profile, 10 % brighter because print is darker</span></li>
+            <li style="--ink: var(--paper)"><strong>Up to 600 dpi</strong><span>scans upscaled on your graphics card with Upscayl</span></li>
+        </ul>
+    </div>
+
+    <section class="section" aria-labelledby="how">
+        <h2 id="how">From deck list to press sheet</h2>
+        <p class="intro">Everything happens on your computer. The app only goes online to load decks, card images and card backs, to install Upscayl and to upload, and only when you ask it to.</p>
+
+        <ol class="steps">
+            <li class="step" style="--ink: var(--ink-c)">
+                <div class="step-text">
+                    <h3>Import your decks</h3>
+                    <p>
+                        Paste a Moxfield link and pick the boards you want: main board, sideboard, tokens, attractions and the rest.
+                        The app takes the exact printings from the deck and looks them up on Scryfall.
+                    </p>
+                    <ul>
+                        <li>Several decks in one order, each imported on its own.</li>
+                        <li>Foils from Moxfield can be swapped for non-foil printings right after the import.</li>
+                        <li>Update a deck later without losing your edits.</li>
+                    </ul>
+                </div>
+                <figure class="proof"><img src="img/foils.webp" width="1440" height="900" loading="lazy" alt="The foil check after an import: every foil of the deck with its set and price, a Foil or Non-foil badge and a button to pick a non-foil printing."></figure>
+            </li>
+            <li class="step" style="--ink: var(--ink-m)">
+                <div class="step-text">
+                    <h3>Check every card</h3>
+                    <p>
+                        See the whole order as a list or as a zoomable grid. Pick another printing from everything Scryfall has,
+                        with Cardmarket prices, or use your own image.
+                    </p>
+                    <ul>
+                        <li>Different printings for single copies of a card.</li>
+                        <li>Switch cards off, change quantities, drag them into the print order.</li>
+                        <li>Warnings for low-resolution scans and cards Scryfall does not know.</li>
+                    </ul>
+                </div>
+                <figure class="proof"><img src="img/cards.webp" width="1440" height="900" loading="lazy" alt="The Cards tab as a zoomable grid of card images, with the pack count, the price and the struck-out Cardmarket value of the cards."></figure>
+            </li>
+            <li class="step" style="--ink: var(--ink-y)">
+                <div class="step-text">
+                    <h3>Proof the press sheet</h3>
+                    <p>
+                        Every pack appears as a sheet of 55 cards, fronts and backs, the way it will be printed.
+                        Brightness and contrast change the preview right away, for the whole order or for single cards.
+                    </p>
+                    <ul>
+                        <li>Upscaling with live GPU load and temperature.</li>
+                        <li>Process a single card or the whole order again.</li>
+                        <li>Two PDFs per pack, with their sizes checked against the upload limit.</li>
+                    </ul>
+                </div>
+                <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab: steps to process the images, build the PDFs and upload them, the brightness sliders and the press sheet of the first pack."></figure>
+            </li>
+            <li class="step" style="--ink: var(--paper)">
+                <div class="step-text">
+                    <h3>Upload and order</h3>
+                    <p>
+                        A browser window opens on meinspiel.de. You log in there yourself, the app never sees your password.
+                        Every pack becomes a game in your account, and the app keeps the links to them.
+                    </p>
+                    <ul>
+                        <li>You choose the box and pay on meinspiel.de, the app never orders anything.</li>
+                        <li>Or upload the PDFs by hand, they are ordinary files in your orders folder.</li>
+                    </ul>
+                </div>
+                <figure class="proof"><img src="img/card.webp" width="1440" height="900" loading="lazy" alt="A card of the press sheet opened large, front and card back, each with a button to process it again."></figure>
+            </li>
+        </ol>
+    </section>
+
+    <section class="section" aria-labelledby="details">
+        <h2 id="details">The details that make the prints good</h2>
+        <ul class="details">
+            <li style="--ink: var(--ink-c)"><div><strong>Clean scans</strong><span>Rounded corners are filled, scan borders cropped and holo stamps painted over. Borderless art is mirrored into the bleed instead of smeared.</span></div></li>
+            <li style="--ink: var(--ink-m)"><div><strong>Your copyright line</strong><span>Keep the original, blur it, add "Proxy – not for sale", or write your own text in its place.</span></div></li>
+            <li style="--ink: var(--ink-y)"><div><strong>Any card back</strong><span>Every card back from MPC Autofill's database, picked by its ID, with a live preview. Double-faced cards get their real back.</span></div></li>
+            <li style="--ink: var(--paper)"><div><strong>Tokens as filler</strong><span>Tokens fill the free slots of the last pack and never cost you an extra one.</span></div></li>
+            <li style="--ink: var(--ink-c)"><div><strong>Seven upscaling models</strong><span>Upscayl installs with one click. Pick the model that suits your cards; the lite model is seven times faster.</span></div></li>
+            <li style="--ink: var(--ink-m)"><div><strong>Runs in the background</strong><span>Imports, processing and uploads run as tasks you can follow and cancel, while you keep editing.</span></div></li>
+        </ul>
+    </section>
+
+    <section class="section" aria-labelledby="questions">
+        <h2 id="questions">Questions</h2>
+        <div class="faq">
+            <details>
+                <summary>Is Black Lotus Press affiliated with meinspiel.de, Moxfield, Scryfall or Wizards of the Coast?</summary>
+                <div><p>No. It is a free fan project. It uses their public websites the way you would in a browser.</p></div>
+            </details>
+            <details>
+                <summary>What does printing cost?</summary>
+                <div><p>meinspiel.de prints decks of exactly 55 cards for about 19,95 € each, plus shipping. A 100-card Commander deck needs two packs. Check meinspiel.de for the current prices.</p></div>
+            </details>
+            <details>
+                <summary>Can I sell the cards I print?</summary>
+                <div><p>No. The card images belong to Wizards of the Coast and the artists. Print them for your own playtesting only.</p></div>
+            </details>
+            <details>
+                <summary>Do I need a powerful computer?</summary>
+                <div><p>No. Without upscaling, any computer works. Upscaling at 600 dpi uses the graphics card; on an Apple M1 Max it takes 2 to 14 seconds per card, depending on the model.</p></div>
+            </details>
+        </div>
+        <p class="more"><a href="docs.html#faq">All questions and answers</a></p>
+    </section>
+
+    <section class="closing">
+        <h2>Print your next deck.</h2>
+        <div class="downloads">
+            <a class="button primary" href="https://github.com/balatD/black-lotus-press/releases/latest">Download Black Lotus Press</a>
+            <a class="button" href="docs.html">Read the documentation</a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-grid">
+        <div>
+            <h2>Black Lotus Press</h2>
+            <p>Free and open source under the <a href="https://github.com/balatD/black-lotus-press/blob/main/LICENSE">MIT license</a>, made by balatD.</p>
+            <p>Based on <a href="https://github.com/benedikt-wueller/mpc-proxy-forge">MPC Proxy Forge</a> by Benedikt Wüller.</p>
+        </div>
+        <div>
+            <h2>Built on</h2>
+            <p>Card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs from <a href="https://mpcautofill.github.io">MPC Autofill</a>, upscaling by <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>.</p>
+        </div>
+        <div>
+            <h2>Help</h2>
+            <p><a href="docs.html">Documentation</a></p>
+            <p><a href="https://github.com/balatD/black-lotus-press/issues">Report a problem</a></p>
+        </div>
+    </div>
+    <p class="legal">
+        Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.
+        Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+        Not affiliated with meinspiel.de, Moxfield, Scryfall or MPC Autofill.
+    </p>
+</footer>
+
+<script>
+    // The printer scene is drawn for 560 × 680 px and scaled to its box.
+    const press = document.querySelector('.press');
+    const stage = document.querySelector('.press-stage');
+    new ResizeObserver(() => stage.style.setProperty('--scale', String(press.clientWidth / 560))).observe(press);
+
+    // The download for this computer comes first and stands out.
+    const agent = navigator.userAgent;
+    const os = /Windows/.test(agent) ? 'windows' : /Mac/.test(agent) ? 'mac' : /Linux/.test(agent) && !/Android/.test(agent) ? 'linux' : undefined;
+    const mine = os && document.querySelector(`#downloads [data-os="${os}"]`);
+    if (mine) {
+        mine.classList.add('primary');
+        mine.parentElement.prepend(mine);
+    }
+</script>
+</body>
+</html>

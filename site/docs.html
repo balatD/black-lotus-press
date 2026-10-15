@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Documentation – Black Lotus Press</title>
+    <meta name="description" content="How to install Black Lotus Press, import Moxfield decks, check the cards, build the PDFs and upload them to meinspiel.de, plus answers to common questions.">
+    <link rel="icon" type="image/png" href="img/icon-64.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to the content</a>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="./">
+            <svg class="registration-mark" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 0v24M0 12h24" stroke="currentColor" stroke-width="1.2"/></svg>
+            Black Lotus Press
+        </a>
+        <nav aria-label="Site">
+            <a href="docs.html" aria-current="page">Documentation</a>
+            <a class="wide-only" href="#faq">FAQ</a>
+            <a href="https://github.com/balatD/black-lotus-press">GitHub</a>
+        </nav>
+    </div>
+    <div class="color-bar" aria-hidden="true"></div>
+</header>
+
+<div class="docs">
+    <nav class="docs-nav" aria-label="Contents">
+        <h2>Contents</h2>
+        <ol>
+            <li><a href="#install">Install</a></li>
+            <li><a href="#first-start">First start</a></li>
+            <li><a href="#decks">Orders and decks</a></li>
+            <li><a href="#cards">Cards</a></li>
+            <li><a href="#print">Print and upload</a></li>
+            <li><a href="#profiles">Processing profiles</a></li>
+            <li><a href="#upscaling">Upscaling</a></li>
+            <li><a href="#format">The meinspiel.de format</a></li>
+            <li><a href="#files">Where your files are</a></li>
+            <li><a href="#cli">Command-line tool</a></li>
+            <li><a href="#faq">Questions and answers</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+            <li><a href="#legal">Credits and legal</a></li>
+        </ol>
+    </nav>
+
+    <main class="docs-content" id="content">
+        <h1>Documentation</h1>
+        <p class="intro">
+            Black Lotus Press turns Moxfield decks into print-ready PDFs for the custom playing cards of
+            <a href="https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/">meinspiel.de</a>
+            and uploads them to your account. This page walks through it from installing to ordering.
+        </p>
+
+        <section id="install">
+            <h2>Install</h2>
+            <p>Download the app for your computer from the <a href="https://github.com/balatD/black-lotus-press/releases/latest">latest release</a>. It needs Google Chrome or Microsoft Edge, which it opens to load Moxfield decks and to upload to meinspiel.de.</p>
+            <table>
+                <thead><tr><th>System</th><th>Download</th><th>Notes</th></tr></thead>
+                <tbody>
+                    <tr><td>macOS on Apple Silicon (M1 and later)</td><td><code>Black-Lotus-Press-mac-arm64.dmg</code></td><td>Intel Macs are not supported.</td></tr>
+                    <tr><td>Windows 10 or 11, 64-bit</td><td><code>Black-Lotus-Press-win-x64-setup.exe</code></td><td>Or the portable <code>Black-Lotus-Press-win-x64.zip</code>.</td></tr>
+                    <tr><td>Linux, 64-bit</td><td><code>Black-Lotus-Press-linux-x86_64.AppImage</code></td><td>Make it executable, then start it.</td></tr>
+                </tbody>
+            </table>
+
+            <h3>The first launch</h3>
+            <p>The app is not signed with a paid certificate, so your system warns before the first start. This only happens once.</p>
+            <ul>
+                <li><strong>macOS:</strong> open the DMG and drag the app into Applications. Start it; when macOS refuses, open <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em> next to Black Lotus Press.</li>
+                <li><strong>Windows:</strong> when SmartScreen shows "Windows protected your PC", click <em>More info</em> and then <em>Run anyway</em>.</li>
+                <li><strong>Linux:</strong> run <code>chmod +x Black-Lotus-Press-linux-x86_64.AppImage</code> and start the file. See <a href="#troubleshooting">Troubleshooting</a> if it does not open.</li>
+            </ul>
+        </section>
+
+        <section id="first-start">
+            <h2>First start</h2>
+            <p>The app opens with an empty order list on the left. Before the first order, look at <em>Processing profiles</em> at the bottom of that list. A profile holds the settings every order takes over:</p>
+            <ul>
+                <li><strong>Orders folder:</strong> where the card images and PDFs of each order go. By default <code>Documents/Black Lotus Press/orders</code>.</li>
+                <li><strong>Browser:</strong> Google Chrome or Microsoft Edge.</li>
+                <li><strong>Resolution:</strong> 300 dpi is what meinspiel.de asks for. 600 dpi with upscaling looks sharper; see <a href="#upscaling">Upscaling</a>.</li>
+                <li><strong>Copyright line:</strong> what happens to the copyright line on the cards; see <a href="#profiles">Processing profiles</a>.</li>
+            </ul>
+            <p>Click <em>New order</em>, give it a name, and you are in the order's <em>Setup</em> tab.</p>
+        </section>
+
+        <section id="decks">
+            <h2>Orders and decks</h2>
+            <p>An order is one print job: one or more decks, a card back, and the settings of a profile. Its tabs follow the job: <em>Setup</em>, <em>Cards</em>, <em>Print</em>.</p>
+
+            <h3>Add a deck</h3>
+            <ol>
+                <li>Paste the link of a Moxfield deck, for example <code>https://moxfield.com/decks/…</code>, and click <em>Add deck</em>. The deck has to be public or unlisted.</li>
+                <li>Tick the boards to print: main board, sideboard, tokens, considering, attractions, contraptions, stickers, planar deck, schemes. Commanders and companions are always included.</li>
+                <li>Click <em>Import</em>. A browser window opens on the deck, the app reads it and closes the window again, then it looks up every card on Scryfall.</li>
+            </ol>
+            <p>The app uses exactly the printing chosen in Moxfield. Cards Scryfall does not know are marked, so you can pick a printing or your own image for them.</p>
+
+            <h3>Foils</h3>
+            <p>When the deck has foils in Moxfield, a dialog lists them right after the import. Keep the foil printings, or pick a non-foil printing for any of them; the printing dialog then shows non-foil printings only. Closing the dialog keeps everything as it is.</p>
+
+            <h3>Update, import again, remove</h3>
+            <ul>
+                <li><strong>Update</strong> brings the deck's changes from Moxfield: new cards, removed cards, changed quantities and printings. Your own edits stay: switched-off cards, own images, brightness, printings you picked, and quantities you changed unless Moxfield changed them as well.</li>
+                <li><strong>Import again</strong> replaces the deck's cards with a fresh import. Your edits to this deck are lost.</li>
+                <li><strong>Remove</strong> takes the deck and its cards out of the order.</li>
+            </ul>
+            <p>Every deck of an order is imported on its own, so editing one deck never touches the others.</p>
+
+            <h3>Card back</h3>
+            <p>Every card without its own back gets the order's card back. It is a Google Drive ID from the MPC Autofill database, shown with a live preview. To find more: open <a href="https://mpcautofill.github.io/explore">MPC Autofill's Explore page</a>, choose the type <em>Cardback</em>, open one and copy its <em>Identifier</em>.</p>
+            <p>Double-faced cards always get their real back face.</p>
+        </section>
+
+        <section id="cards">
+            <h2>Cards</h2>
+            <figure class="proof"><img src="img/cards.webp" width="1440" height="900" loading="lazy" alt="The Cards tab as a grid of card images, with the summary of the order."></figure>
+            <p>The <em>Cards</em> tab shows the whole order, as a list or as a zoomable grid. At the top, a summary says how many packs the cards fill, how many slots stay blank, which tokens are left out, and what the packs cost. The Cardmarket value of the printed cards is shown struck out next to it.</p>
+
+            <h3>Edit</h3>
+            <ul>
+                <li><strong>Copies:</strong> change the number in the list.</li>
+                <li><strong>Print:</strong> untick a card to leave it out without removing it.</li>
+                <li><strong>Order:</strong> drag cards, or use <kbd>Alt</kbd> + arrow keys on the handle. The list order is the print order.</li>
+                <li><strong>Find:</strong> the search box filters by name.</li>
+            </ul>
+
+            <h3>Printings</h3>
+            <p>Open a card and click <em>Change printing…</em>. The dialog shows every printing on Scryfall with its set and price. Filter by set, frame style (borderless, full art, extended art, showcase, old frame), price, paper or non-foil, and sort by date, price or set.</p>
+            <p>When a card has several copies, choose how many of them get the new printing. They get their own entry right after the card; when an entry of the same card already has that printing, they join it.</p>
+
+            <h3>Own images</h3>
+            <p>Use your own image for the front or back of a card with <em>Own front image…</em> and <em>Own back image…</em>. PNG, JPEG and WebP in portrait work.</p>
+            <ul>
+                <li>Images in the page format, 69 × 94 mm or the same proportions, already contain the bleed and are used as they are. MPC images are made like this.</li>
+                <li>Card-sized images, 63 × 88 mm, get a mirrored 3 mm bleed.</li>
+            </ul>
+            <p>Own images skip the copyright and stamp clean-up, but are upscaled like every other card.</p>
+
+            <h3>Brightness and contrast</h3>
+            <p>Print comes out darker than a screen, so every order starts at 110 % brightness. Set brightness and contrast for the whole order on the <em>Print</em> tab, and on top of that for single cards in the card's details. The previews show the change right away.</p>
+        </section>
+
+        <section id="print">
+            <h2>Print and upload</h2>
+            <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab with its three steps and the press sheet of the first pack."></figure>
+            <p>The <em>Print</em> tab has three steps, with the press sheet of every pack below them.</p>
+
+            <h3>1. Process the card images</h3>
+            <p>Downloads the scans, cleans them up, adds the bleed, upscales them if the profile says so, and converts them to CMYK. Images that are already done are skipped, so only new or changed cards take time. While upscaling, the step shows the GPU load and temperature on Apple Silicon Macs and with NVIDIA graphics cards.</p>
+            <p>Click a card on the press sheet to see it large with its back. <em>Process again</em> makes that image anew from the download on; <em>Process all again</em> does it for the whole order. Use it when a card came out wrong, for example after a download error. Processing gives the same result for the same input, so a card that is wrong for another reason stays wrong; please <a href="https://github.com/balatD/black-lotus-press/issues">report it</a>.</p>
+
+            <h3>2. Build the PDFs</h3>
+            <p>Writes two PDFs per pack into the order's folder: <code>pack-01-fronts.pdf</code> and <code>pack-01-backs.pdf</code>, 55 pages each. The list below the button shows each pack's size; both PDFs of a pack must stay below meinspiel.de's 200 MB.</p>
+
+            <h3>3. Upload to meinspiel.de</h3>
+            <ol>
+                <li>Click <em>Upload</em>. A browser window opens meinspiel.de's login page and accepts the cookie banner.</li>
+                <li>Log in, or create an account. The app waits up to 15 minutes and never sees your password.</li>
+                <li>Every pack becomes a game in your account, named after the order, for example <code>my-order - Deck 1/2</code>, and opens in its own tab.</li>
+                <li>Choose the box, click <em>Speichern / Bestellen</em> and check out on meinspiel.de. The app never orders or pays anything.</li>
+            </ol>
+            <p>After the upload, the step lists links to the games. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele". You can always upload the PDFs by hand instead: they are ordinary files in the order's folder.</p>
+
+            <h3>Tasks</h3>
+            <p>Imports, processing, PDFs and uploads run as tasks in the background. They are listed under <em>Running</em> at the bottom of the order list, with their progress and a button to cancel them, or to close the meinspiel.de browser after an upload. One task runs at a time.</p>
+        </section>
+
+        <section id="profiles">
+            <h2>Processing profiles</h2>
+            <p>Profiles hold the settings for processing. An order takes over a copy of its profile; when you change the profile later, the order's <em>Setup</em> tab offers to use the changed profile. Changing the resolution, the copyright line or the upscaling processes the order's images again.</p>
+
+            <h3>Copyright line</h3>
+            <table>
+                <thead><tr><th>Choice</th><th>Result</th></tr></thead>
+                <tbody>
+                    <tr><td>Keep the original</td><td>The card as printed by Wizards of the Coast. The default.</td></tr>
+                    <tr><td>Blur it</td><td>The copyright line is blurred.</td></tr>
+                    <tr><td>Blur it and add "Proxy – not for sale"</td><td>Blurred, with that note in white on top.</td></tr>
+                    <tr><td>Blur it and write my own text</td><td>Blurred, with your own text in its place. Keep it about as long as the original line.</td></tr>
+                </tbody>
+            </table>
+            <p>The clean-up works on Scryfall's card frames and is best effort: on unusual frames a box may sit slightly off.</p>
+
+            <h3>Advanced</h3>
+            <p>Card width, bleed, corner radius and border crop are for special cases; the defaults fit meinspiel.de.</p>
+        </section>
+
+        <section id="upscaling">
+            <h2>Upscaling</h2>
+            <p>Scryfall's scans are 745 pixels wide. That is enough for 300 dpi; for 600 dpi the app scales them up with <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>, an AI upscaler that runs on your graphics card. Its models are trained on noisy, blurry and compressed images, so upscaling also cleans up the scans a little.</p>
+            <ol>
+                <li>Open <em>Processing profiles</em>, click <em>Install Upscayl</em>. It downloads the program and its models from GitHub.</li>
+                <li>Make sure <em>Upscale the Scryfall scans with Upscayl</em> is ticked, set the resolution to 600 dpi and pick a model.</li>
+                <li>Save the profile, and use it in the order's <em>Setup</em> tab.</li>
+            </ol>
+            <p>Upscaling only runs above 300 dpi. Seconds per card on an Apple M1 Max:</p>
+            <table>
+                <thead><tr><th>Model</th><th>Seconds</th><th>Character</th></tr></thead>
+                <tbody>
+                    <tr><td><code>upscayl-lite-4x</code></td><td>1.7</td><td>Fast and close to the large models.</td></tr>
+                    <tr><td><code>digital-art-4x</code></td><td>9.6</td><td>Smoothest; suits drawn art, can look flat on painted art.</td></tr>
+                    <tr><td><code>upscayl-standard-4x</code></td><td>12.0</td><td>Crisp edges and text.</td></tr>
+                    <tr><td><code>ultrasharp-4x</code></td><td>12.1</td><td>Crisp edges and text, a little more contrast.</td></tr>
+                    <tr><td><code>ultramix-balanced-4x</code></td><td>12.1</td><td>Crisp, slightly softer than ultrasharp.</td></tr>
+                    <tr><td><code>remacri-4x</code></td><td>12.5</td><td>Natural, keeps the texture of the scan.</td></tr>
+                    <tr><td><code>high-fidelity-4x</code></td><td>13.7</td><td>Closest to the original scan.</td></tr>
+                </tbody>
+            </table>
+            <p>Every model is clearly sharper than plain resizing; the differences between them only show up close. A 600 dpi pack is 160 to 200 MB, right at meinspiel.de's limit of 200 MB; the <em>Print</em> tab warns when a pack is too big.</p>
+        </section>
+
+        <section id="format">
+            <h2>The meinspiel.de format</h2>
+            <ul>
+                <li>meinspiel.de prints its 63 × 88 mm custom cards as decks of exactly <strong>55 cards</strong>. Larger orders are split into several packs, and the last pack is filled with blank cards. A 100-card Commander deck needs two packs.</li>
+                <li><strong>Tokens</strong> only fill the free slots of the last pack and never cause an extra pack. Tokens that do not fit are listed as left out.</li>
+                <li>Each PDF page is <strong>69 × 94 mm</strong>: the card plus 3 mm of bleed on every side, which is cut off.</li>
+                <li>Page <em>n</em> of the backs PDF is the back of page <em>n</em> of the fronts PDF.</li>
+                <li>The images are CMYK with the <strong>ISO Coated v2 300 %</strong> profile that meinspiel.de asks for; the PDFs carry it as their output intent. They are not PDF/X-4, because meinspiel.de's processing fails on PDFs with the XMP metadata PDF/X-4 needs.</li>
+                <li>A pack costs about <strong>19,95 €</strong> plus shipping, as of this release.</li>
+            </ul>
+        </section>
+
+        <section id="files">
+            <h2>Where your files are</h2>
+            <table>
+                <thead><tr><th>What</th><th>Where</th></tr></thead>
+                <tbody>
+                    <tr><td>Card images and PDFs</td><td>The orders folder of the profile, by default <code>Documents/Black Lotus Press/orders/&lt;order&gt;</code>, with <code>cards/</code> and <code>meinspiel/</code> inside.</td></tr>
+                    <tr><td>Orders, profiles, own images, Upscayl</td><td>macOS: <code>~/Library/Application Support/black-lotus-press/data</code><br>Windows: <code>%APPDATA%\black-lotus-press\data</code><br>Linux: <code>~/.config/black-lotus-press/data</code></td></tr>
+                </tbody>
+            </table>
+            <p><em>Open order folder</em> on the <em>Print</em> tab opens an order's folder. To start over, quit the app and delete the data folder; to uninstall, also delete the app.</p>
+        </section>
+
+        <section id="cli">
+            <h2>Command-line tool</h2>
+            <p>Each release also has a command-line edition, <code>Black-Lotus-Press-cli-&lt;system&gt;.zip</code>, with its own Node.js inside. Unzip it and run <code>black-lotus-press</code> (Windows: <code>black-lotus-press.cmd</code>) in a terminal. It walks you through profiles and orders with menus and does the same processing, PDFs and upload as the app, without the editing and previews. It keeps its data next to where you start it.</p>
+        </section>
+
+        <section id="faq">
+            <h2>Questions and answers</h2>
+            <div class="faq">
+                <details>
+                    <summary>Is Black Lotus Press free?</summary>
+                    <div><p>Yes. It is open source under the MIT license. You only pay meinspiel.de for the printing.</p></div>
+                </details>
+                <details>
+                    <summary>Is it affiliated with meinspiel.de, Moxfield, Scryfall or Wizards of the Coast?</summary>
+                    <div><p>No. It is a fan project that uses their public websites the way you would in a browser.</p></div>
+                </details>
+                <details>
+                    <summary>Can I sell or give away the printed cards?</summary>
+                    <div><p>Please don't. Card images and names belong to Wizards of the Coast and the artists. Print proxies for your own playtesting and casual games, and follow meinspiel.de's terms. Many stores and tournaments do not allow proxies.</p></div>
+                </details>
+                <details>
+                    <summary>Why does the app open a browser window for Moxfield?</summary>
+                    <div><p>Moxfield has no public API for apps. The app opens the deck page like you would and reads the deck data the page loads, then closes the window.</p></div>
+                </details>
+                <details>
+                    <summary>Does the app see my meinspiel.de password?</summary>
+                    <div><p>No. You log in yourself in the browser window. The app only asks meinspiel.de whether someone is logged in, then uploads in that session.</p></div>
+                </details>
+                <details>
+                    <summary>Why are the cards brightened by 10 %?</summary>
+                    <div><p>Printed cards look darker than the same image on a screen. 10 % more brightness compensates for that in most cases. Change it on the <em>Print</em> tab for the order, or per card.</p></div>
+                </details>
+                <details>
+                    <summary>Why does meinspiel.de's preview look washed out?</summary>
+                    <div><p>The images are in the printer's CMYK colours. meinspiel.de's on-screen preview shows CMYK files paler than they print; the print uses the CMYK values.</p></div>
+                </details>
+                <details>
+                    <summary>Why do some packs have blank cards?</summary>
+                    <div><p>meinspiel.de only prints decks of 55 cards. The last pack is filled with your tokens first, then with blank cards.</p></div>
+                </details>
+                <details>
+                    <summary>Do I need Upscayl?</summary>
+                    <div><p>No. At 300 dpi, the resolution meinspiel.de asks for, the scans are used as they are. Upscaling to 600 dpi makes text and fine lines sharper; see <a href="#upscaling">Upscaling</a>.</p></div>
+                </details>
+                <details>
+                    <summary>A card looks blurry. What can I do?</summary>
+                    <div><p>Scryfall only has a low-resolution scan of some printings; the app marks them as <em>Low-res</em>. Pick another printing of the card, or use your own image.</p></div>
+                </details>
+                <details>
+                    <summary>Can I use the app without meinspiel.de?</summary>
+                    <div><p>The PDFs are made for meinspiel.de's format, but they are ordinary print PDFs: 69 × 94 mm pages with 3 mm bleed in CMYK. Whether another print shop takes them depends on its requirements.</p></div>
+                </details>
+                <details>
+                    <summary>Does it run on Intel Macs?</summary>
+                    <div><p>The releases are built for Apple Silicon only. On an Intel Mac you can run the app from its source code; see the README on GitHub.</p></div>
+                </details>
+            </div>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>Troubleshooting</h2>
+
+            <h3>The upload fails with "pcntl_waitpid failed"</h3>
+            <p>That message comes from meinspiel.de's server, which sometimes fails to process larger PDFs. Try again later, set the profile to 300 dpi to make the files smaller, or upload the PDFs by hand on meinspiel.de. If it keeps happening, please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue</a>.</p>
+
+            <h3>Importing a deck fails or hangs</h3>
+            <ul>
+                <li>Check that the deck is public or unlisted on Moxfield.</li>
+                <li>Check that the browser of the profile, Chrome or Edge, is installed.</li>
+                <li>Cancel the task under <em>Running</em> and import again; Moxfield sometimes shows a check page first.</li>
+            </ul>
+
+            <h3>"Another task is still running"</h3>
+            <p>One task runs at a time. Wait for it, or cancel it under <em>Running</em> at the bottom of the order list.</p>
+
+            <h3>The app does not open on Linux</h3>
+            <ul>
+                <li>AppImages need FUSE: on Ubuntu 22.04 and newer, install <code>libfuse2</code> (Ubuntu 24.04: <code>libfuse2t64</code>).</li>
+                <li>Ubuntu 24.04 blocks the sandbox Chromium uses; start the AppImage with <code>--no-sandbox</code>.</li>
+            </ul>
+
+            <h3>No GPU temperature</h3>
+            <p>The temperature and load are read on Apple Silicon Macs and with NVIDIA graphics cards. Other graphics cards simply show no line.</p>
+
+            <h3>Something else</h3>
+            <p>Please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue on GitHub</a> with what you did, what you expected and what happened, and a screenshot if it helps.</p>
+        </section>
+
+        <section id="legal">
+            <h2>Credits and legal</h2>
+            <p>Black Lotus Press is made by balatD and is based on <a href="https://github.com/benedikt-wueller/mpc-proxy-forge">MPC Proxy Forge</a> by Benedikt Wüller. It is open source under the <a href="https://github.com/balatD/black-lotus-press/blob/main/LICENSE">MIT license</a>.</p>
+            <p>It uses card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs from <a href="https://mpcautofill.github.io">MPC Autofill</a> and the upscaler <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>. The website uses the typeface Barlow Semi Condensed under the SIL Open Font License.</p>
+            <p class="note">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, Moxfield, Scryfall or MPC Autofill.</p>
+        </section>
+    </main>
+</div>
+
+<footer class="footer">
+    <p class="legal">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
+</footer>
+</body>
+</html>
