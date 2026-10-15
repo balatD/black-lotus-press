@@ -6,6 +6,12 @@
 
 **[Download](https://github.com/balatD/black-lotus-press/releases/latest)** for macOS (Apple Silicon), Windows and Linux · **[Website](https://balatd.github.io/black-lotus-press/)** · **[Documentation and FAQ](https://balatd.github.io/black-lotus-press/docs.html)**
 
+> **On a Mac:** the app is not signed with an Apple certificate, so macOS says it "is damaged" or that Apple "could not verify" it. It is neither. Drag it into Applications, then run this once in Terminal (and again after every update):
+>
+> ```bash
+> xattr -cr "/Applications/Black Lotus Press.app"
+> ```
+
 ## What it does
 
 - Imports Moxfield decks with the boards you choose, and offers non-foil printings for the deck's foils.
@@ -41,7 +47,7 @@ During development the app and the command-line edition keep their profiles and 
 
 The [Build workflow](.github/workflows/build.yml) runs the tests, builds the app and the command-line edition for every system and starts each built app once. Pushing a version tag such as `v1.0.0` turns the result into a draft release with the notes from [CHANGELOG.md](CHANGELOG.md). Publishing the draft also updates the website.
 
-The builds are not signed with a paid certificate, so macOS and Windows warn before the first start; the documentation explains how to open them.
+The builds are not signed with a paid certificate, so macOS and Windows warn before the first start; the note above and the documentation explain how to open them.
 
 ## Credits
 

@@ -59,6 +59,10 @@
                 Free and open source under the MIT license. Portable ZIPs, the command-line tool and release notes are on the
                 <a href="https://github.com/balatD/black-lotus-press/releases/latest">release page</a>.
             </p>
+            <div class="note mac-note">
+                <p><strong>On a Mac:</strong> the app is not signed with an Apple certificate, so macOS says it "is damaged" or that Apple "could not verify" it. It is neither. Drag it into Applications, then run this once in Terminal:</p>
+                <div class="command"><code>xattr -cr "/Applications/Black Lotus Press.app"</code><button type="button" class="copy" data-copy='xattr -cr "/Applications/Black Lotus Press.app"'>Copy</button></div>
+            </div>
         </div>
 
         <div class="press" aria-hidden="true">
@@ -286,6 +290,15 @@
     if (mine) {
         mine.classList.add('primary');
         mine.parentElement.prepend(mine);
+    }
+
+    // Copy buttons next to commands.
+    for (const button of document.querySelectorAll('[data-copy]')) {
+        button.addEventListener('click', async () => {
+            await navigator.clipboard.writeText(button.dataset.copy);
+            button.textContent = 'Copied';
+            setTimeout(() => button.textContent = 'Copy', 2000);
+        });
     }
 </script>
 </body>

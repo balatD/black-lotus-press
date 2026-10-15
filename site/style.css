@@ -121,6 +121,13 @@ kbd { border: 1px solid var(--line); }
 .hero .lead { max-width: 34rem; margin-top: 1.4rem; color: #cfcfcc; font-size: 1.2rem; line-height: 1.5; }
 .downloads { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 2rem; }
 .hero .fineprint { margin-top: 0.9rem; color: var(--muted); font-size: 0.9rem; }
+.mac-note { max-width: 34rem; margin-top: 1.4rem; color: #cfcfcc; font-size: 0.95rem; }
+
+/* A command to copy into a terminal. */
+.command { display: flex; align-items: stretch; gap: 0.4rem; margin: 0.6rem 0; }
+.command code { flex: 1; min-width: 0; padding: 0.45rem 0.6rem; overflow-x: auto; white-space: nowrap; font-size: 0.85rem; }
+.copy { flex: none; padding: 0 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raised); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.copy:hover { border-color: var(--muted); }
 
 .press { position: relative; width: 100%; max-width: 560px; aspect-ratio: 560 / 680; justify-self: center; }
 .press-stage { position: absolute; top: 0; left: 0; width: 560px; height: 680px; transform-origin: 0 0; transform: scale(var(--scale, 1)); }
@@ -273,16 +280,17 @@ kbd { border: 1px solid var(--line); }
 .docs-content .faq { margin-top: 1.2rem; }
 
 @media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; }
+    /* minmax(0, …): a command that does not wrap must not widen the column. */
+    .hero { grid-template-columns: minmax(0, 1fr); }
     .press { max-width: 420px; }
     .strip ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .strip li:nth-child(3) { border-left: none; }
     .strip li:nth-child(n + 3) { border-top-width: 6px; }
-    .step, .step:nth-child(even) { grid-template-columns: 1fr; }
+    .step, .step:nth-child(even) { grid-template-columns: minmax(0, 1fr); }
     .step:nth-child(even) .step-text { order: 0; }
     .details { grid-template-columns: 1fr; }
     .footer-grid { grid-template-columns: 1fr; }
-    .docs { grid-template-columns: 1fr; }
+    .docs { grid-template-columns: minmax(0, 1fr); }
     .docs-nav { position: static; max-height: none; }
 }
 

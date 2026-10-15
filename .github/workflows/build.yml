@@ -168,4 +168,5 @@ jobs:
           # The section of this version in CHANGELOG.md, without its heading.
           awk -v heading="## ${version}" '$0 ~ "^## " { inside = index($0, heading) == 1; next } inside' CHANGELOG.md > notes.md
           test -s notes.md || { echo "CHANGELOG.md has no section for ${version}"; exit 1; }
+          cat .github/release-footer.md >> notes.md
           gh release create "$GITHUB_REF_NAME" assets/* --draft --title "Black Lotus Press ${version}" --notes-file notes.md

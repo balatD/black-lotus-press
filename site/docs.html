@@ -69,7 +69,11 @@
             <h3>The first launch</h3>
             <p>The app is not signed with a paid certificate, so your system warns before the first start. This only happens once.</p>
             <ul>
-                <li><strong>macOS:</strong> open the DMG and drag the app into Applications. Start it; when macOS refuses, open <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em> next to Black Lotus Press.</li>
+                <li>
+                    <strong>macOS:</strong> open the DMG and drag the app into Applications. macOS then refuses to open it and says it "is damaged" or that Apple "could not verify" it. The app is fine; it is only not signed with an Apple certificate. Run this once in Terminal, which is in <em>Applications → Utilities</em>:
+                    <div class="command"><code>xattr -cr "/Applications/Black Lotus Press.app"</code><button type="button" class="copy" data-copy='xattr -cr "/Applications/Black Lotus Press.app"'>Copy</button></div>
+                    It removes the "downloaded from the internet" mark from the app, then it opens normally. Run it again after installing an update.
+                </li>
                 <li><strong>Windows:</strong> when SmartScreen shows "Windows protected your PC", click <em>More info</em> and then <em>Run anyway</em>.</li>
                 <li><strong>Linux:</strong> run <code>chmod +x Black-Lotus-Press-linux-x86_64.AppImage</code> and start the file. See <a href="#troubleshooting">Troubleshooting</a> if it does not open.</li>
             </ul>
@@ -290,6 +294,10 @@
                     <div><p>The PDFs are made for meinspiel.de's format, but they are ordinary print PDFs: 69 × 94 mm pages with 3 mm bleed in CMYK. Whether another print shop takes them depends on its requirements.</p></div>
                 </details>
                 <details>
+                    <summary>Why does macOS say the app is damaged?</summary>
+                    <div><p>It is not damaged. The app is not signed with a paid Apple certificate, so macOS blocks it after the download. <code>xattr -cr "/Applications/Black Lotus Press.app"</code> in Terminal lifts the block; see <a href="#install">Install</a>.</p></div>
+                </details>
+                <details>
                     <summary>Does it run on Intel Macs?</summary>
                     <div><p>The releases are built for Apple Silicon only. On an Intel Mac you can run the app from its source code; see the README on GitHub.</p></div>
                 </details>
@@ -298,6 +306,11 @@
 
         <section id="troubleshooting">
             <h2>Troubleshooting</h2>
+
+            <h3>macOS says the app is damaged or cannot be checked</h3>
+            <p>Black Lotus Press is not signed with an Apple certificate, which costs a yearly fee. macOS blocks such apps when they come from the internet, with a message that the app "is damaged" or that Apple "could not verify" it. Move the app into Applications and run once in Terminal:</p>
+            <div class="command"><code>xattr -cr "/Applications/Black Lotus Press.app"</code><button type="button" class="copy" data-copy='xattr -cr "/Applications/Black Lotus Press.app"'>Copy</button></div>
+            <p>Do it again after every update. When macOS only says it "could not verify" the app, <em>System Settings → Privacy &amp; Security → Open Anyway</em> works as well.</p>
 
             <h3>The upload fails with "pcntl_waitpid failed"</h3>
             <p>That message comes from meinspiel.de's server, which sometimes fails to process larger PDFs. Try again later, set the profile to 300 dpi to make the files smaller, or upload the PDFs by hand on meinspiel.de. If it keeps happening, please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue</a>.</p>
@@ -333,6 +346,17 @@
         </section>
     </main>
 </div>
+
+<script>
+    // Copy buttons next to commands.
+    for (const button of document.querySelectorAll('[data-copy]')) {
+        button.addEventListener('click', async () => {
+            await navigator.clipboard.writeText(button.dataset.copy);
+            button.textContent = 'Copied';
+            setTimeout(() => button.textContent = 'Copy', 2000);
+        });
+    }
+</script>
 
 <footer class="footer">
     <p class="legal">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.</p>
