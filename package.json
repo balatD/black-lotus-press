@@ -17,6 +17,7 @@
     "test:e2e": "install-electron && electron-vite build && node --import tsx --test --test-concurrency=1 \"app/e2e/*.test.ts\"",
     "test:packaged": "node --import tsx --test app/e2e/packaged/packaged.test.ts",
     "press:build": "node tools/press/build.mjs --audit",
+    "icon:build": "node tools/icon/build.mjs",
     "gui:package": "install-electron && node native/build.mjs && electron-vite build && electron-builder"
   },
   "keywords": [],
