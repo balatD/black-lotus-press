@@ -76,8 +76,10 @@ before(async () => {
     await skipSplash();
 });
 
+// A key skips the splash at any moment; a click misses once it fades, which slow runners can reach first.
 async function skipSplash() {
-    await window.locator('.splash').click();
+    await window.locator('.splash').waitFor();
+    await window.keyboard.press('Escape');
     await window.locator('.splash').waitFor({ state: 'detached' });
 }
 
