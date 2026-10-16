@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+
+- The app looks for a new version when it starts. Installed with the Windows setup or as a Linux AppImage, it downloads the update and installs it when you restart or quit. On a Mac and with the portable Windows ZIP, the sidebar shows the new version with a link to the download. Version 1.0.0 cannot do this yet, so download 1.1.0 by hand once.
+- A new app icon: the card printer with the Black Lotus Press card coming out of it.
+- The download is about a fifth smaller. Chromium's own menus and dialogs now come in English and German only.
+- The splash screen is an animated card printer: card 55 runs under the print head once per ribbon panel (yellow, magenta, cyan, black, overlay), lands on the stack, turns to face you and is sealed in a graded slab: GEM MT 10.
+
 ## 1.0.0
 
 The first public release: a desktop app for macOS (Apple Silicon), Windows and Linux, plus the command-line edition.
