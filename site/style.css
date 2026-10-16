@@ -104,8 +104,9 @@ kbd { border: 1px solid var(--line); }
 .button small { font-weight: 500; opacity: 0.75; }
 .button svg { width: 1.1em; height: 1.1em; flex: none; }
 
-/* Hero: the printer from the app's start screen prints the cards once. */
-.hero {
+/* Hero: the printer from the app's start screen prints the last card of the pack. */
+/* section.hero, because the printer's SVG also gets the class hero once the card is out. */
+section.hero {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     align-items: center;
@@ -113,8 +114,6 @@ kbd { border: 1px solid var(--line); }
     max-width: 76rem;
     margin: 0 auto;
     padding: clamp(2rem, 6vw, 5rem) var(--gutter) 2rem;
-    /* The printed cards fly off to the sides; they must not widen the page. */
-    overflow-x: clip;
 }
 .hero h1 { font-size: clamp(2.6rem, 5.6vw, 4.6rem); letter-spacing: -0.015em; }
 .hero h1 span { display: block; }
@@ -129,79 +128,9 @@ kbd { border: 1px solid var(--line); }
 .copy { flex: none; padding: 0 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raised); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
 .copy:hover { border-color: var(--muted); }
 
-.press { position: relative; width: 100%; max-width: 560px; aspect-ratio: 560 / 680; justify-self: center; }
-.press-stage { position: absolute; top: 0; left: 0; width: 560px; height: 680px; transform-origin: 0 0; transform: scale(var(--scale, 1)); }
-.press-printer { position: absolute; top: 40px; left: 0; width: 560px; }
-.printer-sweep { animation: sweep 0.9s ease-in-out 6 alternate; }
-.printer-led { animation: blink 0.72s steps(2, jump-none) 7; }
-
-/* Cards are clipped at the slot, so they seem to come out of it. */
-.press-output { position: absolute; top: 274px; left: 152px; width: 256px; height: 600px; clip-path: inset(0 -400px -400px -400px); }
-.mini-card {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 120px;
-    aspect-ratio: 63 / 88;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 8px;
-    border-radius: 7px;
-    background: var(--frame);
-    border: 4px solid #111;
-    box-shadow: 0 10px 24px rgb(0 0 0 / 0.5);
-    transform: translate(-50%, -105%);
-    animation: eject 1.15s cubic-bezier(0.3, 0.7, 0.4, 1) var(--delay) both;
-}
-.mini-name, .mini-type { height: 10px; border-radius: 3px; background: rgb(255 255 255 / 0.55); }
-.mini-art { flex: 1.2; border-radius: 2px; background: linear-gradient(160deg, rgb(255 255 255 / 0.35), rgb(0 0 0 / 0.35)); }
-.mini-text { flex: 1; border-radius: 2px; background: rgb(255 255 255 / 0.6); }
-
-.hero-card { position: absolute; top: 274px; left: 50%; width: 300px; aspect-ratio: 63 / 88; transform-origin: 50% 0; animation: rise 2.3s cubic-bezier(0.25, 0.8, 0.3, 1) 2.35s both; }
-.hero-frame {
-    position: relative;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 14px 14px 12px;
-    border: 9px solid #0c0c0c;
-    border-radius: 14px;
-    overflow: hidden;
-    background: linear-gradient(160deg, #2a2a2e, #121214);
-    box-shadow: 0 30px 80px rgb(0 0 0 / 0.7), 0 0 0 1px #3a3a3a;
-    color: #f3f0e8;
-    font-weight: 600;
-    line-height: 1.25;
-}
-.hero-title, .hero-type { display: flex; justify-content: space-between; align-items: center; padding: 4px 9px; border: 1px solid #6a6a6a; border-radius: 7px / 50%; background: linear-gradient(#3d3d42, #26262a); font-size: 15px; white-space: nowrap; }
-.hero-title span:first-child { font-size: 17px; font-weight: 700; }
-.hero-cost { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #cfcac0; color: #1b1b1b; font-size: 13px; font-weight: 700; }
-.hero-art { overflow: hidden; border: 1px solid #555; }
-.hero-art svg { display: block; width: 100%; }
-.hero-type { font-size: 12px; border-radius: 6px / 50%; }
-.hero-text { flex: 1; padding: 8px 10px; border-radius: 3px; background: #ece7da; color: #1d1b18; font-size: 14px; font-weight: 500; }
-.hero-text p { margin: 0 0 6px; }
-.hero-flavor { font-style: italic; color: #4a4640; }
-.hero-pt { position: absolute; right: 12px; bottom: 10px; padding: 1px 9px; border: 1px solid #6a6a6a; border-radius: 6px; background: linear-gradient(#3d3d42, #26262a); font-size: 15px; font-weight: 700; }
-.hero-shine { position: absolute; inset: -40%; background: linear-gradient(105deg, transparent 42%, rgb(255 255 255 / 0.28) 50%, transparent 58%); transform: translateX(-60%); animation: shine 1s ease-in-out 4.15s both; }
-
-@keyframes sweep { from { transform: translateX(0); } to { transform: translateX(240px); } }
-@keyframes blink { 50% { opacity: 0.25; } }
-@keyframes eject {
-    0% { transform: translate(-50%, -105%); }
-    45% { transform: translate(-50%, 8%) rotate(0); opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--fly)), 175%) rotate(var(--turn)); opacity: 0; }
-}
-@keyframes rise {
-    0% { transform: translate(-50%, -100%) scale(0.4); clip-path: inset(100% 0 0 0); opacity: 0; }
-    4% { opacity: 1; }
-    28% { transform: translate(-50%, 0) scale(0.4); clip-path: inset(0 0 0 0); }
-    45% { transform: translate(-50%, 6%) scale(0.42) rotateX(8deg); clip-path: inset(0 0 0 0); }
-    100% { transform: translate(-50%, -38%) scale(1) rotateX(0); clip-path: inset(0 0 0 0); }
-}
-@keyframes shine { to { transform: translateX(60%); } }
+.hero-figure { margin: 0; cursor: pointer; }
+.hero-figure .iso-plate { padding: 48px 12px 44px; border-radius: var(--radius); }
+.hero-press { aspect-ratio: 760 / 460; }
 
 /* Facts as the colour control strip of a press sheet. */
 .strip { max-width: 76rem; margin: 2.5rem auto 0; padding: 0 var(--gutter); }
@@ -281,8 +210,7 @@ kbd { border: 1px solid var(--line); }
 
 @media (max-width: 900px) {
     /* minmax(0, …): a command that does not wrap must not widen the column. */
-    .hero { grid-template-columns: minmax(0, 1fr); }
-    .press { max-width: 420px; }
+    section.hero { grid-template-columns: minmax(0, 1fr); }
     .strip ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .strip li:nth-child(3) { border-left: none; }
     .strip li:nth-child(n + 3) { border-top-width: 6px; }
