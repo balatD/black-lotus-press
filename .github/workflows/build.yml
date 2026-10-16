@@ -60,11 +60,14 @@ jobs:
         with:
           name: app-${{ matrix.platform }}
           if-no-files-found: error
+          # latest*.yml and the blockmaps are what the app reads and downloads to update itself.
           path: |
             release/Black-Lotus-Press-*.dmg
             release/Black-Lotus-Press-*.zip
             release/Black-Lotus-Press-*.exe
             release/Black-Lotus-Press-*.AppImage
+            release/Black-Lotus-Press-*.blockmap
+            release/latest*.yml
 
   cli:
     name: Command-line tool (${{ matrix.platform }})

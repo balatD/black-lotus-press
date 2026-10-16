@@ -11,6 +11,12 @@ export interface Task {
     stoppable: boolean;
 }
 
+// A newer release: to download from the website, being downloaded, or downloaded and installed on quit or restart.
+export interface Update {
+    version: string;
+    state: 'available' | 'downloading' | 'ready';
+}
+
 // Everything the window can ask the main process to do.
 export interface Api {
     listProfiles(): Promise<ProcessingProfile[]>;
@@ -44,13 +50,18 @@ export interface Api {
     searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
     // Returns the stored file name, or undefined when the dialog was cancelled.
     pickCustomImage(): Promise<string | undefined>;
+
+    // The newer release found since the start, if any; changes arrive through onUpdate.
+    updateStatus(): Promise<Update | undefined>;
+    // Quits, installs the downloaded update and starts the new version.
+    installUpdate(): Promise<void>;
 }
 
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'previewCardBack', 'openOrderFolder',
     'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'listTasks', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'pickCustomImage'
+    'imageStatus', 'gpuStats', 'searchPrintings', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.
@@ -59,4 +70,5 @@ export const allMethodsListed: Exclude<keyof Api, (typeof API_METHODS)[number]> 
 export type Bridge = Api & {
     onProgress(listener: (event: ProgressEvent) => void): () => void;
     onTasks(listener: (tasks: Task[]) => void): () => void;
+    onUpdate(listener: (update: Update) => void): () => void;
 };

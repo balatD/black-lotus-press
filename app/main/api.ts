@@ -17,6 +17,7 @@ import { ensureIccProfile } from "../../src/output/iccProfile.js";
 import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
 import { API_METHODS, type Api, type Task } from "../shared/api.js";
+import { installUpdate, updateStatus } from "./updater.js";
 
 export function registerApi(window: BrowserWindow) {
     let nextTaskId = 1;
@@ -153,6 +154,13 @@ export function registerApi(window: BrowserWindow) {
             });
             const file = result.filePaths[0];
             return file ? await importCustomImage(file) : undefined;
+        },
+
+        async updateStatus() {
+            return updateStatus();
+        },
+        async installUpdate() {
+            installUpdate();
         }
     };
 

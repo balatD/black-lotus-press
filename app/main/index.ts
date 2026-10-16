@@ -3,6 +3,7 @@ import { app, BrowserWindow, Menu, shell } from "electron";
 import { setDataRoot } from "../../src/config/paths.js";
 import { registerApi } from "./api.js";
 import { handlePreviews, registerPreviewScheme } from "./preview.js";
+import { checkForUpdates } from "./updater.js";
 
 // Started from the project folder during development, so the CLI's profiles and orders show up.
 setDataRoot(app.isPackaged ? path.join(app.getPath('userData'), 'data') : process.cwd());
@@ -31,6 +32,7 @@ function createWindow() {
     window.webContents.on('will-navigate', event => event.preventDefault());
 
     registerApi(window);
+    checkForUpdates(window);
 
     if (process.env.ELECTRON_RENDERER_URL) {
         void window.loadURL(process.env.ELECTRON_RENDERER_URL);

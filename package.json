@@ -54,6 +54,7 @@
     "adm-zip": "^0.5.17",
     "bottleneck": "^2.19.5",
     "chalk": "^5.6.2",
+    "electron-updater": "^6.8.9",
     "gradient-string": "^3.0.0",
     "inquirer": "^14.0.2",
     "listr2": "^10.2.1",

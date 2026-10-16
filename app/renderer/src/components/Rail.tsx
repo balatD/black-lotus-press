@@ -5,6 +5,7 @@ import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
 import { ColorBar, RegistrationMark } from "./Decor.js";
 import { Tasks } from "./Tasks.js";
+import { UpdateNotice } from "./UpdateNotice.js";
 
 interface Props {
     orders: Order[];
@@ -78,6 +79,7 @@ export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSele
             <Tasks/>
 
             <div className="footer">
+                <UpdateNotice/>
                 <button className="rail-item" aria-current={profilesSelected ? 'page' : undefined} onClick={onSelectProfiles}><span className="with-icon"><SlidersHorizontal/>Processing profiles</span></button>
             </div>
         </nav>

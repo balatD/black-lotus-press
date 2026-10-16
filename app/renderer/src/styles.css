@@ -160,6 +160,7 @@ input[type="checkbox"] { accent-color: var(--cyan); }
 .rail .tasks + .footer { margin-top: 0; }
 .task { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; padding: 0.5rem; border-left: 3px solid var(--yellow); border-radius: var(--radius); background: var(--raised); font-size: var(--step--1); }
 .task .progress { align-self: stretch; }
+.update { margin-bottom: 0.75rem; border-left-color: var(--cyan); }
 
 .content { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
