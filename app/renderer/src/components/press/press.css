@@ -1,0 +1,68 @@
+.press {
+    --anatomy-weight: 0.85px;
+    --press-y: #fff200;
+    --press-m: #ec008c;
+    --press-c: #00aeef;
+    --press-k: #3a3536;
+}
+
+.press-paper > .iso-fill { fill: #d9d9d4; }
+.press-paper > .iso-top { fill: #f1f1ee; }
+.press-paper > .iso-shade[data-shade="0"] { fill: #b9b9b4; }
+.press-paper > .iso-shade[data-shade="1"] { fill: #c6c6c1; }
+.press-paper > .iso-shade[data-shade="2"] { fill: #d2d2cd; }
+.press-paper > .iso-shade[data-shade="3"] { fill: #deded9; }
+.press-paper > .iso-line[data-tone="lo"] { stroke: #8f8f8a; }
+
+/* Once the last card turns to face the viewer, the machine steps back. */
+.press [data-press="machine"] { transition: opacity 0.7s ease; }
+.press.hero [data-press="machine"] { opacity: 0.3; }
+
+.press-film { fill: var(--anatomy-shade-2); opacity: 0.9; }
+.press-panel { stroke: none; opacity: 0.82; }
+.press-panel[data-ink="Y"] { fill: var(--press-y); }
+.press-panel[data-ink="M"] { fill: var(--press-m); }
+.press-panel[data-ink="C"] { fill: var(--press-c); }
+.press-panel[data-ink="K"] { fill: var(--press-k); }
+.press-panel[data-ink="O"] { fill: #ffffff; opacity: 0.12; }
+
+.press-teeth {
+    fill: none;
+    stroke: var(--anatomy-lo);
+    stroke-width: 1;
+    stroke-dasharray: 0.7 0.9;
+}
+
+.press-heat { stroke: var(--anatomy-faint); }
+.press-heat[data-on] { stroke: var(--anatomy-lit); stroke-width: 1.4; filter: drop-shadow(0 0 2px #ffffff); }
+
+.press-led { fill: var(--anatomy-faint); stroke: none; }
+.press-led[data-on] { fill: var(--anatomy-lit); filter: drop-shadow(0 0 1.5px #ffffff); }
+
+.press-lcd { fill: #0a0a0a; stroke: none; }
+.press-lcd-text { fill: var(--anatomy-hi); font-family: var(--anatomy-mono); font-variant-numeric: tabular-nums; }
+.press-ink { fill: var(--anatomy-faint); }
+.press-ink[data-done], .press-ink[data-on] { opacity: 0.45; }
+.press-ink[data-on] { opacity: 1; }
+.press-ink[data-done][data-ink="Y"], .press-ink[data-on][data-ink="Y"] { fill: var(--press-y); }
+.press-ink[data-done][data-ink="M"], .press-ink[data-on][data-ink="M"] { fill: var(--press-m); }
+.press-ink[data-done][data-ink="C"], .press-ink[data-on][data-ink="C"] { fill: var(--press-c); }
+.press-ink[data-done][data-ink="K"], .press-ink[data-on][data-ink="K"] { fill: var(--anatomy-hi); }
+.press-ink[data-done][data-ink="O"], .press-ink[data-on][data-ink="O"] { fill: var(--anatomy-lit); }
+
+.press [data-press="slab-back"] { filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.65)); }
+.slab-case { fill: rgb(220 230 238 / 0.08); }
+.slab-well { fill: rgb(0 0 0 / 0.35); }
+.slab-label-paper { fill: #f3f1ec; }
+.slab-label-frame { fill: none; stroke: #c8202f; stroke-width: 0.7; }
+.press .slab-label text { fill: #1a1a1a; }
+.slab-barcode rect { fill: #1a1a1a; }
+.slab-logo { fill: #c8202f; }
+.press .slab-label .slab-logo-text { fill: #ffffff; }
+.slab-ridge { fill: none; stroke: rgb(255 255 255 / 0.16); stroke-width: 0.35; }
+.slab-bevel { fill: none; stroke: rgb(255 255 255 / 0.12); stroke-width: 0.3; }
+.slab-edge { fill: none; stroke: rgb(255 255 255 / 0.5); stroke-width: 0.4; }
+
+.press [data-press="card"].flying { filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.65)); }
+.press text { font-family: "Barlow Semi Condensed", system-ui, sans-serif; }
+.press .press-lcd-text { font-family: var(--anatomy-mono); }
