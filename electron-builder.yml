@@ -6,6 +6,13 @@ directories:
   output: release
 files:
   - out/**
+  # Node loads pdf-lib and its helpers from their CommonJS builds, the browser and ES builds are dead weight.
+  - "!**/node_modules/{pdf-lib,@pdf-lib/*}/{dist,es,src,ts3.4}/**"
+  - "!**/node_modules/pdf-lib/**/*.{map,d.ts}"
+  # playwright itself only re-exports playwright-core, its lib/ is the test runner.
+  - "!**/node_modules/playwright/lib/**"
+# Chromium's own strings (context menus, dialogs). Other system languages fall back to English.
+electronLanguages: [en-US, de]
 asarUnpack:
   # Native libvips binaries and the Playwright driver cannot run from inside the asar archive.
   - "**/node_modules/sharp/**/*"
@@ -24,6 +31,8 @@ mac:
   # Ad-hoc signature: Apple Silicon refuses to start unsigned apps at all.
   identity: "-"
   hardenedRuntime: false
+dmg:
+  format: UDBZ
 win:
   target:
     - target: nsis
