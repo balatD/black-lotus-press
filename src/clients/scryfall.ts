@@ -7,11 +7,33 @@ const scryfallBottleneck = new Bottleneck({
     minTime: 200
 });
 
-// Scryfall allows two searches a second.
+// Scryfall allows two searches and two lookups by name a second. Requests sent 500 ms apart can arrive closer together.
 const scryfallSearchBottleneck = new Bottleneck({
     maxConcurrent: 1,
-    minTime: 500
+    minTime: 600
 });
+
+// After a 429 Scryfall turns the application away for 30 seconds, and asking on regardless may get it banned.
+const RATE_LIMIT_PAUSE_MS = 31_000;
+let blockedUntil = 0;
+
+async function waitOutBlock() {
+    const wait = blockedUntil - Date.now();
+    if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+}
+
+// Waits inside the limiter, so its other requests wait as well. A second 429 is left to the caller.
+function scryfallFetch(limiter: Bottleneck, url: string, init: RequestInit): Promise<Response> {
+    return limiter.schedule(async () => {
+        await waitOutBlock();
+        const response = await fetch(url, init);
+        if (response.status !== 429) return response;
+
+        blockedUntil = Date.now() + RATE_LIMIT_PAUSE_MS;
+        await waitOutBlock();
+        return await fetch(url, init);
+    });
+}
 
 // The image files on *.scryfall.io have no rate limit.
 const scryfallImageBottleneck = new Bottleneck({
@@ -46,10 +68,10 @@ export async function findScryfallCard(card: MoxfieldCardDetails): Promise<Scryf
         "User-Agent": scryfallUserAgent
     });
 
-    let response = await scryfallBottleneck.schedule(() => fetch(`https://api.scryfall.com/cards/${card.scryfall_id}`, { headers }));
+    let response = await scryfallFetch(scryfallBottleneck, `https://api.scryfall.com/cards/${card.scryfall_id}`, { headers });
 
     if (response.status === 404) {
-        response = await scryfallBottleneck.schedule(() => fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&set=${card.set}`, { headers }));
+        response = await scryfallFetch(scryfallSearchBottleneck, `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&set=${card.set}`, { headers });
         if (response.status === 404) return;
     }
 
@@ -70,7 +92,7 @@ export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>
     let url: string | undefined = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=prints&order=released&dir=desc&include_extras=true`;
     while (url) {
         const pageUrl: string = url;
-        const response = await scryfallSearchBottleneck.schedule(() => fetch(pageUrl, { headers: jsonHeaders }));
+        const response = await scryfallFetch(scryfallSearchBottleneck, pageUrl, { headers: jsonHeaders });
         if (response.status === 404) break;
         if (!response.ok) {
             throw new Error(`Scryfall search for ${card.name} failed (${response.status}): ${await response.text()}`);

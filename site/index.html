@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Black Lotus Press</title>
-    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de or notmpc.eu: Scryfall scans or high-resolution MPC Autofill images, cleaned up and upscaled.">
+    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de, notmpc.eu or printerstudio.de: Scryfall scans or high-resolution MPC Autofill images, cleaned up and upscaled.">
     <meta property="og:title" content="Black Lotus Press">
-    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de or notmpc.eu, made from Scryfall scans or MPC Autofill images.">
+    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de, notmpc.eu or printerstudio.de, made from Scryfall scans or MPC Autofill images.">
     <meta property="og:image" content="https://balatd.github.io/black-lotus-press/img/social.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -38,9 +38,9 @@
         <div>
             <h1><span>Your Moxfield deck,</span> <span>printed.</span></h1>
             <p class="lead">
-                Black Lotus Press turns Moxfield decks into print-ready playtest cards from meinspiel.de or notmpc.eu.
-                It takes the exact printings from Scryfall or high-resolution images from MPC Autofill, cleans them up and upscales them.
-                For meinspiel.de it converts them to the printer's CMYK and uploads the packs to your account; for notmpc.eu it fills their designer.
+                Black Lotus Press turns Moxfield decks into print-ready playtest cards and hands them to the print shop you choose:
+                meinspiel.de, notmpc.eu or printerstudio.de. It takes the exact printings from Scryfall or high-resolution images from MPC Autofill,
+                cleans them up, upscales them and makes them the way each shop wants them.
             </p>
             <div class="downloads" id="downloads">
                 <a class="button" data-os="mac" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-mac-arm64.dmg">
@@ -81,10 +81,10 @@
 
     <div class="strip">
         <ul>
-            <li style="--ink: var(--ink-c)"><strong>55 cards per pack</strong><span>meinspiel.de's deck format, about 19,95 € plus shipping; notmpc.eu decks hold up to 612</span></li>
+            <li style="--ink: var(--ink-c)"><strong>Three print shops</strong><span>meinspiel.de's packs of 55, or decks of 18 to 612 cards at notmpc.eu and printerstudio.de</span></li>
             <li style="--ink: var(--ink-m)"><strong>69 × 94 mm</strong><span>63 × 88 mm cards with 3 mm bleed, corners and borders cleaned up</span></li>
-            <li style="--ink: var(--ink-y)"><strong>CMYK, ISO Coated v2</strong><span>meinspiel.de's own colour profile, 10 % brighter because print is darker</span></li>
-            <li style="--ink: var(--paper)"><strong>Up to 600 dpi</strong><span>scans upscaled on your graphics card with Upscayl</span></li>
+            <li style="--ink: var(--ink-y)"><strong>CMYK or RGB</strong><span>ISO Coated v2 for meinspiel.de, sRGB for the others, 10 % brighter because print is darker</span></li>
+            <li style="--ink: var(--paper)"><strong>Up to 1200 dpi</strong><span>MPC Autofill images, or Scryfall scans upscaled on your graphics card with Upscayl</span></li>
         </ul>
     </div>
 
@@ -112,61 +112,103 @@
                 <div class="step-text">
                     <h3>Check every card</h3>
                     <p>
-                        See the whole order as a list or as a zoomable grid. Click a card to see it large and pick another printing
-                        from everything Scryfall has, with Cardmarket prices, a high-resolution image from MPC Autofill, or your own image.
+                        See the whole order as a list or as a zoomable grid. Click a card to open the card editor: every printing on Scryfall
+                        with Cardmarket prices, the high-resolution images of MPC Autofill, or your own image, large and side by side with the Scryfall scan.
                     </p>
                     <ul>
-                        <li>Compare every image side by side with the Scryfall scan, zoomed in to the pixel.</li>
-                        <li>The sharpest MPC Autofill image for every card in one go, matched to its printing.</li>
-                        <li>Different printings for single copies of a card.</li>
-                        <li>Switch cards off, change quantities, drag them into the print order.</li>
+                        <li>Zoom both images at once, down to the pixel.</li>
+                        <li>MPC Autofill images sorted by whether they show the card's printing, with their resolution.</li>
+                        <li>The sharpest MPC Autofill image for every card in one go.</li>
+                        <li>Different printings for single copies, quantities, and the print order by drag and drop.</li>
                         <li>Warnings for low-resolution scans and cards Scryfall does not know.</li>
                     </ul>
                 </div>
-                <figure class="proof"><img src="img/cards.webp" width="1440" height="900" loading="lazy" alt="The Cards tab as a zoomable grid of card images, with the pack count, the price and the struck-out Cardmarket value of the cards."></figure>
+                <figure class="proof"><img src="img/editor.webp" width="1440" height="900" loading="lazy" alt="The card editor: an MPC Autofill image of Sauron, the Dark Lord at 1632 × 2220 pixels next to the low-resolution Scryfall scan, and on the right the MPC Autofill images that match this printing and those of other printings."></figure>
             </li>
             <li class="step" style="--ink: var(--ink-y)">
                 <div class="step-text">
                     <h3>Proof the press sheet</h3>
                     <p>
-                        Every pack appears as a sheet of 55 cards, fronts and backs, the way it will be printed.
-                        Brightness and contrast change the preview right away, for the whole order or for single cards.
+                        Every pack or deck appears as a sheet, fronts and backs, the way it will be printed: 55 cards for meinspiel.de,
+                        the deck size for notmpc.eu and printerstudio.de. Brightness and contrast change the preview right away, for the whole order or for single cards.
                     </p>
                     <ul>
                         <li>Upscaling with live GPU load and temperature.</li>
                         <li>Process a single card or the whole order again.</li>
-                        <li>Two PDFs per pack, with their sizes checked against the upload limit.</li>
+                        <li>For meinspiel.de, two PDFs per pack, with their sizes checked against the upload limit.</li>
                     </ul>
                 </div>
-                <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab: steps to process the images, build the PDFs and upload them, the brightness sliders and the press sheet of the first pack."></figure>
+                <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab of a meinspiel.de order: steps to process the images, build the PDFs and upload them, the brightness sliders and the press sheet of the first pack."></figure>
             </li>
             <li class="step" style="--ink: var(--paper)">
                 <div class="step-text">
-                    <h3>Upload and order</h3>
+                    <h3>Hand it to the shop</h3>
                     <p>
-                        A browser window opens on meinspiel.de. You log in there yourself, the app never sees your password.
-                        Every pack becomes a game in your account, and the app keeps the links to them.
+                        The shop opens in a browser window that looks like part of the app, with a panel that shows every step and how far the upload is,
+                        and the app does the uploading. You choose the options and pay there yourself; the app never orders anything.
                     </p>
                     <ul>
-                        <li>You choose the box and pay on meinspiel.de, the app never orders anything.</li>
-                        <li>Or upload the PDFs by hand, they are ordinary files in your orders folder.</li>
-                        <li>For notmpc.eu, their designer opens with every card in its slot, one tab per deck, no account needed.</li>
+                        <li>meinspiel.de: every pack becomes a game in your account. You log in yourself, the app never sees your password.</li>
+                        <li>printerstudio.de: you log in, and their designer is filled up to the preview and saved in your account, one deck each; you confirm the copyright and put the decks into the cart.</li>
+                        <li>notmpc.eu: their designer opens with every card in its slot, no account needed; not available at the moment.</li>
+                        <li>Or save the order as an MPC Autofill XML for its desktop tool, which orders at MakePlayingCards.</li>
                     </ul>
                 </div>
-                <figure class="proof"><img src="img/card.webp" width="1440" height="900" loading="lazy" alt="A card of the press sheet opened large, front and card back, each with a button to process it again."></figure>
+                <figure class="proof"><img src="img/decks.webp" width="1440" height="900" loading="lazy" alt="The Print tab of a printerstudio.de order: all 107 images are ready, the step to log in and send them to printerstudio.de, the step to save an MPC Autofill XML, and the press sheet of a deck of 108 cards."></figure>
             </li>
         </ol>
+    </section>
+
+    <section class="section" aria-labelledby="shops">
+        <h2 id="shops">Three print shops, one app</h2>
+        <p class="intro">After the start screen you choose where to print, and every order belongs to that shop until you move or copy it to another one. The app knows each shop's deck sizes and prices, and makes the images in the size and colours it asks for.</p>
+
+        <ul class="shop-grid">
+            <li style="--ink: var(--ink-c)">
+                <h3><a href="https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/">meinspiel.de</a></h3>
+                <p>Packs of 55 cards, uploaded to your account as games you finish on meinspiel.de.</p>
+                <dl>
+                    <dt>Deck sizes</dt><dd>Exactly 55; tokens and blank cards fill the last pack</dd>
+                    <dt>Files</dt><dd>Two CMYK PDFs per pack, ISO Coated v2 300 %</dd>
+                    <dt>Hand-over</dt><dd>Uploaded to your account, you log in yourself</dd>
+                    <dt>Commander deck</dt><dd>2 packs, about 39,90 €</dd>
+                </dl>
+            </li>
+            <li style="--ink: var(--ink-m)">
+                <h3><a href="https://notmpc.eu/de/">notmpc.eu</a></h3>
+                <p>Decks of any size up to 612 cards, filled into their designer. Not available at the moment.</p>
+                <dl>
+                    <dt>Deck sizes</dt><dd>18 to 612; the smallest that holds the order</dd>
+                    <dt>Files</dt><dd>sRGB images</dd>
+                    <dt>Hand-over</dt><dd>Their designer with every card in its slot, no account needed</dd>
+                    <dt>Commander deck</dt><dd>1 deck of 108, about 29,97 €</dd>
+                </dl>
+            </li>
+            <li style="--ink: var(--ink-y)">
+                <h3><a href="https://www.printerstudio.de/machen/blanko-spielkarten-63x88mm-personalisieren.html">printerstudio.de</a></h3>
+                <p>The same deck sizes on Standard stock, filled into their designer up to the preview.</p>
+                <dl>
+                    <dt>Deck sizes</dt><dd>18 to 612, with 54 instead of 55</dd>
+                    <dt>Files</dt><dd>sRGB images at MPC's 2.72 × 3.70 inches</dd>
+                    <dt>Hand-over</dt><dd>You log in, the app fills their designer and saves each deck in your account</dd>
+                    <dt>Commander deck</dt><dd>1 deck of 108, about 31,30 €</dd>
+                </dl>
+            </li>
+        </ul>
+        <p class="more">Prices for one deck without shipping, as of this release; the shops have the current ones. <a href="docs.html#shops">How the shops compare</a></p>
     </section>
 
     <section class="section" aria-labelledby="details">
         <h2 id="details">The details that make the prints good</h2>
         <ul class="details">
             <li style="--ink: var(--ink-c)"><div><strong>Clean scans</strong><span>Rounded corners are filled, scan borders cropped and holo stamps painted over. Borderless art is mirrored into the bleed instead of smeared.</span></div></li>
-            <li style="--ink: var(--ink-m)"><div><strong>Your copyright line</strong><span>Keep the original, blur it, add "Proxy – not for sale", or write your own text in its place.</span></div></li>
-            <li style="--ink: var(--ink-y)"><div><strong>Any card back</strong><span>Every card back from MPC Autofill's database, picked by its ID, with a live preview. Double-faced cards get their real back.</span></div></li>
-            <li style="--ink: var(--paper)"><div><strong>Tokens as filler</strong><span>Tokens fill the free slots of the last pack and never cost you an extra one.</span></div></li>
-            <li style="--ink: var(--ink-c)"><div><strong>Seven upscaling models</strong><span>Upscayl installs with one click. Pick the model that suits your cards; the lite model is seven times faster.</span></div></li>
-            <li style="--ink: var(--ink-m)"><div><strong>Runs in the background</strong><span>Imports, processing and uploads run as tasks you can follow and cancel, while you keep editing.</span></div></li>
+            <li style="--ink: var(--ink-m)"><div><strong>Sharper with MPC Autofill</strong><span>Images from MPC Autofill, usually at 800 to 1200 dpi, recognised against the Scryfall scans of every printing so custom art stays apart.</span></div></li>
+            <li style="--ink: var(--ink-y)"><div><strong>Your copyright line</strong><span>Keep the original, blur it, add "Proxy – not for sale", or write your own text in its place.</span></div></li>
+            <li style="--ink: var(--paper)"><div><strong>Any card back</strong><span>All card backs of MPC Autofill in one gallery, searchable by name or creator, with their resolution. Double-faced cards get their real back.</span></div></li>
+            <li style="--ink: var(--ink-c)"><div><strong>Tokens as filler</strong><span>Tokens fill the free slots of the last pack or deck and never cost you an extra pack or a larger deck.</span></div></li>
+            <li style="--ink: var(--ink-m)"><div><strong>The format of each shop</strong><span>CMYK PDFs for meinspiel.de, sRGB for notmpc.eu, and MPC's 2.72 × 3.70 inches for printerstudio.de, the size its designer asks for.</span></div></li>
+            <li style="--ink: var(--ink-y)"><div><strong>Seven upscaling models</strong><span>Upscayl installs with one click. Pick the model that suits your cards; the lite model is seven times faster.</span></div></li>
+            <li style="--ink: var(--paper)"><div><strong>Runs in the background</strong><span>Imports, processing and uploads run as tasks you can follow and cancel, while you keep editing.</span></div></li>
         </ul>
     </section>
 
@@ -174,12 +216,16 @@
         <h2 id="questions">Questions</h2>
         <div class="faq">
             <details>
-                <summary>Is Black Lotus Press affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or Wizards of the Coast?</summary>
+                <summary>Is Black Lotus Press affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Scryfall or Wizards of the Coast?</summary>
                 <div><p>No. It is a free fan project. It uses their public websites the way you would in a browser.</p></div>
             </details>
             <details>
+                <summary>Which print shop should I choose?</summary>
+                <div><p>meinspiel.de suits decks of 55 or 110 cards and prints from CMYK PDFs. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs. You need an account at both. notmpc.eu, which needs none, is not available at the moment. The Cards tab shows what an order costs at its shop.</p></div>
+            </details>
+            <details>
                 <summary>What does printing cost?</summary>
-                <div><p>meinspiel.de prints decks of exactly 55 cards for about 19,95 € each, plus shipping. A 100-card Commander deck needs two packs. notmpc.eu prints decks of 18 up to 612 cards; a Commander deck fits into one deck of 108 cards for about 29,97 €. Check the shops for the current prices.</p></div>
+                <div><p>A 100-card Commander deck costs about 39,90 € at meinspiel.de as two packs of 55, about 29,97 € at notmpc.eu as one deck of 108, and about 31,30 € at printerstudio.de as one deck of 108 on Standard stock, plus shipping. Check the shops for the current prices.</p></div>
             </details>
             <details>
                 <summary>Can I sell the cards I print?</summary>
@@ -222,7 +268,7 @@
     <p class="legal">
         Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.
         Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
-        Not affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or MPC Autofill.
+        Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Scryfall or MPC Autofill.
     </p>
 </footer>
 

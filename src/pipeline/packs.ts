@@ -11,6 +11,17 @@ export const NOTMPC_DECKS: [size: number, eur: number][] = [
     [162, 45.77], [180, 49.95], [198, 54.09], [216, 58.28], [234, 64.08], [396, 98.28], [504, 121.37], [612, 144.54]
 ];
 
+// printerstudio.de's decks on Standard (glatt) stock, likewise for one to five identical decks.
+export const PRINTERSTUDIO_DECKS: [size: number, eur: number][] = [
+    [18, 10.95], [36, 14.75], [54, 18.10], [72, 21.70], [90, 26.50], [108, 31.30], [126, 36.15], [144, 40.95],
+    [162, 45.75], [180, 50.55], [198, 55.35], [216, 60.15], [234, 64.95], [396, 98.25], [504, 120.90], [612, 143.45]
+];
+
+// The shops that print decks of several sizes instead of meinspiel's packs.
+export type DeckShop = Exclude<Shop, 'meinspiel'>;
+
+const DECKS: Record<DeckShop, [size: number, eur: number][]> = { notmpc: NOTMPC_DECKS, printerstudio: PRINTERSTUDIO_DECKS };
+
 export interface Slot {
     front: string;
     back: string;
@@ -46,6 +57,12 @@ export function faceImageUris(printing: ScryfallCard, face: 'front' | 'back'): S
     return printing.card_faces?.find(cardFace => cardFace.image_uris?.png.includes('/back/'))?.image_uris;
 }
 
+// The name MPC Autofill knows the face by: double-faced cards by the name of each face.
+export function faceName(card: Pick<OrderCard, 'name' | 'printing'>, face: 'front' | 'back') {
+    const doubleFaced = card.printing !== undefined && faceImageUris(card.printing, 'back') !== undefined;
+    return doubleFaced ? card.printing?.card_faces?.[face === 'front' ? 0 : 1]?.name ?? card.name : card.name;
+}
+
 // MPC Autofill images have 1/8 inch of bleed around the card: 33 × 30 pixels at 300 dpi.
 export const MPCFILL_BLEED = { x: 33 / 816, y: 30 / 1110 };
 
@@ -55,6 +72,11 @@ export function mpcfillImage(id: string, size: 'small' | 'large') {
 }
 
 export const BLANK_FACE: Face = { file: BLANK_FILE, source: { type: 'blank' } };
+
+// The Google Drive id of an MPC Autofill image or card back; other faces only exist as the app's processed images.
+export function driveId(face: Face): string | undefined {
+    return face.source.type === 'mpcfill' ? face.source.id : face.source.type === 'cardback' ? face.source.driveId : undefined;
+}
 
 function adjustedFace(stem: string, source: FaceSource, adjustments: Adjustments): Face {
     const percent = (value: number) => Math.round(value * 100);
@@ -112,7 +134,7 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
     }
 
     // Tokens only fill the free slots of the last pack, they never start a new one or make it a larger deck.
-    const sizes = order.shop === 'notmpc' ? NOTMPC_DECKS.map(([size]) => size) : [CARDS_PER_PACK];
+    const sizes = order.shop === 'meinspiel' ? [CARDS_PER_PACK] : DECKS[order.shop].map(([size]) => size);
     const largest = sizes.at(-1)!;
     const rest = slots.length % largest;
     const freeSlots = rest === 0 ? 0 : sizes.find(size => size >= rest)! - rest;
@@ -133,7 +155,7 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
         packs.push(slots.slice(i, i + largest));
     }
 
-    // notmpc takes decks with fewer cards than their size, meinspiel's packs always have 55.
+    // notmpc and printerstudio take decks with fewer cards than their size, meinspiel's packs always have 55.
     const lastPack = packs.at(-1);
     while (order.shop === 'meinspiel' && lastPack && lastPack.length < CARDS_PER_PACK) {
         lastPack.push({ front: BLANK_FILE, back: cardBackFace(order).file });
@@ -142,13 +164,13 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
     return { packs, droppedTokens };
 }
 
-// The smallest notmpc deck size that holds these cards, with its price.
-export function notmpcDeck(cards: number) {
-    return NOTMPC_DECKS.find(([size]) => size >= cards)!;
+// The smallest deck size of the shop that holds these cards, with its price.
+export function shopDeck(shop: DeckShop, cards: number) {
+    return DECKS[shop].find(([size]) => size >= cards)!;
 }
 
 export function packPrice(shop: Shop, cards: number) {
-    return shop === 'meinspiel' ? PACK_PRICE_EUR : notmpcDeck(cards)[1];
+    return shop === 'meinspiel' ? PACK_PRICE_EUR : shopDeck(shop, cards)[1];
 }
 
 // Each PDF embeds every distinct image once, so only unique files count.

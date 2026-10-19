@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
-import { DefaultOrder, type Order } from "../model.js";
+import { DefaultOrder, isValidOrderName, type Order, type Shop } from "../model.js";
 import { dataPath } from "./paths.js";
 import { readJsonFiles, writeJsonFile } from "./jsonStore.js";
+import { copyBaseImages, forgetPrintImages } from "../pipeline/processImages.js";
+import { exists } from "../utils/fs.js";
 
 function orderFile(name: string) {
     return dataPath('config', 'orders', `${name}.json`);
@@ -28,4 +30,21 @@ export async function saveOrder(order: Order): Promise<void> {
 
 export async function deleteOrder(order: Order): Promise<void> {
     await fs.unlink(orderFile(order.name));
+}
+
+export async function moveOrder(order: Order, shop: Shop): Promise<void> {
+    await saveOrder({ ...order, shop });
+    await forgetPrintImages(order);
+}
+
+// Orders of every shop share one folder, so the name must be free in all of them.
+export async function copyOrder(order: Order, shop: Shop, name: string): Promise<void> {
+    if (!isValidOrderName(name)) throw new Error(`Invalid order name: "${name}"`);
+    if (await exists(orderFile(name))) throw new Error(`An order named "${name}" exists already.`);
+
+    // The games of the last upload belong to the original.
+    const { uploaded: _, ...rest } = order;
+    const copy: Order = { ...rest, name, shop };
+    await copyBaseImages(order, copy);
+    await saveOrder(copy);
 }

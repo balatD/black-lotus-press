@@ -17,6 +17,7 @@ const FAITHFUL = 'AI Remaster';
 export interface MpcfillCard {
     identifier: string;
     name: string;
+    extension: string;
     sourceName: string;
     dpi: number;
     tags: string[];
@@ -63,16 +64,17 @@ export const unofficialTags = once(async () => {
     return names;
 });
 
-// All images of a card name in a Scryfall language, in the order MPC Autofill ranks them. Double-faced cards are searched by face.
-export async function searchMpcfill(query: string, cardType: 'CARD' | 'TOKEN', language: string): Promise<MpcfillCard[]> {
-    const searchSettings = {
-        filterSettings: { excludesTags: ['NSFW'], includesTags: [], languages: [language.startsWith('zh') ? 'ZH' : language.toUpperCase()], minimumDPI: 0, maximumDPI: 1500, maximumSize: 30 },
+// No languages means all of them.
+async function searchSettings(languages: string[]) {
+    return {
+        filterSettings: { excludesTags: ['NSFW'], includesTags: [], languages, minimumDPI: 0, maximumDPI: 1500, maximumSize: 30 },
         searchTypeSettings: { fuzzySearch: false, filterCardbacks: false },
         sourceSettings: { sources: (await sources()).map(pk => [pk, true]) }
     };
-    const search = await call<{ results: Record<string, Record<string, string[]>> }>('/2/editorSearch/', { queries: [{ query, cardType }], searchSettings });
-    const ids = Object.values(search.results)[0]?.[cardType] ?? [];
+}
 
+// The images in the order of their ids, without those MPC Autofill no longer has.
+async function imagesOf(ids: string[]): Promise<MpcfillCard[]> {
     const found = new Map<string, MpcfillCard>();
     for (let i = 0; i < ids.length; i += 1000) {
         const { results } = await call<{ results: Record<string, MpcfillCard> }>('/2/cards/', { cardIdentifiers: ids.slice(i, i + 1000) });
@@ -80,6 +82,22 @@ export async function searchMpcfill(query: string, cardType: 'CARD' | 'TOKEN', l
     }
     return ids.flatMap(id => found.get(id) ?? []);
 }
+
+// All images of a card name in a Scryfall language, in the order MPC Autofill ranks them. Double-faced cards are searched by face.
+export async function searchMpcfill(query: string, cardType: 'CARD' | 'TOKEN', language: string): Promise<MpcfillCard[]> {
+    const settings = await searchSettings([language.startsWith('zh') ? 'ZH' : language.toUpperCase()]);
+    const search = await call<{ results: Record<string, Record<string, string[]>> }>('/2/editorSearch/', { queries: [{ query, cardType }], searchSettings: settings });
+    return await imagesOf(Object.values(search.results)[0]?.[cardType] ?? []);
+}
+
+// MPC Autofill's desktop tool saves its downloads under these names; without one it asks the Google Drive API, which needs an account.
+export async function mpcfillFileNames(ids: string[]): Promise<Map<string, string>> {
+    return new Map((await imagesOf(ids)).map(image => [image.identifier, `${image.name}.${image.extension}`]));
+}
+
+// Every card back of MPC Autofill, in its order.
+export const searchCardbacks = once(async () =>
+    await imagesOf((await call<{ cardbacks: string[] }>('/2/cardbacks/', { searchSettings: await searchSettings([]) })).cardbacks));
 
 export async function fetchMpcfillThumbnail(id: string): Promise<Buffer> {
     const response = await thumbnailBottleneck.schedule(() => fetch(mpcfillImage(id, 'small'), { headers: { 'User-Agent': headers['User-Agent'] } }));

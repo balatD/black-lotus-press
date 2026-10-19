@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { createBlankPrintJpeg, pageSizeInPixels, toPrintJpeg, writePreview } from "./printImage.js";
+import { createBlankPrintJpeg, pageSizeInPixels, printSizeInPixels, toPrintJpeg, writePreview } from "./printImage.js";
 import { NO_ADJUSTMENTS } from "../model.js";
 
 test('page size is 69x94 mm with 3 mm bleed', () => {
@@ -12,12 +12,19 @@ test('page size is 69x94 mm with 3 mm bleed', () => {
     assert.deepEqual(pageSizeInPixels(600), { width: 1630, height: 2220 });
 });
 
+test('print images for printerstudio have the 2.72 × 3.70 inches of MPC, a pixel wider than the page at 300 dpi', () => {
+    assert.deepEqual(printSizeInPixels('printerstudio', 300), { width: 816, height: 1110 });
+    assert.deepEqual(printSizeInPixels('printerstudio', 800), { width: 2176, height: 2960 });
+    assert.deepEqual(printSizeInPixels('meinspiel', 300), pageSizeInPixels(300));
+    assert.deepEqual(printSizeInPixels('notmpc', 300), pageSizeInPixels(300));
+});
+
 test('toPrintJpeg writes an exact-size CMYK JPEG without an embedded profile', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-image-'));
     const input = await sharp({ create: { width: 817, height: 1112, channels: 4, background: { r: 200, g: 40, b: 40, alpha: 1 } } }).png().toBuffer();
     const output = path.join(dir, 'card.jpg');
 
-    await toPrintJpeg(input, output, 300, 'cmyk', NO_ADJUSTMENTS);
+    await toPrintJpeg(input, output, pageSizeInPixels(300), 'cmyk', NO_ADJUSTMENTS);
 
     const metadata = await sharp(output).metadata();
     assert.equal(metadata.format, 'jpeg');
@@ -31,7 +38,7 @@ async function printedGrey(value: string, adjustments: { brightness: number, con
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-image-'));
     const grey = await sharp({ create: { width: 815, height: 1110, channels: 3, background: value } }).png().toBuffer();
     const output = path.join(dir, 'grey.jpg');
-    await toPrintJpeg(grey, output, 300, 'cmyk', adjustments);
+    await toPrintJpeg(grey, output, pageSizeInPixels(300), 'cmyk', adjustments);
 
     const rgb = await sharp(output).toColourspace('srgb').png().toBuffer();
     return (await sharp(rgb).stats()).channels[0]!.mean;
@@ -55,7 +62,7 @@ test('createBlankPrintJpeg writes a white page', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-image-'));
     const output = path.join(dir, 'blank.jpg');
 
-    await createBlankPrintJpeg(output, 300, 'cmyk');
+    await createBlankPrintJpeg(output, pageSizeInPixels(300), 'cmyk');
 
     const stats = await sharp(output).stats();
     assert.equal(stats.channels.length, 4);
@@ -65,7 +72,7 @@ test('createBlankPrintJpeg writes a white page', async () => {
 test('writePreview writes a small sRGB copy of a CMYK print image', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-image-'));
     const print = path.join(dir, 'card.jpg');
-    await createBlankPrintJpeg(print, 300, 'cmyk');
+    await createBlankPrintJpeg(print, pageSizeInPixels(300), 'cmyk');
     const preview = path.join(dir, 'preview.jpg');
 
     await writePreview(print, preview);

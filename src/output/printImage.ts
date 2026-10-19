@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { Adjustments } from "../model.js";
+import type { Adjustments, Shop } from "../model.js";
 
 export const PAGE_WIDTH_MM = 69;
 export const PAGE_HEIGHT_MM = 94;
@@ -8,15 +8,24 @@ export const BLEED_MM = 3;
 // Previews sit in this folder next to the images they show.
 export const PREVIEW_DIR = 'previews-700';
 
-export function pageSizeInPixels(dpi: number) {
+export interface PixelSize {
+    width: number;
+    height: number;
+}
+
+export function pageSizeInPixels(dpi: number): PixelSize {
     return {
         width: Math.round(PAGE_WIDTH_MM / 25.4 * dpi),
         height: Math.round(PAGE_HEIGHT_MM / 25.4 * dpi)
     };
 }
 
-export async function toPrintJpeg(input: string | Buffer, outputPath: string, dpi: number, iccProfile: string, adjustments: Adjustments) {
-    const { width, height } = pageSizeInPixels(dpi);
+// printerstudio.de flags images narrower than MPC's 2.72 × 3.70 inches as low resolution, and the page is 0.1 mm narrower.
+export function printSizeInPixels(shop: Shop, dpi: number): PixelSize {
+    return shop === 'printerstudio' ? { width: Math.round(2.72 * dpi), height: Math.round(3.7 * dpi) } : pageSizeInPixels(dpi);
+}
+
+export async function toPrintJpeg(input: string | Buffer, outputPath: string, { width, height }: PixelSize, iccProfile: string, adjustments: Adjustments) {
     const { brightness, contrast } = adjustments;
 
     // The profile is not attached: it would add ~1.8 MB per image, the PDF carries it once as output intent.
@@ -30,10 +39,9 @@ export async function toPrintJpeg(input: string | Buffer, outputPath: string, dp
         .toFile(outputPath);
 }
 
-export async function createBlankPrintJpeg(outputPath: string, dpi: number, iccProfile: string) {
-    const { width, height } = pageSizeInPixels(dpi);
-    const white = await sharp({ create: { width, height, channels: 3, background: '#ffffff' } }).png().toBuffer();
-    await toPrintJpeg(white, outputPath, dpi, iccProfile, { brightness: 1, contrast: 1 });
+export async function createBlankPrintJpeg(outputPath: string, size: PixelSize, iccProfile: string) {
+    const white = await sharp({ create: { ...size, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    await toPrintJpeg(white, outputPath, size, iccProfile, { brightness: 1, contrast: 1 });
 }
 
 // Small sRGB copy for screens. CMYK images are converted with the default CMYK profile, so the colours are approximate.

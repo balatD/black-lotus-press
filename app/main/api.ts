@@ -2,11 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { app, type BrowserWindow, dialog, ipcMain, shell } from "electron";
-import type { Browser } from "playwright";
-import { deleteOrder, loadOrders, saveOrder } from "../../src/config/orderConfigManager.js";
+import type { Browser, BrowserContext } from "playwright";
+import { copyOrder, deleteOrder, loadOrders, moveOrder, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
 import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
+import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js";
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
 import { DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
@@ -14,8 +15,12 @@ import { searchPrintings } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
 import { MANUAL_UPLOAD_URL, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
 import { sendToNotmpc } from "../../src/clients/notmpc.js";
+import { sendToPrinterstudio } from "../../src/clients/printerstudio.js";
+import { showShopWindow } from "../../src/clients/shopWindow.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
 import { buildPdfs } from "../../src/output/meinspielPdf.js";
+import { mpcfillImages, mpcfillXml } from "../../src/output/mpcfillXml.js";
+import { exists } from "../../src/utils/fs.js";
 import { ensureIccProfile } from "../../src/output/iccProfile.js";
 import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
@@ -25,7 +30,7 @@ import { installUpdate, updateStatus } from "./updater.js";
 export function registerApi(window: BrowserWindow) {
     let nextTaskId = 1;
     let job: { task: Task, controller: AbortController } | undefined;
-    let upload: { task: Task, browser: Browser } | undefined;
+    let upload: { task: Task, browser: Browser | BrowserContext } | undefined;
 
     const gpuTemperature = app.isPackaged
         ? path.join(process.resourcesPath, 'native', 'gpu-temperature')
@@ -46,13 +51,14 @@ export function registerApi(window: BrowserWindow) {
     }
 
     // The browser stays open so the user can order there; closing it by hand ends the task as well.
-    function keepBrowser(browser: Browser, title: string, order: string) {
+    function keepBrowser(browser: Browser | BrowserContext, title: string, order: string) {
         upload = { task: { id: nextTaskId++, kind: 'browser', title, order, stoppable: true }, browser };
-        browser.on('disconnected', () => {
+        const closed = () => {
             if (upload?.browser !== browser) return;
             upload = undefined;
             publishTasks();
-        });
+        };
+        if ('contexts' in browser) browser.on('disconnected', closed); else browser.on('close', closed);
     }
 
     window.on('closed', () => void closeUploadBrowser());
@@ -72,6 +78,11 @@ export function registerApi(window: BrowserWindow) {
             job = undefined;
             publishTasks();
         }
+    }
+
+    // A task of the order may be writing its images right now.
+    function assertIdle(order: string) {
+        if (job?.task.order === order) throw new Error(`${job.task.title} is still running. Wait for it or cancel it first.`);
     }
 
     const handlers: Api = {
@@ -104,9 +115,36 @@ export function registerApi(window: BrowserWindow) {
         listOrders: loadOrders,
         saveOrder,
         deleteOrder,
+        async moveOrder(order, shop) {
+            assertIdle(order.name);
+            await moveOrder(order, shop);
+        },
+        async copyOrder(order, shop, name) {
+            assertIdle(order.name);
+            await copyOrder(order, shop, name);
+        },
+        listCardbacks: searchCardbacks,
         async previewCardBack(driveId) {
             const preview = await sharp(await downloadDriveImage(driveId)).resize(240).jpeg({ quality: 80 }).toBuffer();
             return `data:image/jpeg;base64,${preview.toString('base64')}`;
+        },
+        async saveMpcfillXml(order) {
+            const { fronts, backs } = mpcfillImages(order);
+            const images = [...fronts, ...backs];
+            let missing = 0;
+            for (const image of images) {
+                if (image.local && !await exists(image.id)) missing++;
+            }
+            if (missing > 0) throw new Error(`Process the images first: ${missing} of the images in the XML are not processed yet.`);
+
+            const names = await mpcfillFileNames(images.filter(image => !image.local).map(image => image.id));
+            const result = await dialog.showSaveDialog(window, {
+                defaultPath: path.join(orderDir(order), `${order.name}.xml`),
+                filters: [{ name: 'MPC Autofill order', extensions: ['xml'] }]
+            });
+            if (result.canceled || !result.filePath) return undefined;
+            await fs.writeFile(result.filePath, mpcfillXml(order, names));
+            return result.filePath;
         },
         async openOrderFolder(order) {
             const folder = orderDir(order);
@@ -134,8 +172,8 @@ export function registerApi(window: BrowserWindow) {
             async (onProgress, signal) => {
                 await closeUploadBrowser();
                 try {
-                    const { session, games } = await uploadToMeinspiel(orderName, packs, channel, onProgress, signal);
-                    keepBrowser(session.browser, `meinspiel.de with the games of ${orderName}`, orderName);
+                    const { session, games } = await uploadToMeinspiel(orderName, packs, channel, window.getBounds(), onProgress, signal);
+                    keepBrowser(session.context, `meinspiel.de with the games of ${orderName}`, orderName);
                     return games;
                 } catch (error) {
                     if (signal.aborted) throw error;
@@ -149,6 +187,16 @@ export function registerApi(window: BrowserWindow) {
                 await closeUploadBrowser();
                 keepBrowser(await sendToNotmpc(order, onProgress, signal), `notmpc.eu with the decks of ${order.name}`, order.name);
             }),
+        sendToPrinterstudio: order => runJob(
+            { kind: 'upload', title: `Sending ${order.name} to printerstudio.de`, order: order.name, stoppable: true },
+            async (onProgress, signal) => {
+                await closeUploadBrowser();
+                const { context, unsaved } = await sendToPrinterstudio(order, window.getBounds(), onProgress, signal);
+                keepBrowser(context, `printerstudio.de with the decks of ${order.name}`, order.name);
+                if (unsaved.length > 0) {
+                    throw new Error(`printerstudio.de did not confirm saving deck ${unsaved.join(', ')} in your account. Save it in its tab with "Speichern".`);
+                }
+            }),
         pickMpcfillImages: order => runJob(
             { kind: 'mpcfill', title: `Looking for MPC Autofill images for ${order.name}`, order: order.name, stoppable: true },
             (onProgress, signal) => pickSharpestMpcfillImages(order.cards, onProgress, signal)),
@@ -157,6 +205,7 @@ export function registerApi(window: BrowserWindow) {
         async listTasks() {
             return listTasks();
         },
+        showShopBrowser: showShopWindow,
         async stopTask(id) {
             if (job?.task.id === id) job.controller.abort();
             if (upload?.task.id === id) await closeUploadBrowser();

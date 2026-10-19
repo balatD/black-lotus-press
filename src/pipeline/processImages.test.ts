@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { DefaultOrder, DefaultProfile, type Order, type OrderCard, type ScryfallCard } from "../model.js";
 import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
 import { forgetImages, imageStatus, processImages, settingsFingerprint } from "./processImages.js";
+import { moveOrder, saveOrder } from "../config/orderConfigManager.js";
 
 const scan = await sharp({ create: { width: 745, height: 1040, channels: 4, background: { r: 90, g: 60, b: 40, alpha: 1 } } }).png().toBuffer();
 const mpcImage = await sharp({ create: { width: 816, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toBuffer();
@@ -68,6 +69,31 @@ test('processImages makes sRGB print images for notmpc', async () => {
     await processImages(target, 'cmyk');
 
     assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
+});
+
+test('processImages makes sRGB print images of at least 816 × 1110 pixels for printerstudio', async () => {
+    const target = { ...order([card('a', 1)], 300), shop: 'printerstudio' as const };
+
+    await processImages(target, 'cmyk');
+
+    for (const file of ['scryfall-a-front-b110-c100.jpg', 'cardback-drive1-b110-c100.jpg']) {
+        const image = await sharp(path.join(cardsDir(target), file)).metadata();
+        assert.deepEqual([image.width, image.height, image.space], [816, 1110, 'srgb'], file);
+    }
+});
+
+test('after a move to printerstudio, processImages makes the print images anew from the base images without downloading', async () => {
+    const target = order([card('a', 1)], 300);
+    await saveOrder(target);
+    await processImages(target, 'cmyk');
+    const downloads = fetched.length;
+
+    await moveOrder(target, 'printerstudio');
+    await processImages({ ...target, shop: 'printerstudio' }, 'cmyk');
+
+    assert.equal(fetched.length, downloads);
+    const image = await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata();
+    assert.deepEqual([image.width, image.space], [816, 'srgb']);
 });
 
 test('processImages downloads MPC Autofill images at the height of the print and keeps their bleed', async () => {

@@ -103,11 +103,22 @@ test('buildPacks splits notmpc orders into decks of 612', () => {
     assert.deepEqual(packs.map(pack => pack.length), [612, 88]);
 });
 
-test('packPrice is the pack price at meinspiel and the price of the smallest fitting deck size at notmpc', () => {
+test('buildPacks puts printerstudio cards into its deck sizes, where 55 cards already need a deck of 72', () => {
+    const { packs, droppedTokens } = buildPacks(order([card('island', 54), ...tokens(2)], 'printerstudio'));
+
+    assert.deepEqual(packs.map(pack => pack.length), [54]);
+    assert.deepEqual(droppedTokens.map(token => token.card.id), ['token1', 'token2']);
+    assert.deepEqual(buildPacks(order([card('island', 700)], 'printerstudio')).packs.map(pack => pack.length), [612, 88]);
+});
+
+test('packPrice is the pack price at meinspiel and the price of the smallest fitting deck size at notmpc and printerstudio', () => {
     assert.equal(packPrice('meinspiel', 55), 19.95);
     assert.equal(packPrice('notmpc', 18), 10.85);
     assert.equal(packPrice('notmpc', 60), 21.69);
     assert.equal(packPrice('notmpc', 612), 144.54);
+    assert.equal(packPrice('printerstudio', 54), 18.10);
+    assert.equal(packPrice('printerstudio', 100), 31.30);
+    assert.equal(packPrice('printerstudio', 612), 143.45);
 });
 
 test('cardFaces prefers the own back over the double-faced back over the card back', () => {

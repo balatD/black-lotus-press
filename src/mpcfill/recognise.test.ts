@@ -78,7 +78,7 @@ test('recogniseMpcfillImages counts images whose preview cannot be loaded as not
     });
     const small = 'https://cards.scryfall.io/small/front/a/b/one.jpg';
     const withImages = { ...printing('one'), image_uris: { small, normal: small, large: small, png: small, art_crop: small, border_crop: small } };
-    const image = (identifier: string) => ({ identifier, name: 'Card', sourceName: 'Source', dpi: 1200, tags: [] });
+    const image = (identifier: string) => ({ identifier, name: 'Card', extension: 'png', sourceName: 'Source', dpi: 1200, tags: [] });
 
     const results = await recogniseMpcfillImages('front', [withImages], [image('good'), image('broken')]);
 
@@ -104,7 +104,7 @@ test('pickSharpestMpcfillImages takes the image of the highest resolution that s
         if (url.endsWith('/2/tags/')) return json({ tags: [] });
         if (url.endsWith('/2/editorSearch/')) return json({ results: { Card: { CARD: ['blurry', 'other', 'sharp'] } } });
         if (url.endsWith('/2/cards/')) {
-            const card = (identifier: string, dpi: number) => ({ identifier, name: 'Card', sourceName: 'Source', dpi, tags: [] });
+            const card = (identifier: string, dpi: number) => ({ identifier, name: 'Card', extension: 'png', sourceName: 'Source', dpi, tags: [] });
             return json({ results: { blurry: card('blurry', 600), other: card('other', 1200), sharp: card('sharp', 800) } });
         }
         const id = Object.keys(previews).find(key => url.includes(`/${key}-small`));

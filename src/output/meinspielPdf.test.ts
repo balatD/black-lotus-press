@@ -8,12 +8,12 @@ import { buildPdfs, writePackPdf, writePacks } from "./meinspielPdf.js";
 import { CARDS_PER_PACK } from "../pipeline/packs.js";
 import { cardsDir, setDataRoot } from "../config/paths.js";
 import { DefaultOrder, type Order, type ProgressEvent } from "../model.js";
-import { createBlankPrintJpeg, toPrintJpeg } from "./printImage.js";
+import { createBlankPrintJpeg, pageSizeInPixels, toPrintJpeg } from "./printImage.js";
 
 test('writePackPdf writes 69x94 mm pages with trim box and output intent, without the XMP metadata meinspiel.de fails on', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'meinspiel-pdf-'));
     const back = path.join(dir, 'back.jpg');
-    await createBlankPrintJpeg(back, 300, 'cmyk');
+    await createBlankPrintJpeg(back, pageSizeInPixels(300), 'cmyk');
     const output = path.join(dir, 'backs.pdf');
 
     await writePackPdf(Array(CARDS_PER_PACK).fill(back), new Uint8Array([1, 2, 3]), output);
@@ -43,8 +43,8 @@ test('writePackPdf writes 69x94 mm pages with trim box and output intent, withou
 test('writePacks writes a fronts and a backs PDF per pack', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'meinspiel-pdf-'));
     const red = Buffer.from(`<svg width="10" height="10"><rect width="10" height="10" fill="red"/></svg>`);
-    await toPrintJpeg(red, path.join(dir, 'front.jpg'), 300, 'cmyk', { brightness: 1, contrast: 1 });
-    await createBlankPrintJpeg(path.join(dir, 'back.jpg'), 300, 'cmyk');
+    await toPrintJpeg(red, path.join(dir, 'front.jpg'), pageSizeInPixels(300), 'cmyk', { brightness: 1, contrast: 1 });
+    await createBlankPrintJpeg(path.join(dir, 'back.jpg'), pageSizeInPixels(300), 'cmyk');
     const pack = Array(CARDS_PER_PACK).fill({ front: 'front.jpg', back: 'back.jpg' });
 
     const events: ProgressEvent[] = [];
@@ -82,7 +82,7 @@ test('buildPdfs writes one fronts and one backs PDF per pack from the processed 
     const order = await orderWithOneCard();
     await fs.mkdir(cardsDir(order), { recursive: true });
     for (const file of ['scryfall-island-front-b110-c100.jpg', 'cardback-drive1-b110-c100.jpg', 'blank.jpg']) {
-        await createBlankPrintJpeg(path.join(cardsDir(order), file), 150, 'cmyk');
+        await createBlankPrintJpeg(path.join(cardsDir(order), file), pageSizeInPixels(150), 'cmyk');
     }
 
     const { packs, droppedTokens } = await buildPdfs(order, new Uint8Array([1]));

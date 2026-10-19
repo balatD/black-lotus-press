@@ -11,7 +11,7 @@ import { downloadDriveImage } from "../clients/googleDrive.js";
 import { postProcessImage } from "./postProcessing.js";
 import { upscaleImage } from "./upscayl.js";
 import { prepareCustomImage } from "./customImage.js";
-import { createBlankPrintJpeg, pageSizeInPixels, PREVIEW_DIR, toPrintJpeg } from "../output/printImage.js";
+import { createBlankPrintJpeg, pageSizeInPixels, PREVIEW_DIR, printSizeInPixels, toPrintJpeg } from "../output/printImage.js";
 import { exists, renameWithRetry } from "../utils/fs.js";
 
 // Bump whenever a code change alters the processed images, so existing caches get rebuilt.
@@ -49,9 +49,9 @@ export function faceJobs(order: Order): Map<string, Face> {
 export async function processImages(order: Order, iccProfile: string, onProgress?: OnProgress, signal?: AbortSignal) {
     const dir = cardsDir(order);
     const tmpDir = path.join(dir, '.tmp');
-    const dpi = order.profile.postProcessing.dpi;
-    // notmpc.eu prints RGB images; meinspiel.de wants CMYK in its own profile.
-    const colour = order.shop === 'notmpc' ? 'srgb' : iccProfile;
+    const size = printSizeInPixels(order.shop, order.profile.postProcessing.dpi);
+    // notmpc.eu and printerstudio.de print RGB images; meinspiel.de wants CMYK in its own profile.
+    const colour = order.shop === 'meinspiel' ? iccProfile : 'srgb';
     await prepareCache(dir, settingsFingerprint(order.profile));
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.mkdir(tmpDir, { recursive: true });
@@ -87,9 +87,9 @@ export async function processImages(order: Order, iccProfile: string, onProgress
             const tmpFile = path.join(tmpDir, face.file);
             if (face.base && face.adjustments) {
                 await ensureBase(face, face.base);
-                await toPrintJpeg(path.join(dir, face.base), tmpFile, dpi, colour, face.adjustments);
+                await toPrintJpeg(path.join(dir, face.base), tmpFile, size, colour, face.adjustments);
             } else {
-                await createBlankPrintJpeg(tmpFile, dpi, colour);
+                await createBlankPrintJpeg(tmpFile, size, colour);
             }
             signal?.throwIfAborted();
 
@@ -131,6 +131,26 @@ export async function forgetImages(order: Order, files: string[]) {
         if (!stems.some(stem => file === `base-${stem}.jpg` || file.startsWith(`${stem}-b`))) continue;
         await fs.rm(path.join(dir, file), { force: true });
         await fs.rm(path.join(dir, PREVIEW_DIR, file), { force: true });
+    }
+}
+
+// For an order that moves to another shop: its print images have the old shop's colours and size.
+// The base images stay, so making the print images anew only takes seconds.
+export async function forgetPrintImages(order: Order) {
+    const dir = cardsDir(order);
+    if (await exists(dir)) await removeUnusedPrintImages(dir, new Set());
+}
+
+// For a copy of the order with the same profile, so it neither downloads nor upscales anything again.
+export async function copyBaseImages(from: Order, to: Order) {
+    const source = cardsDir(from);
+    if (!await exists(path.join(source, 'cache.json'))) return;
+
+    const target = cardsDir(to);
+    await fs.mkdir(target, { recursive: true });
+    for (const file of await fs.readdir(source)) {
+        if (file !== 'cache.json' && !file.startsWith('base-')) continue;
+        await fs.copyFile(path.join(source, file), path.join(target, file), fs.constants.COPYFILE_FICLONE);
     }
 }
 

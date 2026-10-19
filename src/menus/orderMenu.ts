@@ -24,7 +24,7 @@ export async function runOrderMenu() {
     const order = await runSelectOrder('Select an order to process:', true, true, true);
     if (!order) return;
     if (order.shop !== 'meinspiel') {
-        console.log('\n' + ui.attention('This order is for notmpc.eu, which only the app can print.') + '\n');
+        console.log('\n' + ui.attention(`This order is for ${order.shop === 'notmpc' ? 'notmpc.eu' : 'printerstudio.de'}, which only the app can print.`) + '\n');
         return;
     }
 

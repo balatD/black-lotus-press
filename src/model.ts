@@ -177,7 +177,7 @@ export interface ImportedState {
     printingId?: string;
 }
 
-export type Shop = 'meinspiel' | 'notmpc';
+export type Shop = 'meinspiel' | 'notmpc' | 'printerstudio';
 
 export interface Order {
     name: string;
@@ -216,10 +216,31 @@ export interface UploadedGame {
     url: string
 }
 
+export interface HandoverStep {
+    label: string;
+    state: 'pending' | 'active' | 'done' | 'warning' | 'failed';
+    detail?: string;
+    // How far the step is, where it can be counted: images uploaded, bytes sent.
+    progress?: { done: number, total: number };
+}
+
+// Handing an order to a shop in its browser window, as the app and the bar over the shop's pages show it.
+export interface Handover {
+    order: string;
+    title: string;
+    steps: HandoverStep[];
+    // Selectors of what the user is to fill in on the shop's page, with what to do there.
+    highlight?: string[];
+    callout?: string;
+    // What is left to the user once every step is done.
+    next?: string;
+}
+
 export type ProgressEvent =
     | { type: 'progress', done: number, total: number, message: string }
     | { type: 'face-ready', file: string, bytes: number }
-    | { type: 'face-failed', file: string, error: string };
+    | { type: 'face-failed', file: string, error: string }
+    | { type: 'handover', handover: Handover };
 
 export type OnProgress = (event: ProgressEvent) => void;
 

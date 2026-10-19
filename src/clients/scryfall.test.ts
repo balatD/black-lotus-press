@@ -22,6 +22,35 @@ function mockPages(pages: Record<string, unknown>) {
     return urls;
 }
 
+test('searchPrintings waits out the 30 seconds Scryfall blocks it for after a 429, then asks again', async () => {
+    const statuses = [429, 200];
+    const asked: number[] = [];
+    // From the real time on, which the limiter took when it was made.
+    mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+    const start = Date.now();
+    mock.method(globalThis, 'fetch', async () => {
+        asked.push(Date.now() - start);
+        return statuses.shift() === 429
+            ? new Response('{"object":"error","code":"rate_limited"}', { status: 429 })
+            : Response.json({ data: [printing('a')], has_more: false });
+    });
+
+    try {
+        let done = false;
+        const search = searchPrintings({ name: 'Sol Ring', printing: printing('a') }).finally(() => done = true);
+        for (let second = 0; !done && second < 60; second++) {
+            await new Promise(resolve => setImmediate(resolve));
+            mock.timers.tick(1000);
+        }
+
+        assert.deepEqual((await search).map(p => p.id), ['a']);
+        assert.equal(asked.length, 2);
+        assert.ok(asked[1]! - asked[0]! >= 30_000, `asked again after ${asked[1]! - asked[0]!} ms`);
+    } finally {
+        mock.timers.reset();
+    }
+});
+
 test('searchPrintings finds all printings by oracle id, including extras, across pages', async () => {
     const urls = mockPages({
         'page=2': { data: [printing('b')], has_more: false },

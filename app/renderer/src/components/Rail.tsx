@@ -25,11 +25,7 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
     const [name, setName] = useState('');
     const [error, setError] = useState<string>();
 
-    // Orders of both shops share one folder, so a name must be free in both.
-    const taken = orders.find(order => order.name === name);
-    const problem = !isValidOrderName(name)
-        ? 'Use a name without \\ / : * ? " < > | and without spaces at the ends.'
-        : taken ? `An order with this name exists already${taken.shop === shop ? '' : ` for ${SHOPS[taken.shop].name}`}.` : undefined;
+    const problem = orderNameProblem(name, orders, shop);
 
     async function submit(event: FormEvent) {
         event.preventDefault();
@@ -93,9 +89,17 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
     );
 }
 
+// Orders of every shop share one folder, so a name must be free in all of them.
+export function orderNameProblem(name: string, orders: Order[], shop: Shop | undefined) {
+    const taken = orders.find(order => order.name === name);
+    return !isValidOrderName(name)
+        ? 'Use a name without \\ / : * ? " < > | and without spaces at the ends.'
+        : taken ? `An order with this name exists already${taken.shop === shop ? '' : ` for ${SHOPS[taken.shop].name}`}.` : undefined;
+}
+
 function describe(order: Order) {
     if (order.cards.length === 0) return 'not imported';
     const packs = buildPacks(order).packs.length;
-    const unit = order.shop === 'notmpc' ? 'deck' : 'pack';
+    const unit = order.shop === 'meinspiel' ? 'pack' : 'deck';
     return packs === 1 ? `1 ${unit}` : `${packs} ${unit}s`;
 }

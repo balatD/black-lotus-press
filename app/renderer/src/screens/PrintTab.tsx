@@ -1,14 +1,15 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import {
-    AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileText, FolderOpen, Gauge, Image as ImageIcon,
+    AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FileText, FolderOpen, Gauge, Image as ImageIcon,
     Maximize2, Package, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
-import { DEFAULT_ADJUSTMENTS, type GpuStats, type Order, type OrderCard, type PackFiles } from "../../../../src/model.js";
+import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, type PackFiles } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
     cardBackFace,
     cardFaces,
+    driveId,
     estimatePackBytes,
     type Face,
     faceImageUris,
@@ -27,6 +28,7 @@ import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
 import { useGpuStats } from "../useGpuStats.js";
 import { SHOPS } from "../shops.js";
+import { HandoverOverlay } from "../components/HandoverOverlay.js";
 
 export interface BuiltPdfs {
     // The packs and image settings the PDFs were built from.
@@ -58,6 +60,10 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     const [error, setError] = useState<string>();
     const [packIndex, setPackIndex] = useState(0);
     const [side, setSide] = useState<'front' | 'back'>('front');
+    const [savedXml, setSavedXml] = useState<string>();
+    // The hand-over to the shop, shown from the click on upload or send until it is closed.
+    const [handover, setHandover] = useState<Handover>();
+    const [showHandover, setShowHandover] = useState(false);
     const tasks = useTasks();
     const running = tasks.find(task => task.kind !== 'browser');
     const job = running?.order === order.name ? running : undefined;
@@ -75,7 +81,8 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
 
     useEffect(() => api.onProgress(event => {
         if (event.type === 'face-ready') setStatus(current => ({ ...current, files: { ...current.files, [event.file]: event.bytes } }));
-    }), []);
+        if (event.type === 'handover' && event.handover.order === order.name) setHandover(event.handover);
+    }), [order.name]);
 
     const { packs, droppedTokens } = buildPacks(order);
     const cards = new Map(order.cards.map(card => [card.id, card]));
@@ -85,6 +92,12 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     const pdfKey = JSON.stringify([status.version, packs]);
     const pdfs = built?.key === pdfKey ? built.packs : undefined;
     const tooBig = pdfs?.some(pack => pack.bytes > MAX_UPLOAD_BYTES) ?? false;
+    // The XML has MPC Autofill images by their id and only needs the processed images of the other cards.
+    const xmlReady = packs.flat().every(slot => {
+        const card = slot.cardId === undefined ? undefined : cards.get(slot.cardId);
+        const faces = card && cardFaces(card, order);
+        return !faces || [faces.front, faces.back].every(face => driveId(face) !== undefined || status.files[face.file] !== undefined);
+    });
 
     async function run<T>(work: () => Promise<T>, done?: (result: T) => void) {
         setError(undefined);
@@ -104,12 +117,22 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
         void reprocess([...needed]);
     };
     const buildPdfs = () => run(() => api.buildPdfs(order), result => onBuilt({ key: pdfKey, packs: result.packs }));
+    const handOver = () => {
+        setHandover(undefined);
+        setShowHandover(true);
+    };
     const upload = () => {
         if (!pdfs || !window.confirm('Upload the PDFs to meinspiel.de? This confirms that you followed their design and PDF guidelines.')) return;
+        handOver();
         void run(() => api.uploadPacks(order.name, pdfs, order.profile.playwrightChannel),
             games => update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games } })));
     };
     const sendToNotmpc = () => run(() => api.sendToNotmpc(order));
+    const sendToPrinterstudio = () => {
+        handOver();
+        void run(() => api.sendToPrinterstudio(order));
+    };
+    const saveXml = () => run(() => api.saveMpcfillXml(order), file => file && setSavedXml(file));
 
     if (packs.length === 0) {
         return (
@@ -121,10 +144,15 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     }
 
     const pack = packs[Math.min(packIndex, packs.length - 1)]!;
-    const unit = order.shop === 'notmpc' ? 'Deck' : 'Pack';
+    const unit = order.shop === 'meinspiel' ? 'Pack' : 'Deck';
 
     return (
         <div className="print">
+            {showHandover && handover && (
+                <HandoverOverlay handover={handover} running={job?.kind === 'upload'} browserOpen={job?.kind === 'upload' || browser !== undefined}
+                                 onShowBrowser={() => void api.showShopBrowser()} onCancel={() => job && void api.stopTask(job.id)}
+                                 onClose={() => setShowHandover(false)}/>
+            )}
             <ol className="steps">
                 <li>
                     <h2><WandSparkles/>Process the card images</h2>
@@ -162,7 +190,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                 </li>
                 <li>
                     <h2><CloudUpload/>Upload to meinspiel.de</h2>
-                    <p className="muted">Log in when the browser opens. Every pack becomes a game in your account; you choose the box and order there yourself.</p>
+                    <p className="muted">A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account; you choose the box and order there yourself.</p>
                     <div className="row">
                         <button className={pdfs && !tooBig && !order.uploaded ? 'primary' : ''} disabled={running !== undefined || !pdfs || tooBig} onClick={upload}><CloudUpload/>Upload</button>
                         {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
@@ -175,7 +203,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                                 {order.uploaded.games.map(game => (
                                     <li key={game.id} className={game.saved ? '' : 'warning'}>
                                         <a href={game.url} target="_blank" rel="noreferrer">{game.name}<ExternalLink/></a>
-                                        : {game.saved ? 'saved in your account' : 'not saved in your account. Click "Speichern" in its tab of the upload browser.'}
+                                        : {game.saved ? 'saved in your account' : 'not saved in your account. Click "Speichern" in its window of the upload browser.'}
                                     </li>
                                 ))}
                             </ul>
@@ -202,9 +230,38 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
                     </li>
                 )}
+                {order.shop === 'printerstudio' && (
+                    <li>
+                        <h2><CloudUpload/>Send to printerstudio.de</h2>
+                        <p className="muted">
+                            The browser opens printerstudio.de, where you log in or sign up first. Then the app fills their designer for 63 × 88 mm cards on Standard (glatt) stock,
+                            one window per deck, and saves each deck as a project in your account, named after the order and the date. Each window stops at the preview:
+                            check it, confirm the copyright and put the deck into the cart yourself.
+                        </p>
+                        <div className="row">
+                            <button className={allProcessed && !browser ? 'primary' : ''} disabled={running !== undefined || !allProcessed} onClick={() => void sendToPrinterstudio()}><CloudUpload/>Send to printerstudio.de</button>
+                            {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
+                            {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
+                        </div>
+                        {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
+                    </li>
+                )}
             </ol>
 
             {error && <p className="error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
+
+            <section className="xml-section">
+                <h2><FileCode/>MPC Autofill XML</h2>
+                <p className="muted">
+                    The cards of this order as an order file of MPC Autofill: its images by their ID, the other cards as their processed images on this computer.
+                    MPC Autofill's desktop tool orders it at MakePlayingCards or PrinterStudio; its editor on mpcfill.com takes it as well, with images of its own for the cards from this computer.
+                </p>
+                <div className="row">
+                    <button disabled={running !== undefined || !xmlReady} onClick={() => void saveXml()}><FileDown/>Save MPC Autofill XML</button>
+                    {!xmlReady && <span className="status">Process the images first: the cards without an MPC Autofill image go into the XML as their processed images.</span>}
+                    {savedXml && <span className="status">Saved as {savedXml}</span>}
+                </div>
+            </section>
 
             <section className="adjust-section">
                 <h2><Sun/>Brightness and contrast</h2>
@@ -259,7 +316,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         <span>{side === 'front' ? 'Fronts' : 'Backs'}</span>
                         <span>69 × 94 mm with 3 mm bleed</span>
                         <span>{order.profile.postProcessing.dpi} dpi</span>
-                        <span>{order.shop === 'notmpc' ? 'sRGB' : 'ISO Coated v2 300% (ECI)'}</span>
+                        <span>{order.shop === 'meinspiel' ? 'ISO Coated v2 300% (ECI)' : 'sRGB'}</span>
                     </p>
                 </div>
                 </div>
@@ -269,7 +326,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                                 onIndex={setOpened} onClose={() => setOpened(undefined)}/>
                 )}
                 {droppedTokens.length > 0 && (
-                    <p className="muted">Not in any {unit.toLowerCase()} because they would need {order.shop === 'notmpc' ? 'a larger one' : 'another one'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
+                    <p className="muted">Not in any {unit.toLowerCase()} because they would need {order.shop === 'meinspiel' ? 'another one' : 'a larger one'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
                 )}
             </section>
         </div>
@@ -335,7 +392,7 @@ function SlotDialog({ pack, packNumber, index, cards, order, status, busy, onRep
                 <div>
                     <h2>{card?.name ?? 'Blank card'}</h2>
                     <span className="meta">
-                        Card {index + 1} of {pack.length} in {order.shop === 'notmpc' ? 'deck' : 'pack'} {packNumber}
+                        Card {index + 1} of {pack.length} in {order.shop === 'meinspiel' ? 'pack' : 'deck'} {packNumber}
                         {adjustments ? `, brightness ${percent(adjustments.brightness)}, contrast ${percent(adjustments.contrast)}` : ''}
                     </span>
                 </div>

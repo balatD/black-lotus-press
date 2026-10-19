@@ -5,7 +5,7 @@ import { setTimeout } from "node:timers/promises";
 import sharp from "sharp";
 import { cardsDir } from "../config/paths.js";
 import type { OnProgress, Order } from "../model.js";
-import { buildPacks, cardBackFace, type Face, notmpcDeck } from "../pipeline/packs.js";
+import { buildPacks, cardBackFace, driveId, type Face, shopDeck } from "../pipeline/packs.js";
 import { faceJobs } from "../pipeline/processImages.js";
 import { hasBleed } from "../pipeline/customImage.js";
 import { pageSizeInPixels } from "../output/printImage.js";
@@ -18,7 +18,7 @@ const UPLOAD_PAUSE_MS = 60_000;
 const UPLOAD_PAUSES = 15;
 
 function designerUrl(cards: number) {
-    return `${BASE_URL}/de/stepper/?border=none&size=${notmpcDeck(cards)[0]}&finish=BLACKCORE`;
+    return `${BASE_URL}/de/stepper/?border=none&size=${shopDeck('notmpc', cards)[0]}&finish=BLACKCORE`;
 }
 
 // Links or uploads the print images and opens one designer per deck with every card in its slot.
@@ -64,7 +64,7 @@ export async function sendToNotmpc(order: Order, onProgress?: OnProgress, signal
 // Images on Google Drive go into the order file as links, which notmpc.eu loads itself, when they need no processing:
 // no brightness or contrast of their own and the bleed in the image already.
 export async function linkedImage(face: Face, height: number): Promise<string | undefined> {
-    const id = face.source.type === 'mpcfill' ? face.source.id : face.source.type === 'cardback' ? face.source.driveId : undefined;
+    const id = driveId(face);
     if (!id || face.adjustments?.brightness !== 1 || face.adjustments.contrast !== 1) return undefined;
 
     const shape = await sharp(await downloadDriveImage(id, 200)).metadata();

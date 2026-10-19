@@ -71,6 +71,19 @@ export function App() {
         setView({ type: 'none' });
     }
 
+    // Afterwards the app goes to the order's new shop, where it opens.
+    async function sendToShop(order: Order, target: Shop, copyName?: string) {
+        await flushSaves();
+        if (copyName === undefined) {
+            await api.moveOrder(order, target);
+        } else {
+            await api.copyOrder(order, target, copyName);
+        }
+        await reload();
+        setShop(target);
+        setView({ type: 'order', name: copyName ?? order.name });
+    }
+
     async function show(next: View) {
         await flushSaves();
         setView(next);
@@ -104,10 +117,13 @@ export function App() {
                     <OrderScreen
                         key={order.name}
                         order={order}
+                        orders={orders}
                         profiles={profiles}
                         onChange={updateOrder}
                         onFlush={flushSaves}
                         onDelete={() => void deleteOrder(order).catch(e => setError(errorMessage(e)))}
+                        onMove={shop => sendToShop(order, shop)}
+                        onCopy={(shop, name) => sendToShop(order, shop, name)}
                     />
                 )}
                 {view.type === 'profiles' && <ProfilesScreen profiles={profiles} onSaved={reload}/>}

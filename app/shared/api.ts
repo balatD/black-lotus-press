@@ -1,4 +1,4 @@
-import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PackFiles, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, UploadedGame } from "../../src/model.js";
+import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PackFiles, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, UploadedGame } from "../../src/model.js";
 import type { DroppedToken } from "../../src/pipeline/packs.js";
 import type { MpcfillCard } from "../../src/clients/mpcfill.js";
 import type { Recognition } from "../../src/mpcfill/recognise.js";
@@ -31,7 +31,15 @@ export interface Api {
     listOrders(): Promise<Order[]>;
     saveOrder(order: Order): Promise<void>;
     deleteOrder(order: Order): Promise<void>;
+    // The order keeps its name; its print images are made anew in the other shop's format.
+    moveOrder(order: Order, shop: Shop): Promise<void>;
+    // A copy under a new name, with the processed downloads, so nothing is upscaled again.
+    copyOrder(order: Order, shop: Shop, name: string): Promise<void>;
+    // Every card back of MPC Autofill, in its order.
+    listCardbacks(): Promise<MpcfillCard[]>;
     previewCardBack(driveId: string): Promise<string>;
+    // Asks where to save the order file; the path, or undefined when the dialog was cancelled.
+    saveMpcfillXml(order: Order): Promise<string | undefined>;
     openOrderFolder(order: Order): Promise<void>;
 
     // Long-running jobs report through onProgress and show up in the tasks; only one runs at a time.
@@ -44,9 +52,13 @@ export interface Api {
     uploadPacks(orderName: string, packs: PackFiles[], channel: PlaywrightChannel): Promise<UploadedGame[]>;
     // Uploads the print images and fills a notmpc.eu designer per deck; the browser stays open like after uploadPacks.
     sendToNotmpc(order: Order): Promise<void>;
+    // Fills a printerstudio.de designer per deck up to its preview; the browser stays open like after uploadPacks.
+    sendToPrinterstudio(order: Order): Promise<void>;
     // The sharpest MPC Autofill images that show the printings, by card id, for the cards without an own or MPC Autofill image.
     pickMpcfillImages(order: Order): Promise<Record<string, MpcfillImage>>;
     listTasks(): Promise<Task[]>;
+    // Brings the window of meinspiel.de or printerstudio.de to the front, while it is open.
+    showShopBrowser(): Promise<void>;
     // Stopping a browser task closes its browser.
     stopTask(id: number): Promise<void>;
 
@@ -71,8 +83,8 @@ export interface Api {
 
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
-    'listOrders', 'saveOrder', 'deleteOrder', 'previewCardBack', 'openOrderFolder',
-    'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'pickMpcfillImages', 'listTasks', 'stopTask',
+    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'openOrderFolder',
+    'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
     'imageStatus', 'gpuStats', 'searchPrintings', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 

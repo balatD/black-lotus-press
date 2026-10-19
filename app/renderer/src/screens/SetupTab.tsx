@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleStop, Download, ExternalLink, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
+import { CircleStop, Download, Images, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
 import { type DeckConfig, DeckData, isMoxfieldDeckUrl, type Order, type OrderCard, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
 import type { Task } from "../../../shared/api.js";
 import { api, errorMessage, wasStopped } from "../api.js";
@@ -8,6 +8,7 @@ import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
 import { PrintingReview } from "../components/PrintingReview.js";
 import { count, describeProcessing } from "../format.js";
+import { CardbackPicker } from "../components/CardbackPicker.js";
 
 interface Props {
     order: Order;
@@ -28,7 +29,6 @@ const BOARDS: [DeckData, string][] = [
 ];
 
 const NEW_DECK_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens];
-const MPC_CARD_BACKS = 'https://mpcautofill.github.io/explore';
 
 export function SetupTab({ order, profiles, update }: Props) {
     const onChange = (changed: Order) => update(() => changed);
@@ -118,6 +118,7 @@ export function SetupTab({ order, profiles, update }: Props) {
 
 function CardBack({ driveId, onChange }: { driveId: string, onChange(driveId: string): void }) {
     const [preview, setPreview] = useState<{ src?: string, error?: string }>({});
+    const [choosing, setChoosing] = useState(false);
 
     useEffect(() => {
         setPreview({});
@@ -150,11 +151,12 @@ function CardBack({ driveId, onChange }: { driveId: string, onChange(driveId: st
                     {preview.error
                         ? <span className="status error">{preview.error}</span>
                         : <span className="status">The Google Drive ID of a card back from the MPC Autofill database. It is printed on every card without its own back.</span>}
-                    <span className="status">
-                        More card backs: on <a href={MPC_CARD_BACKS} target="_blank" rel="noreferrer">MPC Autofill's Explore page<ExternalLink/></a> pick the type Cardback, open a card back and copy its Identifier.
-                    </span>
+                    <div className="row">
+                        <button onClick={() => setChoosing(true)}><Images/>Choose from MPC Autofill</button>
+                    </div>
                 </div>
             </div>
+            {choosing && <CardbackPicker current={driveId} onPick={onChange} onClose={() => setChoosing(false)}/>}
         </section>
     );
 }

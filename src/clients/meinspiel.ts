@@ -1,8 +1,13 @@
-import { type APIRequestContext, type Browser, chromium, errors, type Page } from "playwright";
-import { readFile } from "node:fs/promises";
+import { type APIRequestContext, type BrowserContext, errors, type Page } from "playwright";
+import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type { OnProgress, PackFiles, PlaywrightChannel, UploadedGame } from "../model.js";
+import type { HandoverStep, OnProgress, PackFiles, PlaywrightChannel, UploadedGame } from "../model.js";
+import { openShopWindow, type ShopWindow, stepProgress, type WindowBounds } from "./shopWindow.js";
 
 const BASE_URL = 'https://www.meinspiel.de';
 // "Individuelle Spielkarten (PDF) - 55 Karten - 63*88mm"
@@ -13,25 +18,11 @@ export const MANUAL_UPLOAD_URL = `${BASE_URL}/konfigurator/game?tid=${TEMPLATE_I
 const PROCESSING_TIMEOUT_MS = 15 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 15 * 60 * 1000;
 const COOKIE_BANNER_TIMEOUT_MS = 15 * 1000;
+const SETTLE_LOADS = 5;
 
 export interface MeinspielSession {
-    browser: Browser,
+    context: BrowserContext,
     page: Page
-}
-
-
-// Aborting closes the browser, so the pending call fails right away.
-export async function openMeinspielSession(channel: PlaywrightChannel, signal?: AbortSignal): Promise<MeinspielSession> {
-    const browser = await chromium.launch({ channel, headless: false });
-    signal?.addEventListener('abort', () => void browser.close(), { once: true });
-    if (signal?.aborted) {
-        await browser.close();
-        signal.throwIfAborted();
-    }
-    const page = await (await browser.newContext()).newPage();
-    await page.goto(`${BASE_URL}/login`);
-    await acceptAllCookies(page);
-    return { browser, page };
 }
 
 async function acceptAllCookies(page: Page) {
@@ -44,23 +35,40 @@ async function acceptAllCookies(page: Page) {
     }
 }
 
+const sessionId = async (session: MeinspielSession) =>
+    (await session.context.cookies(BASE_URL)).find(cookie => cookie.name === 'PHPSESSID')?.value;
+
+// meinspiel.de gives a new session another id on its first loads, and a login made before that is lost.
+export async function settleSession(session: MeinspielSession) {
+    let id = await sessionId(session);
+    for (let load = 0; load < SETTLE_LOADS; load++) {
+        await session.page.request.get(`${BASE_URL}/login`);
+        const next = await sessionId(session);
+        if (next && next === id) return;
+        id = next;
+    }
+}
+
 // The user logs in by hand in the visible browser; the tool never sees the credentials.
+// Asks only once a page has loaded: a request of the app's own crossing the login form on its way can cost the user that login.
 export async function waitForLogin(session: MeinspielSession): Promise<string> {
     const deadline = Date.now() + LOGIN_TIMEOUT_MS;
-    while (Date.now() < deadline) {
+    for (;;) {
         const user = await (await session.page.request.get(`${BASE_URL}/api/users`)).json();
         if (user.id !== 0) return user.username || user.email;
 
-        await delay(POLL_INTERVAL_MS);
+        await session.page.waitForEvent('load', { timeout: Math.max(deadline - Date.now(), 1) }).catch(error => {
+            throw error instanceof errors.TimeoutError ? new Error(`Not logged in to meinspiel.de within ${LOGIN_TIMEOUT_MS / 60000} minutes.`) : error;
+        });
     }
-
-    throw new Error(`Not logged in to meinspiel.de within ${LOGIN_TIMEOUT_MS / 60000} minutes.`);
 }
 
 // Uses the configurator's own API through the logged-in browser. Games created while logged in are saved to the account.
-export async function uploadPack(session: MeinspielSession, pack: PackFiles, name: string, onStatus: (message: string) => void) {
+export async function uploadPack(session: MeinspielSession, pack: PackFiles, name: string,
+                                 onStatus: (message: string, progress?: HandoverStep['progress']) => void, signal?: AbortSignal) {
     const request = session.page.request;
 
+    onStatus(`Creating the game "${name}"`);
     const gameResponse = await request.post(`${BASE_URL}/api/games`, {
         data: { templateId: TEMPLATE_ID, name, pageId: PAGE_ID }
     });
@@ -69,18 +77,20 @@ export async function uploadPack(session: MeinspielSession, pack: PackFiles, nam
     }
     const gameId: number = (await gameResponse.json()).id;
 
-    const uploadResponse = await request.post(`${BASE_URL}/api/games/${gameId}/pdf/async`, {
-        headers: { accept: 'application/json' },
-        multipart: {
-            pdf_front_sides: await pdfFile(pack.fronts),
-            pdf_back_sides: await pdfFile(pack.backs)
-        },
-        timeout: PROCESSING_TIMEOUT_MS
-    });
-    if (!uploadResponse.ok()) {
-        throw new Error(`Uploading the PDFs failed (${uploadResponse.status()}): ${await uploadResponse.text()}`);
+    const megabytes = (bytes: number) => Math.round(bytes / 1e6);
+    let shown = -1;
+    const cookies = await session.context.cookies(BASE_URL);
+    const browser = { cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; '), userAgent: await session.page.evaluate('navigator.userAgent') as string };
+    const uploadResponse = await postMultipart(`${BASE_URL}/api/games/${gameId}/pdf/async`, browser,
+        [['pdf_front_sides', pack.fronts], ['pdf_back_sides', pack.backs]], (sent, total) => {
+            if (megabytes(sent) === shown) return;
+            shown = megabytes(sent);
+            onStatus(`Uploading its two PDFs: ${shown} of ${megabytes(total)} MB`, { done: sent, total });
+        }, signal);
+    if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+        throw new Error(`Uploading the PDFs failed (${uploadResponse.status}): ${uploadResponse.body}`);
     }
-    const taskId: number = (await uploadResponse.json()).id;
+    const taskId: number = JSON.parse(uploadResponse.body).id;
 
     const game = await waitForProcessing(request, gameId, taskId, onStatus);
     return { id: gameId, saved: game.userId !== 0 };
@@ -98,7 +108,7 @@ async function waitForProcessing(request: APIRequestContext, gameId: number, tas
             throw new Error(`meinspiel.de rejected the PDFs (${status.status()}): ${await status.text()}`);
         }
 
-        onStatus((await status.json()).statusMessage);
+        onStatus(`meinspiel.de processes the PDFs: ${(await status.json()).statusMessage}`);
     }
 
     throw new Error(`meinspiel.de did not finish processing the PDFs within ${PROCESSING_TIMEOUT_MS / 60000} minutes.`);
@@ -116,32 +126,109 @@ export async function showGames(session: MeinspielSession, gameIds: number[]) {
     await session.page.close();
 }
 
-async function pdfFile(filePath: string) {
-    return { name: path.basename(filePath), mimeType: 'application/pdf', buffer: await readFile(filePath) };
+// Playwright's requests tell nothing until they are done, so the PDFs go up through Node with the window's cookies,
+// counting the bytes as they leave.
+export async function postMultipart(url: string, browser: { cookie: string, userAgent: string }, files: [field: string, file: string][],
+                                    onSent: (bytes: number, total: number) => void, signal?: AbortSignal): Promise<{ status: number, body: string }> {
+    const boundary = `BlackLotusPress${randomUUID()}`;
+    const parts = await Promise.all(files.map(async ([field, file]) => ({
+        head: Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="${path.basename(file)}"\r\nContent-Type: application/pdf\r\n\r\n`),
+        file,
+        size: (await stat(file)).size
+    })));
+    const end = Buffer.from('\r\n');
+    const tail = Buffer.from(`--${boundary}--\r\n`);
+    const total = parts.reduce((sum, part) => sum + part.head.length + part.size + end.length, tail.length);
+
+    return await new Promise((resolve, reject) => {
+        const request = (url.startsWith('https:') ? https : http).request(url, {
+            method: 'POST',
+            headers: {
+                accept: 'application/json',
+                cookie: browser.cookie,
+                'user-agent': browser.userAgent,
+                'content-type': `multipart/form-data; boundary=${boundary}`,
+                'content-length': total
+            },
+            timeout: PROCESSING_TIMEOUT_MS,
+            ...(signal ? { signal } : {})
+        }, response => {
+            const chunks: Buffer[] = [];
+            response.on('data', chunk => chunks.push(chunk));
+            response.on('end', () => resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf-8') }));
+            response.on('error', reject);
+        });
+        request.on('error', reject);
+        request.on('timeout', () => request.destroy(new Error(`meinspiel.de took nothing for ${PROCESSING_TIMEOUT_MS / 60000} minutes.`)));
+
+        let sent = 0;
+        // Waits while the connection is full, or until it is gone.
+        const send = (chunk: Buffer) => new Promise<void>(done => {
+            if (request.write(chunk)) return done();
+            request.once('drain', done);
+            request.once('close', done);
+        }).then(() => onSent(sent += chunk.length, total));
+        void (async () => {
+            for (const part of parts) {
+                await send(part.head);
+                for await (const chunk of createReadStream(part.file)) await send(chunk as Buffer);
+                await send(end);
+            }
+            await send(tail);
+            request.end();
+        })().catch(error => request.destroy(error));
+    });
 }
 
+// Each step of the upload is a step of the hand-over, which the app and the bar over meinspiel.de's pages show.
 // On success the browser stays open so the user can order; the caller closes it.
-export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], channel: PlaywrightChannel, onProgress?: OnProgress, signal?: AbortSignal) {
-    const session = await openMeinspielSession(channel, signal);
-    const report = (done: number, message: string) => onProgress?.({ type: 'progress', done, total: packs.length, message });
+export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], channel: PlaywrightChannel, bounds: WindowBounds | undefined,
+                                        onProgress?: OnProgress, signal?: AbortSignal) {
+    const steps: HandoverStep[] = [
+        { label: 'Log in', state: 'active', detail: 'In this window, or create an account; Black Lotus Press never sees your password.' },
+        ...packs.map((_, index): HandoverStep => ({ label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' })),
+        { label: 'Open the games', state: 'pending' }
+    ];
+    const window = await openShopWindow(channel, bounds, {
+        order: orderName, title: `${orderName} to meinspiel.de`, steps,
+        highlight: ['form[action$="/login"]'], callout: 'Log in here, or create an account. Black Lotus Press carries on by itself.'
+    }, onProgress, signal);
+    const session = { context: window.context, page: window.page };
+    const step = progressOf(window, onProgress);
 
     try {
-        report(0, 'Log in to meinspiel.de in the opened browser (or create an account there)');
+        await settleSession(session);
+        await session.page.goto(`${BASE_URL}/login`);
+        await acceptAllCookies(session.page);
         const user = await waitForLogin(session);
+        window.update(handover => ({ ...handover, highlight: [], callout: '' }));
+        step(0, 'done', `Logged in as ${user}`);
 
         const games: UploadedGame[] = [];
         for (const [index, pack] of packs.entries()) {
             const name = `${orderName} - Deck ${index + 1}/${packs.length}`;
-            report(index, `Logged in as ${user}. Uploading "${name}"`);
-            const game = await uploadPack(session, pack, name, message => report(index, `"${name}": ${message}`));
+            const game = await uploadPack(session, pack, name, (message, progress) => step(index + 1, 'active', message, progress), signal);
             games.push({ ...game, name, url: gameUrl(game.id) });
+            step(index + 1, game.saved ? 'done' : 'warning',
+                game.saved ? `Saved in your account as "${name}"` : `"${name}" is not saved in your account; click Speichern in its window`);
         }
 
+        step(packs.length + 1, 'active', `Opening ${games.length === 1 ? 'the game' : `the ${games.length} games, each in its own window`}`);
         await showGames(session, games.map(game => game.id));
-        report(packs.length, `Uploaded ${games.length} deck(s)`);
+        step(packs.length + 1, 'done', `Opened ${games.length === 1 ? 'the game' : `the ${games.length} games`}`);
+        window.update(handover => ({ ...handover, next: 'Choose the box for every game, click Speichern / Bestellen and order on meinspiel.de.' }));
         return { session, games };
     } catch (error) {
-        await session.browser.close();
-        throw error;
+        const reason = window.fail(error);
+        await session.context.close();
+        throw reason;
     }
+}
+
+// Sets a step and reports the steps as the progress, so the bar counts what really happened.
+function progressOf(window: ShopWindow, onProgress?: OnProgress) {
+    return (index: number, state: HandoverStep['state'], detail?: string, progress?: HandoverStep['progress']) => {
+        window.step(index, state, detail, progress);
+        onProgress?.({ type: 'progress', ...stepProgress(window.handover()) });
+    };
 }

@@ -7,9 +7,9 @@ export function ShopPicker({ onPick }: { onPick(shop: Shop): void }) {
             <h1>Where do you want to print?</h1>
             <div className="shops">
                 {(Object.keys(SHOPS) as Shop[]).map(shop => (
-                    <button key={shop} className="shop" onClick={() => onPick(shop)}>
+                    <button key={shop} className="shop" disabled={!SHOPS[shop].available} onClick={() => onPick(shop)}>
                         <span className="proof"><span className="shop-logo"><img src={SHOPS[shop].logo} alt={SHOPS[shop].name}/></span></span>
-                        <span className="meta">{SHOPS[shop].offer}</span>
+                        <span className="meta">{SHOPS[shop].available ? SHOPS[shop].offer : 'Not available at the moment'}</span>
                     </button>
                 ))}
             </div>

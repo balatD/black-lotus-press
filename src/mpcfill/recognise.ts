@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import type { MpcfillImage, OnProgress, OrderCard, ScryfallCard } from "../model.js";
-import { faceImageUris, MPCFILL_BLEED } from "../pipeline/packs.js";
+import { faceImageUris, faceName, MPCFILL_BLEED } from "../pipeline/packs.js";
 import { fetchScryfallImage, searchPrintings } from "../clients/scryfall.js";
 import { fetchMpcfillThumbnail, type MpcfillCard, searchMpcfill, unofficialTags } from "../clients/mpcfill.js";
 
@@ -124,10 +124,7 @@ function illustration(printing: ScryfallCard, face: 'front' | 'back') {
 
 // The MPC Autofill images of a face of the card, searched by the face's name for double-faced cards.
 export async function findMpcfillImages(card: Pick<OrderCard, 'name' | 'printing' | 'isToken'>, face: 'front' | 'back'): Promise<MpcfillCard[]> {
-    const faces = card.printing?.card_faces;
-    const doubleFaced = card.printing !== undefined && faceImageUris(card.printing, 'back') !== undefined;
-    const name = doubleFaced ? faces?.[face === 'front' ? 0 : 1]?.name ?? card.name : card.name;
-    return await searchMpcfill(name, card.isToken ? 'TOKEN' : 'CARD', card.printing?.lang ?? 'en');
+    return await searchMpcfill(faceName(card, face), card.isToken ? 'TOKEN' : 'CARD', card.printing?.lang ?? 'en');
 }
 
 // Printings without a scan that loads are left out of the comparison.

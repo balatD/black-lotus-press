@@ -5,7 +5,7 @@ export function notmpcXml(pack: Slot[], urls: Map<string, string>, cardBack: str
     const url = (file: string) => {
         const found = urls.get(file);
         if (!found) throw new Error(`${file} was not uploaded to notmpc.eu`);
-        return escape(found);
+        return escapeXml(found);
     };
 
     const fronts = new Map<string, number[]>();
@@ -30,6 +30,6 @@ ${cards(backs)}  </backs>
 `;
 }
 
-function escape(text: string) {
+export function escapeXml(text: string) {
     return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }

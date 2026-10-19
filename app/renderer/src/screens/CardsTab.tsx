@@ -1,7 +1,7 @@
 import { type CSSProperties, type DragEvent, useState } from "react";
 import { CircleStop, GripVertical, Images, LayoutGrid, List, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { combineAdjustments, type Order, type OrderCard } from "../../../../src/model.js";
-import { buildPacks, CARDS_PER_PACK, faceImageUris, mpcfillImage, notmpcDeck, packPrice } from "../../../../src/pipeline/packs.js";
+import { buildPacks, CARDS_PER_PACK, faceImageUris, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
 import { printedValue } from "../../../../src/printings.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { boardName, count, describePrinting, formatEuro } from "../format.js";
@@ -231,9 +231,10 @@ function Summary({ order }: { order: Order }) {
     const lowRes = order.cards.filter(card => !card.excluded && !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres').length;
     const value = printedValue(order);
     const price = packs.reduce((total, pack) => total + packPrice(order.shop, pack.length), 0);
-    const packing = order.shop === 'notmpc'
-        ? `${count(packs.length, 'deck')} of up to ${packs.map(pack => notmpcDeck(pack.length)[0]).join(', ')}`
-        : `${count(packs.length, 'pack')} of ${CARDS_PER_PACK}`;
+    const { shop } = order;
+    const packing = shop === 'meinspiel'
+        ? `${count(packs.length, 'pack')} of ${CARDS_PER_PACK}`
+        : `${count(packs.length, 'deck')} of up to ${packs.map(pack => shopDeck(shop, pack.length)[0]).join(', ')}`;
 
     return (
         <div className="summary">
@@ -244,7 +245,7 @@ function Summary({ order }: { order: Order }) {
             </p>
             {blank > 0 && <p>{count(blank, 'slot stays', 'slots stay')} blank.</p>}
             {droppedTokens.length > 0 && (
-                <p>Left out because they would need {order.shop === 'notmpc' ? 'a larger deck' : 'another pack'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
+                <p>Left out because they would need {order.shop === 'meinspiel' ? 'another pack' : 'a larger deck'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
             )}
             {excluded > 0 && <p className="muted">{count(excluded, 'card is', 'cards are')} switched off.</p>}
             {missing > 0 && <p className="error">{count(missing, 'card was', 'cards were')} not found on Scryfall and will not be printed. Pick another printing or an own image.</p>}

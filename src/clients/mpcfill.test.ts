@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
-import { searchMpcfill, unofficialTags } from "./mpcfill.js";
+import { mpcfillFileNames, searchCardbacks, searchMpcfill, unofficialTags } from "./mpcfill.js";
 
-const card = (identifier: string) => ({ identifier, name: `Lightning Bolt ${identifier}`, sourceName: 'Source', dpi: 1200, tags: [], language: 'EN', size: 1 });
+const card = (identifier: string) => ({ identifier, name: `Lightning Bolt ${identifier}`, extension: 'png', sourceName: 'Source', dpi: 1200, tags: [], language: 'EN', size: 1 });
 let searches: { queries: unknown, searchSettings: { sourceSettings: { sources: unknown }, filterSettings: { languages: unknown } } }[] = [];
 
 beforeEach(() => {
@@ -13,6 +13,10 @@ beforeEach(() => {
         if (url.endsWith('/2/editorSearch/')) {
             searches.push(JSON.parse(String(init?.body)));
             return json({ results: { 'Lightning Bolt': { CARD: ['b', 'a', 'gone'] } } });
+        }
+        if (url.endsWith('/2/cardbacks/')) {
+            searches.push(JSON.parse(String(init?.body)));
+            return json({ cardbacks: ['b', 'a', 'gone'] });
         }
         if (url.endsWith('/2/cards/')) return json({ results: { a: card('a'), b: card('b') } });
         if (url.endsWith('/2/tags/')) {
@@ -32,6 +36,18 @@ test('searchMpcfill looks in every source for the language and keeps the order o
     assert.deepEqual(searches[0]?.queries, [{ query: 'Lightning Bolt', cardType: 'CARD' }]);
     assert.deepEqual(searches[0]?.searchSettings.sourceSettings.sources, [[1, true], [2, true]]);
     assert.deepEqual(searches[0]?.searchSettings.filterSettings.languages, ['ZH']);
+});
+
+test('searchCardbacks lists the card backs of every source in the order of MPC Autofill', async () => {
+    const cardbacks = await searchCardbacks();
+
+    assert.deepEqual(cardbacks.map(found => found.identifier), ['b', 'a']);
+    assert.deepEqual(searches.at(-1)?.searchSettings.sourceSettings.sources, [[1, true], [2, true]]);
+    assert.deepEqual(searches.at(-1)?.searchSettings.filterSettings.languages, []);
+});
+
+test('mpcfillFileNames are the names and extensions of the images MPC Autofill still has', async () => {
+    assert.deepEqual(await mpcfillFileNames(['a', 'gone']), new Map([['a', 'Lightning Bolt a.png']]));
 });
 
 test('unofficialTags are the tags of custom art, altered art, custom frames and other names, with their children but AI Remaster', async () => {

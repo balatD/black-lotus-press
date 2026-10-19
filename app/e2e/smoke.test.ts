@@ -46,6 +46,20 @@ before(async () => {
     await fs.writeFile(path.join(root, 'config', 'orders', 'test.json'), JSON.stringify(order));
     const notmpcOrder = { ...DefaultOrder, name: 'eu deck', shop: 'notmpc', cardBack: '', cards: [card('a', 60)] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'eu deck.json'), JSON.stringify(notmpcOrder));
+    const printerstudioOrder = { ...DefaultOrder, name: 'studio deck', shop: 'printerstudio', cardBack: '', cards: [card('a', 55)] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'studio deck.json'), JSON.stringify(printerstudioOrder));
+    const travelOrder = { ...DefaultOrder, name: 'travel deck', cardBack: '', cards: [card('a', 3)] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
+    // Processed, so the order can be saved as an MPC Autofill XML.
+    const xmlOrder = { ...DefaultOrder, name: 'xml deck', shop: 'printerstudio' as const, cardBack: '', cards: [card('a', 2)] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'xml deck.json'), JSON.stringify(xmlOrder));
+    const xmlFaces = cardFaces(xmlOrder.cards[0]!, xmlOrder)!;
+    const xmlCards = path.join(root, 'orders', 'xml deck', 'cards');
+    await fs.mkdir(xmlCards, { recursive: true });
+    await fs.writeFile(path.join(xmlCards, 'cache.json'), JSON.stringify({ settings: settingsFingerprint(DefaultProfile) }));
+    for (const file of [xmlFaces.front.base!, xmlFaces.front.file, xmlFaces.back.base!, xmlFaces.back.file]) {
+        await sharp({ create: { width: 815, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toFile(path.join(xmlCards, file));
+    }
     await fs.writeFile(path.join(root, 'config', 'profiles', 'default.json'), JSON.stringify(DefaultProfile));
     await fs.mkdir(path.join(root, 'config', 'images'), { recursive: true });
     for (const id of ['a', 'b']) {
@@ -257,24 +271,85 @@ test('the profiles screen lists the profile', async () => {
     assert.equal(await window.getByLabel('Resolution', { exact: true }).inputValue(), '300');
 });
 
-test('another shop lists only its own orders, in decks with the way to send them', async () => {
+test('notmpc.eu cannot be chosen while it is not available, and its orders stay out of sight', async () => {
     await window.getByRole('button', { name: 'Switch print shop' }).click();
-    await chooseShop('notmpc.eu');
+    const notmpc = window.locator('.shop-picker').getByRole('button', { name: /notmpc\.eu/ });
 
-    const item = window.getByRole('button', { name: /eu deck/ });
-    assert.match(await item.innerText(), /1 deck/);
-    assert.equal(await window.getByRole('button', { name: /^test/ }).count(), 0);
+    assert.equal(await notmpc.isDisabled(), true);
+    assert.match(await notmpc.innerText(), /Not available at the moment/);
 
-    await item.click();
-    await window.getByText(/60 cards fill 1 deck of up to 72/).waitFor();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+    assert.equal(await window.getByRole('button', { name: /eu deck/ }).count(), 0);
+});
+
+test('printerstudio.de orders come in its deck sizes, with the way to send them', async () => {
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('printerstudio.de');
+
+    await window.getByRole('button', { name: /studio deck/ }).click();
+    await window.getByText(/55 cards fill 1 deck of up to 72/).waitFor();
     await window.getByRole('tab', { name: 'Print' }).click();
-    assert.equal(await window.locator('.sheet .slot').count(), 60);
-    await window.getByRole('button', { name: 'Send to notmpc.eu' }).waitFor();
-    assert.equal(await window.getByRole('button', { name: 'Build PDFs' }).count(), 0);
+    await window.getByRole('button', { name: 'Send to printerstudio.de' }).waitFor();
+    assert.equal(await window.getByRole('button', { name: /eu deck/ }).count(), 0);
 
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');
     await window.getByRole('button', { name: /test/ }).waitFor();
+});
+
+test('an order moves to another shop and is copied back, and opens there each time', async () => {
+    await window.getByRole('button', { name: /travel deck/ }).click();
+    const dialog = window.locator('.transfer-dialog');
+
+    await window.getByRole('button', { name: 'Move or copy' }).click();
+    assert.equal(await dialog.getByRole('button', { name: 'notmpc.eu', exact: true }).count(), 0, 'notmpc.eu is not available');
+    await dialog.getByRole('button', { name: 'Move to printerstudio.de' }).click();
+    await dialog.waitFor({ state: 'detached' });
+    await window.getByText('Print files for printerstudio.de').waitFor();
+    await window.getByRole('heading', { name: 'travel deck' }).waitFor();
+
+    await window.getByRole('button', { name: 'Move or copy' }).click();
+    assert.equal(await dialog.getByLabel('Name of the copy').inputValue(), 'travel deck meinspiel.de');
+    await dialog.getByLabel('Name of the copy').fill('eu deck');
+    await dialog.getByText('An order with this name exists already for notmpc.eu.').waitFor();
+    await dialog.getByLabel('Name of the copy').fill('travel copy');
+    await dialog.getByRole('button', { name: 'Copy to meinspiel.de' }).click();
+    await window.getByText('Print files for meinspiel.de').waitFor();
+    await window.getByRole('heading', { name: 'travel copy' }).waitFor();
+    assert.equal(await window.getByRole('button', { name: /travel deck/ }).count(), 0);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('printerstudio.de');
+    await window.getByRole('button', { name: /travel deck/ }).waitFor();
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
+test('the print tab saves the order as an MPC Autofill XML that points to the processed images', async () => {
+    const target = path.join(root, 'saved.xml');
+    await app.evaluate(({ dialog }, filePath) => {
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath })) as typeof dialog.showSaveDialog;
+    }, target);
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('printerstudio.de');
+    await window.getByRole('button', { name: /xml deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+
+    await window.getByRole('button', { name: 'Save MPC Autofill XML' }).click();
+
+    await window.getByText(`Saved as ${target}`).waitFor();
+    const xml = await fs.readFile(target, 'utf-8');
+    // The app sees the temp folder by its real path, /private/var instead of /var on macOS.
+    const front = path.join(await fs.realpath(root), 'orders', 'xml deck', 'cards', cardFaces(card('a', 2), DefaultOrder)!.front.file);
+    assert.match(xml, /<quantity>2<\/quantity>/);
+    assert.ok(xml.includes(`<card><id>${front}</id><slots>0,1</slots>`), xml);
+    assert.ok(!xml.includes('<backs>'), 'every card has the card back');
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
 });
 
 test('the window logged no errors', () => {
