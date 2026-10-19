@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.0.0
+
+A second print shop and a new way to choose each card's image. Orders from earlier versions belong to meinspiel.de and stay as they are.
 
 - Print at [notmpc.eu](https://notmpc.eu/de/) as well. After the splash screen you choose the print shop, and every order belongs to the shop it was made for. For notmpc.eu the app makes RGB images in decks of up to 612 cards, uploads them and opens their designer with every card in its slot, one tab per deck; you choose the options and order there without an account.
 - A card editor takes the place of the card's details and the printing dialog. Click a card to see its image large, with the printings, the MPC Autofill images and your own image on the right. Pick one and compare it side by side with the Scryfall scan, zoomed in to the pixel; MPC Autofill images load in full resolution for this. Then click *Use this*. Arrow keys pick an image, Enter uses it, C compares, and Page Up and Page Down go to the previous or next card, so a whole deck goes by without closing the editor. A slider sets the size of the images to choose from.
