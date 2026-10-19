@@ -341,10 +341,12 @@ test('the print tab saves the order as an MPC Autofill XML that points to the pr
 
     await window.getByText(`Saved as ${target}`).waitFor();
     const xml = await fs.readFile(target, 'utf-8');
-    // The app sees the temp folder by its real path, /private/var instead of /var on macOS.
-    const front = path.join(await fs.realpath(root), 'orders', 'xml deck', 'cards', cardFaces(card('a', 2), DefaultOrder)!.front.file);
+    // The app may name the temp folder differently: /private/var for /var on macOS, a short 8.3 name on Windows.
+    const front = path.join(root, 'orders', 'xml deck', 'cards', cardFaces(card('a', 2), DefaultOrder)!.front.file);
     assert.match(xml, /<quantity>2<\/quantity>/);
-    assert.ok(xml.includes(`<card><id>${front}</id><slots>0,1</slots>`), xml);
+    const id = xml.match(/<card><id>([^<]+)<\/id><slots>0,1<\/slots>/)?.[1];
+    assert.ok(id, xml);
+    assert.equal(await fs.realpath(id), await fs.realpath(front));
     assert.ok(!xml.includes('<backs>'), 'every card has the card back');
 
     await window.getByRole('button', { name: 'Switch print shop' }).click();
