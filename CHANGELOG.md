@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
+
+printerstudio.de as a third print shop, the shops in a window that looks like part of the app, and orders that move between shops. notmpc.eu is not available at the moment.
 
 - meinspiel.de and printerstudio.de open in a browser window without tabs and address bar, exactly where the app's window is, so the shop reads as part of the app. A bar from Black Lotus Press sits over the shop's pages, with a panel that lists every step of the hand-over with what it is doing, a progress bar for the uploads, what is done and what is left to you; the panel folds away with *Hide*. while you need to log in, it darkens the page around the login form and points at it. In front of the Print tab, the app shows the same steps, with *Show the browser window* and *Cancel*, and afterwards what was done.
 - The upload to meinspiel.de shows what really happens: logging in, and for every pack creating the game, uploading its PDFs megabyte by megabyte, meinspiel.de's own processing status, and whether the game is saved in your account. The progress counts these steps instead of the packs, so it no longer sits at 0 while you log in and the PDFs go up.
