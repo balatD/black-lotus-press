@@ -37,3 +37,11 @@ export function describePrinting(card: OrderCard) {
     if (!printing) return 'No Scryfall printing';
     return `${printing.set_name ?? printing.set.toUpperCase()} (${printing.set.toUpperCase()}) #${printing.collector_number}`;
 }
+
+export function boardName(board: string) {
+    const names: Record<string, string> = {
+        commanders: 'Commander', companions: 'Companion', signatureSpells: 'Signature spell', mainboard: 'Main board', sideboard: 'Sideboard',
+        maybeboard: 'Considering', tokens: 'Token', attractions: 'Attraction', contraptions: 'Contraption', stickers: 'Sticker', planes: 'Plane', schemes: 'Scheme'
+    };
+    return names[board] ?? board;
+}

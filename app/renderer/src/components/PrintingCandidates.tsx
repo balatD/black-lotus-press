@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpDown, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUpDown, Search } from "lucide-react";
 import type { OrderCard, ScryfallCard } from "../../../../src/model.js";
 import { faceImageUris } from "../../../../src/pipeline/packs.js";
 import { filterPrintings, type PrintingSort, type PrintingStyle, printingPrice, printingStyles, sortPrintings } from "../../../../src/printings.js";
@@ -10,10 +10,11 @@ import { ProgressBar } from "./ProgressBar.js";
 
 interface Props {
     card: OrderCard;
-    // Copies is less than the card's quantity when only some of them get the printing.
-    onChoose(printing: ScryfallCard, copies: number): void;
-    onClose(): void;
-    nonfoilOnly?: boolean;
+    face: 'front' | 'back';
+    selected: string | undefined;
+    nonfoilOnly: boolean;
+    onSelect(printing: ScryfallCard): void;
+    onUse(printing: ScryfallCard): void;
 }
 
 const SORTS: [PrintingSort, string][] = [
@@ -34,8 +35,22 @@ const STYLES: [PrintingStyle, string][] = [
 
 const STYLE_NAMES = new Map(STYLES);
 
-export function PrintingDialog({ card, onChoose, onClose, nonfoilOnly: startNonfoilOnly = false }: Props) {
-    const dialog = useRef<HTMLDialogElement>(null);
+const searches = new Map<string, Promise<ScryfallCard[]>>();
+
+// Searched once per card name while the app runs; a failed search is tried again next time.
+// The search only finds English printings, so the card's own printing is added.
+export async function printingsOf(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]> {
+    let search = searches.get(card.name);
+    if (!search) {
+        search = api.searchPrintings({ name: card.name, ...(card.printing ? { printing: card.printing } : {}) });
+        search.catch(() => searches.delete(card.name));
+        searches.set(card.name, search);
+    }
+    const found = await search;
+    return !card.printing || found.some(printing => printing.id === card.printing!.id) ? found : [card.printing, ...found];
+}
+
+export function PrintingCandidates({ card, face, selected, nonfoilOnly: startNonfoilOnly, onSelect, onUse }: Props) {
     const [printings, setPrintings] = useState<ScryfallCard[]>();
     const [error, setError] = useState<string>();
     const [query, setQuery] = useState('');
@@ -44,41 +59,28 @@ export function PrintingDialog({ card, onChoose, onClose, nonfoilOnly: startNonf
     const [pricedOnly, setPricedOnly] = useState(false);
     const [nonfoilOnly, setNonfoilOnly] = useState(startNonfoilOnly);
     const [paperOnly, setPaperOnly] = useStoredState('printings-paper-only', true);
-    const [copies, setCopies] = useState(card.quantity);
 
     useEffect(() => {
-        dialog.current?.showModal();
-        api.searchPrintings({ name: card.name, ...(card.printing ? { printing: card.printing } : {}) })
-            .then(setPrintings, e => setError(errorMessage(e)));
-    }, [card]);
+        let closed = false;
+        printingsOf(card).then(found => !closed && setPrintings(found), e => !closed && setError(errorMessage(e)));
+        return () => {
+            closed = true;
+        };
+    }, [card.name]);
 
     const found = printings ?? [];
     const current = found.find(p => p.id === card.printing?.id);
     const shown = sortPrintings(filterPrintings(found.filter(p => p !== current), { query, styles, pricedOnly, paperOnly, nonfoilOnly }), sort);
-
-    const choose = (printing: ScryfallCard) => onChoose(printing, copies);
+    const tile = (printing: ScryfallCard) => (
+        <PrintingTile key={printing.id} printing={printing} face={face} isCurrent={printing === current} isSelected={printing.id === selected} onSelect={onSelect} onUse={onUse}/>
+    );
 
     function toggleStyle(style: PrintingStyle) {
         setStyles(styles.includes(style) ? styles.filter(s => s !== style) : [...styles, style]);
     }
 
     return (
-        <dialog ref={dialog} className="printing-dialog" onClose={onClose}>
-            <header className="dialog-header">
-                <div>
-                    <h2>Printings of {card.name}</h2>
-                    {card.quantity > 1 && (
-                        <label className="row">
-                            <span className="muted">Change</span>
-                            <input className="quantity" type="number" min={1} max={card.quantity} value={copies} aria-label="Copies to change"
-                                   onChange={e => setCopies(Math.min(card.quantity, Math.max(1, Math.round(Number(e.target.value)) || 1)))}/>
-                            <span className="muted">of {card.quantity} copies{copies < card.quantity ? '; the others keep their printing' : ''}</span>
-                        </label>
-                    )}
-                </div>
-                <button className="quiet" onClick={() => dialog.current?.close()}><X/>Close</button>
-            </header>
-
+        <>
             <div className="filters">
                 <label className="search">
                     <Search/>
@@ -109,31 +111,31 @@ export function PrintingDialog({ card, onChoose, onClose, nonfoilOnly: startNonf
             )}
 
             <div className="printing-grid">
-                {current && <PrintingTile printing={current} isCurrent onChoose={choose}/>}
-                {shown.map(printing => <PrintingTile key={printing.id} printing={printing} isCurrent={false} onChoose={choose}/>)}
+                {current && tile(current)}
+                {shown.map(tile)}
             </div>
-        </dialog>
+        </>
     );
 }
 
-function PrintingTile({ printing, isCurrent, onChoose }: { printing: ScryfallCard, isCurrent: boolean, onChoose(printing: ScryfallCard): void }) {
-    const image = faceImageUris(printing, 'front')?.small;
+function PrintingTile({ printing, face, isCurrent, isSelected, onSelect, onUse }: {
+    printing: ScryfallCard, face: 'front' | 'back', isCurrent: boolean, isSelected: boolean, onSelect(printing: ScryfallCard): void, onUse(printing: ScryfallCard): void
+}) {
+    const image = faceImageUris(printing, face)?.normal;
     const unusable = !image || printing.image_status === 'missing' || printing.image_status === 'placeholder';
     const price = printingPrice(printing);
     const year = printing.released_at?.slice(0, 4);
     const styles = printingStyles(printing).map(style => STYLE_NAMES.get(style)).join(', ');
 
     return (
-        <button className={`printing${isCurrent ? ' current' : ''}`} disabled={unusable} aria-pressed={isCurrent} onClick={() => onChoose(printing)}>
+        <button className={`printing${isCurrent ? ' current' : ''}`} disabled={unusable} aria-pressed={isSelected} onClick={() => onSelect(printing)} onDoubleClick={() => onUse(printing)}>
             {image ? <img src={image} alt="" loading="lazy"/> : <span className="thumb missing"/>}
             {isCurrent && <span className="printing-current">Current printing</span>}
             <span className="printing-set">{printing.set_name ?? printing.set}</span>
             <span className="meta">{printing.set.toUpperCase()} #{printing.collector_number}{year ? `, ${year}` : ''}</span>
             {styles && <span className="meta">{styles}</span>}
-            <span className="printing-price">
-                {price ? `${formatPrice(price.amount, price.currency)}${price.foil ? ' foil' : ''}` : 'No price'}
-                {printing.image_status === 'lowres' && <span className="warning"> low-res scan</span>}
-            </span>
+            <span className="printing-price">{price ? `${formatPrice(price.amount, price.currency)}${price.foil ? ' foil' : ''}` : 'No price'}</span>
+            {printing.image_status === 'lowres' && <span className="badge warning">Low-res scan</span>}
         </button>
     );
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePrinting, DeckData, DefaultOrder, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, replaceDeckCards, type ScryfallCard, updateDeckCards, withDecks } from "./model.js";
+import { changePrinting, chooseMpcfillImage, DeckData, DefaultOrder, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, replaceDeckCards, type ScryfallCard, updateDeckCards, withDecks } from "./model.js";
 
 function card(id: string, deck: string): OrderCard {
     return { id, deck, board: 'mainboard', name: id, quantity: 1, isToken: false, excluded: false };
@@ -128,32 +128,76 @@ test('changePrinting splits the changed copies into their own entry right after 
 
     const result = changePrinting(cards, 'island', printing('B'), 1);
 
-    assert.deepEqual(summary(result), ['3 island A', '1 island B', '1 swamp swamp-print']);
-    assert.equal(result[0]!.id, 'island');
-    assert.notEqual(result[1]!.id, 'island');
-    assert.deepEqual(result[1]!.imported, cards[0]!.imported, 'both entries stay tied to the Moxfield entry');
+    assert.deepEqual(summary(result.cards), ['3 island A', '1 island B', '1 swamp swamp-print']);
+    assert.equal(result.cards[0]!.id, 'island');
+    assert.notEqual(result.cards[1]!.id, 'island');
+    assert.equal(result.id, result.cards[1]!.id, 'the id of the entry the copies went to');
+    assert.deepEqual(result.cards[1]!.imported, cards[0]!.imported, 'both entries stay tied to the Moxfield entry');
 });
 
 test('changePrinting moves copies to an entry of the same card that has the printing already', () => {
     const split = changePrinting([imported('island', 4, 'A')], 'island', printing('B'), 1);
 
-    const more = changePrinting(split, 'island', printing('B'), 2);
-    assert.deepEqual(summary(more), ['1 island A', '3 island B']);
+    const more = changePrinting(split.cards, 'island', printing('B'), 2);
+    assert.deepEqual(summary(more.cards), ['1 island A', '3 island B']);
+    assert.equal(more.id, split.id);
 
-    const all = changePrinting(more, 'island', printing('B'), 1);
-    assert.deepEqual(summary(all), ['4 island B']);
+    const all = changePrinting(more.cards, 'island', printing('B'), 1);
+    assert.deepEqual(summary(all.cards), ['4 island B']);
+    assert.equal(all.id, split.id);
 });
 
 test('changePrinting changes the card itself when all copies change and keeps switched off entries apart', () => {
-    assert.deepEqual(summary(changePrinting([imported('island', 2, 'A')], 'island', printing('B'), 2)), ['2 island B']);
-    assert.deepEqual(summary(changePrinting([imported('island', 2, 'A')], 'island', printing('A'), 1)), ['2 island A']);
+    const all = changePrinting([imported('island', 2, 'A')], 'island', printing('B'), 2);
+    assert.deepEqual(summary(all.cards), ['2 island B']);
+    assert.equal(all.id, 'island');
+
+    const same = changePrinting([imported('island', 2, 'A')], 'island', printing('A'), 1);
+    assert.deepEqual(summary(same.cards), ['2 island A']);
+    assert.equal(same.id, 'island');
 
     const off = { ...imported('island', 1, 'B'), id: 'off', excluded: true };
-    assert.deepEqual(summary(changePrinting([imported('island', 2, 'A'), off], 'island', printing('B'), 1)), ['1 island A', '1 island B', '1 island B']);
+    assert.deepEqual(summary(changePrinting([imported('island', 2, 'A'), off], 'island', printing('B'), 1).cards), ['1 island A', '1 island B', '1 island B']);
+});
+
+test('changePrinting takes the MPC Autofill image away from the copies that change their printing', () => {
+    const island = { ...imported('island', 3, 'A'), mpcfill: { front: 'drive-a' } };
+
+    const split = changePrinting([island], 'island', printing('B'), 1).cards;
+    assert.deepEqual(split.map(c => [c.quantity, c.printing?.id, c.mpcfill]), [[2, 'A', { front: 'drive-a' }], [1, 'B', undefined]]);
+
+    const all = changePrinting([island], 'island', printing('B'), 3).cards;
+    assert.deepEqual(all.map(c => [c.quantity, c.printing?.id, c.mpcfill]), [[3, 'B', undefined]]);
+});
+
+test('changePrinting does not move copies to an entry that has an MPC Autofill image', () => {
+    const withImage = { ...imported('island', 1, 'B'), id: 'mpc', mpcfill: { front: 'drive-b' } };
+
+    const result = changePrinting([imported('island', 2, 'A'), withImage], 'island', printing('B'), 1).cards;
+
+    assert.deepEqual(result.map(c => [c.quantity, c.printing?.id, c.mpcfill?.front]), [[1, 'A', undefined], [1, 'B', undefined], [1, 'B', 'drive-b']]);
+});
+
+test('chooseMpcfillImage sets the image of a face and switches to the printing the image shows', () => {
+    const card = { ...imported('dfc', 2, 'A'), mpcfill: { front: 'front-a' } };
+
+    assert.deepEqual(chooseMpcfillImage(card, 'back', 'back-a', undefined).mpcfill, { front: 'front-a', back: 'back-a' });
+
+    const switched = chooseMpcfillImage(card, 'back', 'back-b', printing('B'));
+    assert.deepEqual([switched.printing?.id, switched.mpcfill], ['B', { back: 'back-b' }], 'the front image belonged to printing A');
+});
+
+test('updateDeckCards drops the MPC Autofill image when Moxfield changes the printing', () => {
+    const kept = { ...imported('sol', 1), mpcfill: { front: 'drive-sol' } };
+    const followed = { ...imported('mox', 1), mpcfill: { front: 'drive-mox' } };
+
+    const { cards } = updateDeckCards([kept, followed], 'B', [imported('sol', 1), imported('mox', 1, 'new-mox')]);
+
+    assert.deepEqual(cards.map(c => [c.printing?.id, c.mpcfill?.front]), [['sol-print', 'drive-sol'], ['new-mox', undefined]]);
 });
 
 test('updateDeckCards keeps the copies of a card split over several printings together', () => {
-    const split = changePrinting([imported('island', 4, 'A')], 'island', printing('B'), 1);
+    const split = changePrinting([imported('island', 4, 'A')], 'island', printing('B'), 1).cards;
 
     const unchanged = updateDeckCards(split, 'B', [imported('island', 4, 'A')]);
     assert.deepEqual(summary(unchanged.cards), ['3 island A', '1 island B']);

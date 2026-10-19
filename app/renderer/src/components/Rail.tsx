@@ -1,14 +1,18 @@
 import { type FormEvent, useState } from "react";
-import { Package, Plus, SlidersHorizontal, X } from "lucide-react";
-import { isValidOrderName, type Order } from "../../../../src/model.js";
+import { Package, Plus, SlidersHorizontal, Store, X } from "lucide-react";
+import { isValidOrderName, type Order, type Shop } from "../../../../src/model.js";
 import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
 import { ColorBar, RegistrationMark } from "./Decor.js";
 import { Tasks } from "./Tasks.js";
 import { UpdateNotice } from "./UpdateNotice.js";
+import { SHOPS } from "../shops.js";
 
 interface Props {
+    // The orders of every shop; the list shows those of the chosen shop.
     orders: Order[];
+    shop: Shop | undefined;
+    onSwitchShop(): void;
     selected: string | undefined;
     profilesSelected: boolean;
     onSelectOrder(name: string): void;
@@ -16,14 +20,16 @@ interface Props {
     onCreateOrder(name: string): Promise<void>;
 }
 
-export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder }: Props) {
+export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder }: Props) {
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
     const [error, setError] = useState<string>();
 
+    // Orders of both shops share one folder, so a name must be free in both.
+    const taken = orders.find(order => order.name === name);
     const problem = !isValidOrderName(name)
         ? 'Use a name without \\ / : * ? " < > | and without spaces at the ends.'
-        : orders.some(order => order.name === name) ? 'An order with this name exists already.' : undefined;
+        : taken ? `An order with this name exists already${taken.shop === shop ? '' : ` for ${SHOPS[taken.shop].name}`}.` : undefined;
 
     async function submit(event: FormEvent) {
         event.preventDefault();
@@ -43,7 +49,7 @@ export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSele
                 <RegistrationMark size={26}/>
                 <div>
                     Black Lotus Press
-                    <small>Print files for meinspiel.de</small>
+                    <small>Print files for {shop && SHOPS[shop].name}</small>
                 </div>
             </div>
             <ColorBar/>
@@ -51,7 +57,7 @@ export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSele
             <div>
                 <h2>Orders</h2>
                 <ul className="rail-list">
-                    {orders.map(order => (
+                    {orders.filter(order => order.shop === shop).map(order => (
                         <li key={order.name}>
                             <button className="rail-item" aria-current={order.name === selected ? 'page' : undefined} onClick={() => onSelectOrder(order.name)}>
                                 <span className="with-icon"><Package/>{order.name}</span>
@@ -80,6 +86,7 @@ export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSele
 
             <div className="footer">
                 <UpdateNotice/>
+                <button className="rail-item" onClick={onSwitchShop}><span className="with-icon"><Store/>Switch print shop</span></button>
                 <button className="rail-item" aria-current={profilesSelected ? 'page' : undefined} onClick={onSelectProfiles}><span className="with-icon"><SlidersHorizontal/>Processing profiles</span></button>
             </div>
         </nav>
@@ -89,5 +96,6 @@ export function Rail({ orders, selected, profilesSelected, onSelectOrder, onSele
 function describe(order: Order) {
     if (order.cards.length === 0) return 'not imported';
     const packs = buildPacks(order).packs.length;
-    return packs === 1 ? '1 pack' : `${packs} packs`;
+    const unit = order.shop === 'notmpc' ? 'deck' : 'pack';
+    return packs === 1 ? `1 ${unit}` : `${packs} ${unit}s`;
 }

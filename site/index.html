@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Black Lotus Press</title>
-    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de: Scryfall scans, cleaned up, upscaled, in CMYK, 55 cards per pack.">
+    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de or notmpc.eu: Scryfall scans or high-resolution MPC Autofill images, cleaned up and upscaled.">
     <meta property="og:title" content="Black Lotus Press">
-    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de, made from Scryfall scans.">
+    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de or notmpc.eu, made from Scryfall scans or MPC Autofill images.">
     <meta property="og:image" content="https://balatd.github.io/black-lotus-press/img/social.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
@@ -38,9 +38,9 @@
         <div>
             <h1><span>Your Moxfield deck,</span> <span>printed.</span></h1>
             <p class="lead">
-                Black Lotus Press turns Moxfield decks into print-ready playtest cards from meinspiel.de.
-                It takes the exact printings from Scryfall, cleans them up, upscales them, converts them to the printer's CMYK
-                and uploads the packs to your meinspiel.de account.
+                Black Lotus Press turns Moxfield decks into print-ready playtest cards from meinspiel.de or notmpc.eu.
+                It takes the exact printings from Scryfall or high-resolution images from MPC Autofill, cleans them up and upscales them.
+                For meinspiel.de it converts them to the printer's CMYK and uploads the packs to your account; for notmpc.eu it fills their designer.
             </p>
             <div class="downloads" id="downloads">
                 <a class="button" data-os="mac" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-mac-arm64.dmg">
@@ -81,9 +81,9 @@
 
     <div class="strip">
         <ul>
-            <li style="--ink: var(--ink-c)"><strong>55 cards per pack</strong><span>meinspiel.de's deck format, about 19,95 € plus shipping</span></li>
+            <li style="--ink: var(--ink-c)"><strong>55 cards per pack</strong><span>meinspiel.de's deck format, about 19,95 € plus shipping; notmpc.eu decks hold up to 612</span></li>
             <li style="--ink: var(--ink-m)"><strong>69 × 94 mm</strong><span>63 × 88 mm cards with 3 mm bleed, corners and borders cleaned up</span></li>
-            <li style="--ink: var(--ink-y)"><strong>CMYK, ISO Coated v2</strong><span>the printer's own colour profile, 10 % brighter because print is darker</span></li>
+            <li style="--ink: var(--ink-y)"><strong>CMYK, ISO Coated v2</strong><span>meinspiel.de's own colour profile, 10 % brighter because print is darker</span></li>
             <li style="--ink: var(--paper)"><strong>Up to 600 dpi</strong><span>scans upscaled on your graphics card with Upscayl</span></li>
         </ul>
     </div>
@@ -112,10 +112,12 @@
                 <div class="step-text">
                     <h3>Check every card</h3>
                     <p>
-                        See the whole order as a list or as a zoomable grid. Pick another printing from everything Scryfall has,
-                        with Cardmarket prices, or use your own image.
+                        See the whole order as a list or as a zoomable grid. Click a card to see it large and pick another printing
+                        from everything Scryfall has, with Cardmarket prices, a high-resolution image from MPC Autofill, or your own image.
                     </p>
                     <ul>
+                        <li>Compare every image side by side with the Scryfall scan, zoomed in to the pixel.</li>
+                        <li>The sharpest MPC Autofill image for every card in one go, matched to its printing.</li>
                         <li>Different printings for single copies of a card.</li>
                         <li>Switch cards off, change quantities, drag them into the print order.</li>
                         <li>Warnings for low-resolution scans and cards Scryfall does not know.</li>
@@ -148,6 +150,7 @@
                     <ul>
                         <li>You choose the box and pay on meinspiel.de, the app never orders anything.</li>
                         <li>Or upload the PDFs by hand, they are ordinary files in your orders folder.</li>
+                        <li>For notmpc.eu, their designer opens with every card in its slot, one tab per deck, no account needed.</li>
                     </ul>
                 </div>
                 <figure class="proof"><img src="img/card.webp" width="1440" height="900" loading="lazy" alt="A card of the press sheet opened large, front and card back, each with a button to process it again."></figure>
@@ -171,12 +174,12 @@
         <h2 id="questions">Questions</h2>
         <div class="faq">
             <details>
-                <summary>Is Black Lotus Press affiliated with meinspiel.de, Moxfield, Scryfall or Wizards of the Coast?</summary>
+                <summary>Is Black Lotus Press affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or Wizards of the Coast?</summary>
                 <div><p>No. It is a free fan project. It uses their public websites the way you would in a browser.</p></div>
             </details>
             <details>
                 <summary>What does printing cost?</summary>
-                <div><p>meinspiel.de prints decks of exactly 55 cards for about 19,95 € each, plus shipping. A 100-card Commander deck needs two packs. Check meinspiel.de for the current prices.</p></div>
+                <div><p>meinspiel.de prints decks of exactly 55 cards for about 19,95 € each, plus shipping. A 100-card Commander deck needs two packs. notmpc.eu prints decks of 18 up to 612 cards; a Commander deck fits into one deck of 108 cards for about 29,97 €. Check the shops for the current prices.</p></div>
             </details>
             <details>
                 <summary>Can I sell the cards I print?</summary>
@@ -208,7 +211,7 @@
         </div>
         <div>
             <h2>Built on</h2>
-            <p>Card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs from <a href="https://mpcautofill.github.io">MPC Autofill</a>, upscaling by <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>.</p>
+            <p>Card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a>, upscaling by <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>.</p>
         </div>
         <div>
             <h2>Help</h2>
@@ -219,7 +222,7 @@
     <p class="legal">
         Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.
         Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
-        Not affiliated with meinspiel.de, Moxfield, Scryfall or MPC Autofill.
+        Not affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or MPC Autofill.
     </p>
 </footer>
 

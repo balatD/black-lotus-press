@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { app, type BrowserWindow, dialog, ipcMain, shell } from "electron";
+import type { Browser } from "playwright";
 import { deleteOrder, loadOrders, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
 import { orderDir } from "../../src/config/paths.js";
@@ -10,7 +11,9 @@ import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "
 import { DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
 import { searchPrintings } from "../../src/clients/scryfall.js";
-import { MANUAL_UPLOAD_URL, type MeinspielSession, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
+import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
+import { MANUAL_UPLOAD_URL, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
+import { sendToNotmpc } from "../../src/clients/notmpc.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
 import { buildPdfs } from "../../src/output/meinspielPdf.js";
 import { ensureIccProfile } from "../../src/output/iccProfile.js";
@@ -22,7 +25,7 @@ import { installUpdate, updateStatus } from "./updater.js";
 export function registerApi(window: BrowserWindow) {
     let nextTaskId = 1;
     let job: { task: Task, controller: AbortController } | undefined;
-    let upload: { task: Task, session: MeinspielSession } | undefined;
+    let upload: { task: Task, browser: Browser } | undefined;
 
     const gpuTemperature = app.isPackaged
         ? path.join(process.resourcesPath, 'native', 'gpu-temperature')
@@ -36,10 +39,20 @@ export function registerApi(window: BrowserWindow) {
     }
 
     async function closeUploadBrowser() {
-        const session = upload?.session;
+        const browser = upload?.browser;
         upload = undefined;
         publishTasks();
-        await session?.browser.close();
+        await browser?.close();
+    }
+
+    // The browser stays open so the user can order there; closing it by hand ends the task as well.
+    function keepBrowser(browser: Browser, title: string, order: string) {
+        upload = { task: { id: nextTaskId++, kind: 'browser', title, order, stoppable: true }, browser };
+        browser.on('disconnected', () => {
+            if (upload?.browser !== browser) return;
+            upload = undefined;
+            publishTasks();
+        });
     }
 
     window.on('closed', () => void closeUploadBrowser());
@@ -122,13 +135,7 @@ export function registerApi(window: BrowserWindow) {
                 await closeUploadBrowser();
                 try {
                     const { session, games } = await uploadToMeinspiel(orderName, packs, channel, onProgress, signal);
-                    upload = { task: { id: nextTaskId++, kind: 'browser', title: `meinspiel.de with the games of ${orderName}`, order: orderName, stoppable: true }, session };
-                    // Closing the browser window by hand ends the task as well.
-                    session.browser.on('disconnected', () => {
-                        if (upload?.session !== session) return;
-                        upload = undefined;
-                        publishTasks();
-                    });
+                    keepBrowser(session.browser, `meinspiel.de with the games of ${orderName}`, orderName);
                     return games;
                 } catch (error) {
                     if (signal.aborted) throw error;
@@ -136,6 +143,15 @@ export function registerApi(window: BrowserWindow) {
                     throw new Error(`${message} You can upload the PDFs by hand at ${MANUAL_UPLOAD_URL}`);
                 }
             }),
+        sendToNotmpc: order => runJob(
+            { kind: 'upload', title: `Sending ${order.name} to notmpc.eu`, order: order.name, stoppable: true },
+            async (onProgress, signal) => {
+                await closeUploadBrowser();
+                keepBrowser(await sendToNotmpc(order, onProgress, signal), `notmpc.eu with the decks of ${order.name}`, order.name);
+            }),
+        pickMpcfillImages: order => runJob(
+            { kind: 'mpcfill', title: `Looking for MPC Autofill images for ${order.name}`, order: order.name, stoppable: true },
+            (onProgress, signal) => pickSharpestMpcfillImages(order.cards, onProgress, signal)),
         imageStatus,
         gpuStats,
         async listTasks() {
@@ -147,6 +163,9 @@ export function registerApi(window: BrowserWindow) {
         },
 
         searchPrintings,
+        searchMpcfill: findMpcfillImages,
+        loadPrintingScans,
+        recogniseMpcfill: recogniseMpcfillImages,
         async pickCustomImage() {
             const result = await dialog.showOpenDialog(window, {
                 properties: ['openFile'],

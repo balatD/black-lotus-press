@@ -1,10 +1,12 @@
-import type { DeckConfig, GpuStats, Order, OrderCard, PackFiles, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, UploadedGame } from "../../src/model.js";
+import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PackFiles, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, UploadedGame } from "../../src/model.js";
 import type { DroppedToken } from "../../src/pipeline/packs.js";
+import type { MpcfillCard } from "../../src/clients/mpcfill.js";
+import type { Recognition } from "../../src/mpcfill/recognise.js";
 
-// A job of the main process, or the meinspiel.de browser that stays open after an upload.
+// A job of the main process, or the shop's browser that stays open after an upload.
 export interface Task {
     id: number;
-    kind: 'import' | 'process' | 'pdfs' | 'upload' | 'upscayl' | 'browser';
+    kind: 'import' | 'process' | 'pdfs' | 'upload' | 'upscayl' | 'mpcfill' | 'browser';
     title: string;
     order?: string;
     deck?: string;
@@ -40,6 +42,10 @@ export interface Api {
     buildPdfs(order: Order): Promise<{ packs: PackFiles[], droppedTokens: DroppedToken[] }>;
     // The browser stays open after the upload so the user can order; it stays a task until closed.
     uploadPacks(orderName: string, packs: PackFiles[], channel: PlaywrightChannel): Promise<UploadedGame[]>;
+    // Uploads the print images and fills a notmpc.eu designer per deck; the browser stays open like after uploadPacks.
+    sendToNotmpc(order: Order): Promise<void>;
+    // The sharpest MPC Autofill images that show the printings, by card id, for the cards without an own or MPC Autofill image.
+    pickMpcfillImages(order: Order): Promise<Record<string, MpcfillImage>>;
     listTasks(): Promise<Task[]>;
     // Stopping a browser task closes its browser.
     stopTask(id: number): Promise<void>;
@@ -48,6 +54,12 @@ export interface Api {
     gpuStats(): Promise<GpuStats>;
 
     searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
+    // The MPC Autofill images of a face of the card, in MPC Autofill's order.
+    searchMpcfill(card: Pick<OrderCard, 'name' | 'printing' | 'isToken'>, face: 'front' | 'back'): Promise<MpcfillCard[]>;
+    // Loads the Scryfall scans the comparison needs; the window asks for a few at a time to show the progress.
+    loadPrintingScans(face: 'front' | 'back', printings: ScryfallCard[]): Promise<void>;
+    // Which of the printings each image shows; slow the first time, so the window asks for a few images at a time.
+    recogniseMpcfill(face: 'front' | 'back', printings: ScryfallCard[], images: MpcfillCard[]): Promise<Record<string, Recognition>>;
     // Returns the stored file name, or undefined when the dialog was cancelled.
     pickCustomImage(): Promise<string | undefined>;
 
@@ -60,8 +72,8 @@ export interface Api {
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'previewCardBack', 'openOrderFolder',
-    'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'listTasks', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'pickCustomImage', 'updateStatus', 'installUpdate'
+    'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'pickMpcfillImages', 'listTasks', 'stopTask',
+    'imageStatus', 'gpuStats', 'searchPrintings', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.

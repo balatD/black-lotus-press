@@ -1,6 +1,6 @@
 # Black Lotus Press
 
-**Your Moxfield deck, printed.** Black Lotus Press is a free desktop app that turns [Moxfield](https://moxfield.com) decks into print-ready PDFs for the custom playing cards of [meinspiel.de](https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/) and uploads them to your account. It takes the exact printings from [Scryfall](https://scryfall.com), cleans them up, upscales them with [Upscayl](https://github.com/upscayl/upscayl-ncnn) and converts them to the printer's CMYK.
+**Your Moxfield deck, printed.** Black Lotus Press is a free desktop app that turns [Moxfield](https://moxfield.com) decks into print-ready PDFs for the custom playing cards of [meinspiel.de](https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/) and uploads them to your account, or sends them to the designer of [notmpc.eu](https://notmpc.eu/de/). It takes the exact printings from [Scryfall](https://scryfall.com), cleans them up, upscales them with [Upscayl](https://github.com/upscayl/upscayl-ncnn) and converts them to the printer's CMYK.
 
 ![The Print tab with the press sheet of a pack](site/img/print.webp)
 
@@ -15,10 +15,12 @@
 ## What it does
 
 - Imports Moxfield decks with the boards you choose, and offers non-foil printings for the deck's foils.
-- Lets you check and edit every card: printings with prices, quantities, the print order, own images, brightness and contrast.
+- Lets you check and edit every card: quantities, the print order, brightness and contrast, and in one card editor its image. Printings with prices, MPC Autofill images and own images show large, next to the Scryfall scan and zoomable to the pixel.
 - Shows every pack as a press sheet of 55 cards, fronts and backs.
 - Cleans up the scans, adds 3 mm bleed, handles the copyright line, upscales to 600 dpi and converts to CMYK with meinspiel.de's ISO Coated v2 profile.
 - Writes two PDFs per pack and uploads them to your meinspiel.de account. You log in and order yourself; the app never sees your password and never pays anything.
+- For notmpc.eu, uploads RGB images and fills their designer with every card of a deck in its slot; you choose the options and order there.
+- Swaps the Scryfall scan of a card for a high-resolution image from [MPC Autofill](https://mpcfill.com) and recognises which printing each image shows, so custom art stays apart.
 
 The [documentation](https://balatd.github.io/black-lotus-press/docs.html) explains every step and answers common questions.
 
@@ -51,10 +53,10 @@ The builds are not signed with a paid certificate, so macOS and Windows warn bef
 
 ## Credits
 
-Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com), card backs from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
+Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com), card backs and high-resolution card images from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
 
 ## License
 
 [MIT](LICENSE). The website's typeface, Barlow Semi Condensed, is under the [SIL Open Font License](site/fonts/OFL.txt).
 
-Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, Moxfield, Scryfall or MPC Autofill.
+Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or MPC Autofill.

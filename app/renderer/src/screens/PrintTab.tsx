@@ -9,11 +9,11 @@ import {
     buildPacks,
     cardBackFace,
     cardFaces,
-    CARDS_PER_PACK,
     estimatePackBytes,
     type Face,
     faceImageUris,
     MAX_UPLOAD_BYTES,
+    mpcfillImage,
     type Slot
 } from "../../../../src/pipeline/packs.js";
 import { adjustmentFilter, percent } from "../adjust.js";
@@ -26,6 +26,7 @@ import { useProgress } from "../useProgress.js";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
 import { useGpuStats } from "../useGpuStats.js";
+import { SHOPS } from "../shops.js";
 
 export interface BuiltPdfs {
     // The packs and image settings the PDFs were built from.
@@ -108,6 +109,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
         void run(() => api.uploadPacks(order.name, pdfs, order.profile.playwrightChannel),
             games => update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games } })));
     };
+    const sendToNotmpc = () => run(() => api.sendToNotmpc(order));
 
     if (packs.length === 0) {
         return (
@@ -119,6 +121,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     }
 
     const pack = packs[Math.min(packIndex, packs.length - 1)]!;
+    const unit = order.shop === 'notmpc' ? 'Deck' : 'Pack';
 
     return (
         <div className="print">
@@ -138,6 +141,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     {job?.kind === 'process' && <ProgressBar progress={progress} label="Processing card images"/>}
                     {gpu && <GpuStatus stats={gpu}/>}
                 </li>
+                {order.shop === 'meinspiel' && <>
                 <li>
                     <h2><FileText/>Build the PDFs</h2>
                     <p className="muted">Two PDFs per pack: all fronts and all backs, 55 pages each.</p>
@@ -182,6 +186,22 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         </>
                     )}
                 </li>
+                </>}
+                {order.shop === 'notmpc' && (
+                    <li>
+                        <h2><CloudUpload/>Send to notmpc.eu</h2>
+                        <p className="muted">
+                            The browser opens notmpc.eu's designer with every card in its slot, one tab per deck. MPC Autofill images without
+                            brightness or contrast of their own go there as links, the others are uploaded. You choose the options and order there yourself; an account is not needed.
+                        </p>
+                        <div className="row">
+                            <button className={allProcessed && !browser ? 'primary' : ''} disabled={running !== undefined || !allProcessed} onClick={() => void sendToNotmpc()}><CloudUpload/>Send to notmpc.eu</button>
+                            {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
+                            {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
+                        </div>
+                        {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
+                    </li>
+                )}
             </ol>
 
             {error && <p className="error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
@@ -203,9 +223,9 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
 
             <section className="sheet-section">
                 <div className="row">
-                    <div className="tabs" role="tablist" aria-label="Pack">
+                    <div className="tabs" role="tablist" aria-label={unit}>
                         {packs.map((_, index) => (
-                            <button key={index} role="tab" aria-selected={index === packIndex} onClick={() => setPackIndex(index)}><Package/>Pack {index + 1}</button>
+                            <button key={index} role="tab" aria-selected={index === packIndex} onClick={() => setPackIndex(index)}><Package/>{unit} {index + 1}</button>
                         ))}
                     </div>
                     <div className="tabs" role="tablist" aria-label="Side">
@@ -233,13 +253,13 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         ))}
                     </ol>
                     <p className="slug">
-                        <span>meinspiel.de</span>
+                        <span>{SHOPS[order.shop].name}</span>
                         <span>{order.name}</span>
-                        <span>Pack {packIndex + 1} of {packs.length}</span>
+                        <span>{unit} {packIndex + 1} of {packs.length}</span>
                         <span>{side === 'front' ? 'Fronts' : 'Backs'}</span>
                         <span>69 × 94 mm with 3 mm bleed</span>
                         <span>{order.profile.postProcessing.dpi} dpi</span>
-                        <span>ISO Coated v2 300% (ECI)</span>
+                        <span>{order.shop === 'notmpc' ? 'sRGB' : 'ISO Coated v2 300% (ECI)'}</span>
                     </p>
                 </div>
                 </div>
@@ -249,7 +269,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                                 onIndex={setOpened} onClose={() => setOpened(undefined)}/>
                 )}
                 {droppedTokens.length > 0 && (
-                    <p className="muted">Not in any pack because they would need another one: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
+                    <p className="muted">Not in any {unit.toLowerCase()} because they would need {order.shop === 'notmpc' ? 'a larger one' : 'another one'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
                 )}
             </section>
         </div>
@@ -315,7 +335,7 @@ function SlotDialog({ pack, packNumber, index, cards, order, status, busy, onRep
                 <div>
                     <h2>{card?.name ?? 'Blank card'}</h2>
                     <span className="meta">
-                        Card {index + 1} of {pack.length} in pack {packNumber}
+                        Card {index + 1} of {pack.length} in {order.shop === 'notmpc' ? 'deck' : 'pack'} {packNumber}
                         {adjustments ? `, brightness ${percent(adjustments.brightness)}, contrast ${percent(adjustments.contrast)}` : ''}
                     </span>
                 </div>
@@ -367,6 +387,8 @@ function sourceImage(face: Face) {
             return faceImageUris(face.source.printing, face.source.face)?.normal;
         case 'custom':
             return `preview://image/${encodeURIComponent(face.source.image)}`;
+        case 'mpcfill':
+            return mpcfillImage(face.source.id, 'large');
         default:
             return undefined;
     }
@@ -387,6 +409,6 @@ function GpuStatus({ stats }: { stats: GpuStats }) {
 
 function describePack(pack: Slot[]) {
     const cards = pack.filter(slot => slot.cardId !== undefined).length;
-    return cards === CARDS_PER_PACK ? `${count(cards, 'card')}` : `${count(cards, 'card')} and ${count(CARDS_PER_PACK - cards, 'blank card')}`;
+    return cards === pack.length ? `${count(cards, 'card')}` : `${count(cards, 'card')} and ${count(pack.length - cards, 'blank card')}`;
 }
 

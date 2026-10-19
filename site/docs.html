@@ -49,9 +49,9 @@
     <main class="docs-content" id="content">
         <h1>Documentation</h1>
         <p class="intro">
-            Black Lotus Press turns Moxfield decks into print-ready PDFs for the custom playing cards of
-            <a href="https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/">meinspiel.de</a>
-            and uploads them to your account. This page walks through it from installing to ordering.
+            Black Lotus Press turns Moxfield decks into print-ready card images for the custom playing cards of
+            <a href="https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/">meinspiel.de</a> or
+            <a href="https://notmpc.eu/de/">notmpc.eu</a> and hands them to the shop. This page walks through it from installing to ordering.
         </p>
 
         <section id="install">
@@ -91,6 +91,7 @@
                 <li><strong>Resolution:</strong> 300 dpi is what meinspiel.de asks for. 600 dpi with upscaling looks sharper; see <a href="#upscaling">Upscaling</a>.</li>
                 <li><strong>Copyright line:</strong> what happens to the copyright line on the cards; see <a href="#profiles">Processing profiles</a>.</li>
             </ul>
+            <p>After the splash screen the app asks where you want to print: meinspiel.de or notmpc.eu. Every order belongs to the shop it was made for, and the order list shows the orders of the chosen shop. <em>Switch print shop</em> at the bottom of the list asks again.</p>
             <p>Click <em>New order</em>, give it a name, and you are in the order's <em>Setup</em> tab.</p>
         </section>
 
@@ -107,7 +108,7 @@
             <p>The app uses exactly the printing chosen in Moxfield. Cards Scryfall does not know are marked, so you can pick a printing or your own image for them.</p>
 
             <h3>Foils</h3>
-            <p>When the deck has foils in Moxfield, a dialog lists them right after the import. Keep the foil printings, or pick a non-foil printing for any of them; the printing dialog then shows non-foil printings only. Closing the dialog keeps everything as it is.</p>
+            <p>When the deck has foils in Moxfield, a dialog lists them right after the import. Keep the foil printings, or pick a non-foil printing for any of them; the card editor then shows non-foil printings only. Closing the dialog keeps everything as it is.</p>
 
             <h3>Update, import again, remove</h3>
             <ul>
@@ -135,12 +136,21 @@
                 <li><strong>Find:</strong> the search box filters by name.</li>
             </ul>
 
-            <h3>Printings</h3>
-            <p>Open a card and click <em>Change printing…</em>. The dialog shows every printing on Scryfall with its set and price. Filter by set, frame style (borderless, full art, extended art, showcase, old frame), price, paper or non-foil, and sort by date, price or set.</p>
-            <p>When a card has several copies, choose how many of them get the new printing. They get their own entry right after the card; when an entry of the same card already has that printing, they join it.</p>
+            <h3>Choose the image</h3>
+            <p>Click a card to open the card editor. On the left it shows the image the card prints from, large; on the right are the images to choose from, in three tabs. Click one to see it on the left, then <em>Use this</em>. A double-click uses it at once. The slider above the tabs makes the images bigger or smaller.</p>
+            <ul>
+                <li><strong>Printings:</strong> every printing on Scryfall with its set and price. Filter by set, frame style (borderless, full art, extended art, showcase, old frame), price, paper or non-foil, and sort by date, price or set. When a card has several copies, choose how many of them get the new printing. They get their own entry right after the card; when an entry of the same card already has that printing, they join it.</li>
+                <li><strong>MPC Autofill:</strong> the images of <a href="https://mpcfill.com">MPC Autofill</a> with their resolution. The app compares them with the Scryfall scans of all printings and shows first the ones that match the card's printing. An image of another printing gives the card that printing; custom art and own frames are kept apart.</li>
+                <li><strong>Own image:</strong> your own image for the front or back. PNG, JPEG and WebP in portrait work.</li>
+            </ul>
+            <p><em>Compare with Scryfall</em> shows the Scryfall scan next to the image. Scroll to zoom both at once, drag to move, double-click to zoom in or out; <em>1:1</em> shows one image pixel per screen pixel, so the difference in sharpness is plain. MPC Autofill images load in full resolution for this. Double-faced cards have a switch for the front and back.</p>
+            <p>The keyboard works too: arrow keys pick an image, <kbd>Enter</kbd> uses it, <kbd>C</kbd> compares, and <kbd>Page Up</kbd> and <kbd>Page Down</kbd> go to the previous or next card. <em>Use Scryfall again</em> drops the own and MPC Autofill images of the card.</p>
 
-            <h3>Own images</h3>
-            <p>Use your own image for the front or back of a card with <em>Own front image…</em> and <em>Own back image…</em>. PNG, JPEG and WebP in portrait work.</p>
+            <h3>MPC Autofill for the whole order</h3>
+            <p><em>Use the sharpest MPC Autofill images</em> on the <em>Cards</em> tab gives every printed card the MPC Autofill image of the highest resolution that shows its printing. Cards with an own or MPC Autofill image keep it, and cards without a matching image keep their Scryfall scan. Large decks take a few minutes.</p>
+            <p>Afterwards a list shows the cards MPC Autofill has no image of the printing for. <em>Choose image…</em> opens the card editor on its MPC Autofill tab, where an image of another printing gives the card that printing. The list stays at hand on the <em>Cards</em> tab.</p>
+
+            <h3>Own images and bleed</h3>
             <ul>
                 <li>Images in the page format, 69 × 94 mm or the same proportions, already contain the bleed and are used as they are. MPC images are made like this.</li>
                 <li>Card-sized images, 63 × 88 mm, get a mirrored 3 mm bleed.</li>
@@ -148,13 +158,13 @@
             <p>Own images skip the copyright and stamp clean-up, but are upscaled like every other card.</p>
 
             <h3>Brightness and contrast</h3>
-            <p>Print comes out darker than a screen, so every order starts at 110 % brightness. Set brightness and contrast for the whole order on the <em>Print</em> tab, and on top of that for single cards in the card's details. The previews show the change right away.</p>
+            <p>Print comes out darker than a screen, so every order starts at 110 % brightness. Set brightness and contrast for the whole order on the <em>Print</em> tab, and on top of that for single cards in the card editor. The previews show the change right away.</p>
         </section>
 
         <section id="print">
             <h2>Print and upload</h2>
             <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab with its three steps and the press sheet of the first pack."></figure>
-            <p>The <em>Print</em> tab has three steps, with the press sheet of every pack below them.</p>
+            <p>For meinspiel.de the <em>Print</em> tab has three steps, with the press sheet of every pack below them. For notmpc.eu it has two; see <a href="#notmpc">notmpc.eu</a>.</p>
 
             <h3>1. Process the card images</h3>
             <p>Downloads the scans, cleans them up, adds the bleed, upscales them if the profile says so, and converts them to CMYK. Images that are already done are skipped, so only new or changed cards take time. While upscaling, the step shows the GPU load and temperature on Apple Silicon Macs and with NVIDIA graphics cards.</p>
@@ -172,8 +182,16 @@
             </ol>
             <p>After the upload, the step lists links to the games. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele". You can always upload the PDFs by hand instead: they are ordinary files in the order's folder.</p>
 
+            <h3 id="notmpc">notmpc.eu</h3>
+            <p>notmpc.eu prints decks of 18 up to 612 cards. The app puts the cards into the smallest deck that holds them, so a 100-card Commander deck becomes one deck of 108 cards, and the press sheets show the decks instead of packs.</p>
+            <ol>
+                <li><strong>Process the card images:</strong> as for meinspiel.de, but in RGB instead of CMYK, because notmpc.eu prints RGB images.</li>
+                <li><strong>Send to notmpc.eu:</strong> a browser window opens notmpc.eu's designer with every card in its slot, one tab per deck. MPC Autofill images without brightness or contrast of their own go there as links, the others are uploaded. No account is needed.</li>
+            </ol>
+            <p>Choose the options and order in the designer yourself; the app never orders or pays anything. When notmpc.eu asks to wait after many uploads in a row, the app waits and carries on.</p>
+
             <h3>Tasks</h3>
-            <p>Imports, processing, PDFs and uploads run as tasks in the background. They are listed under <em>Running</em> at the bottom of the order list, with their progress and a button to cancel them, or to close the meinspiel.de browser after an upload. One task runs at a time.</p>
+            <p>Imports, processing, PDFs and uploads run as tasks in the background. They are listed under <em>Running</em> at the bottom of the order list, with their progress and a button to cancel them, or to close the shop's browser after an upload. One task runs at a time.</p>
         </section>
 
         <section id="profiles">
@@ -344,8 +362,8 @@
         <section id="legal">
             <h2>Credits and legal</h2>
             <p>Black Lotus Press is made by balatD and is based on <a href="https://github.com/benedikt-wueller/mpc-proxy-forge">MPC Proxy Forge</a> by Benedikt Wüller. It is open source under the <a href="https://github.com/balatD/black-lotus-press/blob/main/LICENSE">MIT license</a>.</p>
-            <p>It uses card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs from <a href="https://mpcautofill.github.io">MPC Autofill</a> and the upscaler <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>. The website uses the typeface Barlow Semi Condensed under the SIL Open Font License.</p>
-            <p class="note">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, Moxfield, Scryfall or MPC Autofill.</p>
+            <p>It uses card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a> and the upscaler <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>. The website uses the typeface Barlow Semi Condensed under the SIL Open Font License.</p>
+            <p class="note">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, Moxfield, Scryfall or MPC Autofill.</p>
         </section>
     </main>
 </div>

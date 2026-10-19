@@ -8,6 +8,8 @@ export type ScryfallCard = {
     lang: string,
     image_status?: string,
     image_uris?: ScryfallImageUris,
+    // Double-faced cards have it on their faces.
+    illustration_id?: string,
     card_faces?: ScryfallCardFace[],
     full_art: boolean,
     frame: string,
@@ -36,7 +38,8 @@ export type ScryfallCardFace = {
     name: string,
     oracle_id?: string,
     type_line: string,
-    image_uris?: ScryfallImageUris
+    image_uris?: ScryfallImageUris,
+    illustration_id?: string
 };
 
 export type ScryfallImageUris = {
@@ -144,6 +147,12 @@ export interface CustomImage {
     back?: string;
 }
 
+// Google Drive ids of MPC Autofill images, picked for the card's printing.
+export interface MpcfillImage {
+    front?: string;
+    back?: string;
+}
+
 export interface OrderCard {
     id: string;
     deck: string;
@@ -156,6 +165,7 @@ export interface OrderCard {
     foil?: boolean;
     printing?: ScryfallCard;
     customImage?: CustomImage;
+    mpcfill?: MpcfillImage;
     adjustments?: Adjustments;
     // What Moxfield had at the last import, to tell local edits apart from changes made in the deck.
     imported?: ImportedState;
@@ -167,8 +177,11 @@ export interface ImportedState {
     printingId?: string;
 }
 
+export type Shop = 'meinspiel' | 'notmpc';
+
 export interface Order {
     name: string;
+    shop: Shop;
     profile: ProcessingProfile;
     decks: DeckConfig[];
     // Google Drive id of an MPC Autofill card back.
@@ -182,6 +195,7 @@ export interface Order {
 
 export const DefaultOrder: Order = {
     name: 'unnamed',
+    shop: 'meinspiel',
     profile: DefaultProfile,
     cardBack: '1osewJhv5oaP5glJsBpnFJq0pXNuPwZY2',
     decks: [],
@@ -317,22 +331,33 @@ function groupQuantities(group: OrderCard[], fresh: OrderCard) {
 
 // Gives some copies of a card another printing. They join an entry of the same card that has the printing already,
 // otherwise they get their own entry right after the card, unless all copies change.
-export function changePrinting(cards: OrderCard[], id: string, printing: ScryfallCard, copies: number): OrderCard[] {
+// An MPC Autofill image belongs to the old printing, so the changed copies lose it. Returns the id of the entry the copies went to.
+export function changePrinting(cards: OrderCard[], id: string, printing: ScryfallCard, copies: number): { cards: OrderCard[], id: string } {
     const card = cards.find(candidate => candidate.id === id);
-    if (!card || card.printing?.id === printing.id) return cards;
+    if (!card || card.printing?.id === printing.id) return { cards, id };
 
     const moved = Math.min(copies, card.quantity);
-    const target = cards.find(other => other !== card && other.printing?.id === printing.id && sameCard(other, card));
+    const target = cards.find(other => other !== card && other.printing?.id === printing.id && !other.mpcfill && sameCard(other, card));
     if (target) {
-        return cards
-            .map(other => other === target ? { ...other, quantity: other.quantity + moved } : other === card ? { ...card, quantity: card.quantity - moved } : other)
-            .filter(other => other.quantity > 0);
+        return {
+            cards: cards
+                .map(other => other === target ? { ...other, quantity: other.quantity + moved } : other === card ? { ...card, quantity: card.quantity - moved } : other)
+                .filter(other => other.quantity > 0),
+            id: target.id
+        };
     }
-    if (moved === card.quantity) return cards.map(other => other === card ? { ...card, printing } : other);
 
-    return cards.flatMap(other => other === card
-        ? [{ ...card, quantity: card.quantity - moved }, { ...card, id: crypto.randomUUID(), quantity: moved, printing }]
-        : [other]);
+    const { mpcfill: _, ...changed } = card;
+    if (moved === card.quantity) return { cards: cards.map(other => other === card ? { ...changed, printing } : other), id };
+
+    const split = { ...changed, id: crypto.randomUUID(), quantity: moved, printing };
+    return { cards: cards.flatMap(other => other === card ? [{ ...card, quantity: card.quantity - moved }, split] : [other]), id: split.id };
+}
+
+// An image picked for one face; when it shows another printing, the card takes that printing and drops the images of the old one.
+export function chooseMpcfillImage(card: OrderCard, face: 'front' | 'back', id: string, printing: ScryfallCard | undefined): OrderCard {
+    const switches = printing !== undefined && printing.id !== card.printing?.id;
+    return { ...card, ...(switches ? { printing } : {}), mpcfill: { ...(switches ? {} : card.mpcfill), [face]: id } };
 }
 
 // Entries of the same deck entry that only differ in their printing.
@@ -353,7 +378,7 @@ function mergeCard(card: OrderCard, fresh: OrderCard, quantity: number): OrderCa
     const printingPickedHere = before === undefined || card.printing?.id !== before.printingId;
 
     const printing = (printingPickedHere ? card.printing : undefined) ?? fresh.printing ?? card.printing;
-    const { printing: _, imported: __, ...rest } = card;
+    const { printing: _, imported: __, mpcfill, ...rest } = card;
 
     return {
         ...rest,
@@ -361,6 +386,8 @@ function mergeCard(card: OrderCard, fresh: OrderCard, quantity: number): OrderCa
         isToken: fresh.isToken,
         quantity,
         ...(printing ? { printing } : {}),
+        // The image was picked for the old printing.
+        ...(mpcfill && printing?.id === card.printing?.id ? { mpcfill } : {}),
         ...(fresh.imported ? { imported: fresh.imported } : {})
     };
 }

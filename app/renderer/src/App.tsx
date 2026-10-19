@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DefaultOrder, type Order, type ProcessingProfile } from "../../../src/model.js";
+import { DefaultOrder, type Order, type ProcessingProfile, type Shop } from "../../../src/model.js";
 import { api, errorMessage } from "./api.js";
 import { Rail } from "./components/Rail.js";
 import { OrderScreen } from "./screens/OrderScreen.js";
 import { ProfilesScreen } from "./screens/ProfilesScreen.js";
 import { RegistrationMark } from "./components/Decor.js";
 import { Splash } from "./components/Splash.js";
+import { ShopPicker } from "./components/ShopPicker.js";
+import { SHOPS } from "./shops.js";
 
 type View = { type: 'order', name: string } | { type: 'profiles' } | { type: 'none' };
 
@@ -18,6 +20,8 @@ export function App() {
     const [error, setError] = useState<string>();
     const [splash, setSplash] = useState(true);
     const endSplash = useCallback(() => setSplash(false), []);
+    // Asked on every start, after the splash.
+    const [shop, setShop] = useState<Shop>();
     const pendingSaves = useRef(new Map<string, { order: Order, timer: number }>());
 
     const reload = useCallback(async () => {
@@ -54,7 +58,7 @@ export function App() {
     }, [save]);
 
     async function createOrder(name: string) {
-        const order: Order = { ...DefaultOrder, name, profile: profiles[0] ?? DefaultOrder.profile };
+        const order: Order = { ...DefaultOrder, name, shop: shop!, profile: profiles[0] ?? DefaultOrder.profile };
         await api.saveOrder(order);
         await reload();
         setView({ type: 'order', name });
@@ -72,14 +76,22 @@ export function App() {
         setView(next);
     }
 
+    async function switchShop() {
+        await show({ type: 'none' });
+        setShop(undefined);
+    }
+
     const order = view.type === 'order' ? orders.find(o => o.name === view.name) : undefined;
 
     return (
         <>
         {splash && <Splash onDone={endSplash}/>}
-        <div className={`app ${splash ? 'waiting' : 'revealed'}`}>
+        {!splash && !shop && <ShopPicker onPick={setShop}/>}
+        <div className={`app ${splash || !shop ? 'waiting' : 'revealed'}`}>
             <Rail
                 orders={orders}
+                shop={shop}
+                onSwitchShop={() => void switchShop()}
                 selected={view.type === 'order' ? view.name : undefined}
                 profilesSelected={view.type === 'profiles'}
                 onSelectOrder={name => void show({ type: 'order', name })}
@@ -103,7 +115,7 @@ export function App() {
                     <div className="empty">
                         <RegistrationMark size={72} className="empty-mark"/>
                         <h1>Pick an order on the left</h1>
-                        <p>Or create a new one to turn Moxfield decks into print files for meinspiel.de.</p>
+                        <p>Or create a new one to turn Moxfield decks into print files for {shop && SHOPS[shop].name}.</p>
                     </div>
                 )}
             </main>

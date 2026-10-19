@@ -7,18 +7,24 @@ const scryfallBottleneck = new Bottleneck({
     minTime: 200
 });
 
+// Scryfall allows two searches a second.
+const scryfallSearchBottleneck = new Bottleneck({
+    maxConcurrent: 1,
+    minTime: 500
+});
+
+// The image files on *.scryfall.io have no rate limit.
 const scryfallImageBottleneck = new Bottleneck({
-    maxConcurrent: 10,
-    minTime: 100
+    maxConcurrent: 10
 })
 
 const scryfallUserAgent = "BlackLotusPress/1.0";
 const jsonHeaders = { "Accept": "application/json", "User-Agent": scryfallUserAgent };
 
-const PRINTING_FIELDS = ['id', 'oracle_id', 'name', 'set', 'set_name', 'collector_number', 'lang', 'image_status', 'image_uris',
+const PRINTING_FIELDS = ['id', 'oracle_id', 'name', 'set', 'set_name', 'collector_number', 'lang', 'image_status', 'image_uris', 'illustration_id',
     'full_art', 'frame', 'security_stamp', 'promo_types', 'type_line', 'layout',
     'prices', 'released_at', 'border_color', 'frame_effects', 'digital', 'finishes'];
-const FACE_FIELDS = ['name', 'oracle_id', 'type_line', 'image_uris'];
+const FACE_FIELDS = ['name', 'oracle_id', 'type_line', 'image_uris', 'illustration_id'];
 
 function pick(source: Record<string, unknown>, fields: string[]) {
     return Object.fromEntries(fields.filter(field => source[field] !== undefined).map(field => [field, source[field]]));
@@ -64,7 +70,7 @@ export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>
     let url: string | undefined = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=prints&order=released&dir=desc&include_extras=true`;
     while (url) {
         const pageUrl: string = url;
-        const response = await scryfallBottleneck.schedule(() => fetch(pageUrl, { headers: jsonHeaders }));
+        const response = await scryfallSearchBottleneck.schedule(() => fetch(pageUrl, { headers: jsonHeaders }));
         if (response.status === 404) break;
         if (!response.ok) {
             throw new Error(`Scryfall search for ${card.name} failed (${response.status}): ${await response.text()}`);

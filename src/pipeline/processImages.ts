@@ -11,7 +11,7 @@ import { downloadDriveImage } from "../clients/googleDrive.js";
 import { postProcessImage } from "./postProcessing.js";
 import { upscaleImage } from "./upscayl.js";
 import { prepareCustomImage } from "./customImage.js";
-import { createBlankPrintJpeg, PREVIEW_DIR, toPrintJpeg } from "../output/printImage.js";
+import { createBlankPrintJpeg, pageSizeInPixels, PREVIEW_DIR, toPrintJpeg } from "../output/printImage.js";
 import { exists, renameWithRetry } from "../utils/fs.js";
 
 // Bump whenever a code change alters the processed images, so existing caches get rebuilt.
@@ -50,6 +50,8 @@ export async function processImages(order: Order, iccProfile: string, onProgress
     const dir = cardsDir(order);
     const tmpDir = path.join(dir, '.tmp');
     const dpi = order.profile.postProcessing.dpi;
+    // notmpc.eu prints RGB images; meinspiel.de wants CMYK in its own profile.
+    const colour = order.shop === 'notmpc' ? 'srgb' : iccProfile;
     await prepareCache(dir, settingsFingerprint(order.profile));
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.mkdir(tmpDir, { recursive: true });
@@ -85,9 +87,9 @@ export async function processImages(order: Order, iccProfile: string, onProgress
             const tmpFile = path.join(tmpDir, face.file);
             if (face.base && face.adjustments) {
                 await ensureBase(face, face.base);
-                await toPrintJpeg(path.join(dir, face.base), tmpFile, dpi, iccProfile, face.adjustments);
+                await toPrintJpeg(path.join(dir, face.base), tmpFile, dpi, colour, face.adjustments);
             } else {
-                await createBlankPrintJpeg(tmpFile, dpi, iccProfile);
+                await createBlankPrintJpeg(tmpFile, dpi, colour);
             }
             signal?.throwIfAborted();
 
@@ -194,6 +196,9 @@ async function baseImage(source: FaceSource, tmpFile: string, profile: Processin
             const prepared = await prepareCustomImage(await fs.readFile(customImagePath(source.image)), profile.postProcessing);
             return await upscale(prepared, tmpFile, profile, signal);
         }
+        // Already made for print, so never upscaled; only images without bleed get one.
+        case 'mpcfill':
+            return await prepareCustomImage(await downloadDriveImage(source.id, pageSizeInPixels(profile.postProcessing.dpi).height), profile.postProcessing);
         case 'blank':
             throw new Error('Blank cards have no base image');
     }
@@ -219,6 +224,8 @@ function describe(source: FaceSource) {
             return `${source.printing.name} (${source.printing.set.toUpperCase()} ${source.printing.collector_number}, ${source.face})`;
         case 'custom':
             return `own image ${source.image}`;
+        case 'mpcfill':
+            return `MPC Autofill image ${source.id}`;
         case 'cardback':
             return `card back ${source.driveId}`;
         case 'blank':

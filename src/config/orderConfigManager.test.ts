@@ -54,3 +54,12 @@ test('loadOrders converts orders saved with processing states', async () => {
     assert.equal(order?.cardBack, 'drive1');
     assert.ok(!('states' in order!));
 });
+
+test('loadOrders gives orders saved before there was a choice of shop to meinspiel.de', async () => {
+    const root = await tempRoot();
+    await fs.mkdir(path.join(root, 'config', 'orders'), { recursive: true });
+    const { shop: _, ...older } = { ...DefaultOrder, name: 'sauron' };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'sauron.json'), JSON.stringify(older));
+
+    assert.equal((await loadOrders())[0]?.shop, 'meinspiel');
+});

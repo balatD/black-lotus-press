@@ -153,3 +153,4 @@ vite.config.ts.timestamp-*
 /upscayl-comparison/
 .claude/
 .DS_Store
+/cache/

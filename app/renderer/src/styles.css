@@ -196,6 +196,16 @@ input[type="checkbox"] { accent-color: var(--cyan); }
 .empty { display: grid; place-content: center; justify-items: center; gap: 0.5rem; height: 100%; text-align: center; color: var(--muted); }
 .empty-mark { margin-bottom: 0.75rem; color: var(--line); }
 
+/* The choice of print shop between the splash and the app. */
+.shop-picker { position: fixed; inset: 0; z-index: 90; display: grid; place-content: center; justify-items: center; gap: 1.5rem; background: var(--booth) var(--halftone); animation: reveal 0.6s ease-out both; }
+.shops { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
+.shop { flex-direction: column; gap: 0.75rem; width: 20rem; padding: 1.25rem; background: var(--panel); text-align: center; }
+.shop:hover:not(:disabled) { border-color: var(--cyan); }
+.shop .proof { display: block; }
+.shop-logo { display: flex; align-items: center; justify-content: center; width: 16rem; height: 6.5rem; padding: 1rem 1.25rem; border-radius: 2px; background: var(--paper); }
+/* Logos keep their shape, unlike the card images of other proofs. */
+.shop .shop-logo img { width: auto; max-width: 100%; max-height: 100%; aspect-ratio: auto; mix-blend-mode: multiply; }
+
 .color-bar {
     height: 7px;
     border-radius: 1px;
@@ -272,6 +282,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .card-tile.excluded .tile-image img { opacity: 0.35; filter: grayscale(0.8); }
 .card-tile.drop-target .tile-image img { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .tile-name { overflow: hidden; font-size: var(--step--1); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.sharpest { display: flex; flex-direction: column; gap: 0.5rem; }
 .summary { display: flex; flex-direction: column; gap: 0.2rem; }
 .summary .headline { font-size: var(--step-1); font-weight: 600; }
 /* Struck through like a proofreader's correction, in magenta ink. */
@@ -305,18 +316,9 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .badge.error { border-color: var(--magenta); color: var(--magenta); }
 .quantity { width: 4rem; }
 .print-toggle { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); }
-.card-details { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 1.75rem; padding: 0.75rem 0.25rem 1.25rem 4.85rem; }
-.card-faces { display: flex; gap: 0.75rem; }
-.card-faces .proof { margin: 0; }
-.card-faces figcaption { margin-top: 0.35rem; text-align: center; }
-.card-controls { display: flex; flex-direction: column; gap: 1.25rem; }
-.card-controls section { display: flex; flex-direction: column; gap: 0.5rem; }
-.card-controls section + section { padding-top: 1.25rem; border-top: 1px solid var(--line); }
-.card-controls .adjustments { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
-.card-controls .slider span { width: 5.5rem; }
 
-/* Printing dialog */
-.printing-dialog, .card-dialog, .slot-dialog, .review-dialog {
+/* Dialogs */
+.card-editor, .slot-dialog, .review-dialog {
     width: min(72rem, 92vw);
     max-height: 86vh;
     padding: 1.25rem;
@@ -326,18 +328,49 @@ details[open] > summary { margin-bottom: 0.75rem; }
     color: var(--text);
 }
 
-.card-dialog { width: min(60rem, 92vw); }
 .review-dialog { width: min(56rem, 92vw); }
 .review-dialog:focus { outline: none; }
 .review-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .review-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 4.5rem auto; align-items: center; gap: 0.9rem; padding: 0.45rem 0; border-bottom: 1px solid var(--line); }
 .review-row > .meta { text-align: right; font-variant-numeric: tabular-nums; }
 .review-row .card-name:hover .name { color: inherit; }
-.card-dialog:focus { outline: none; }
-.card-dialog .card-details { padding: 0; }
-.card-dialog .proof img, .card-dialog .proof .placeholder { width: 17rem; }
-.card-dialog .card-faces:has(> :nth-child(2)) img { width: 13rem; }
-.printing-dialog::backdrop, .card-dialog::backdrop, .slot-dialog::backdrop, .review-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+.card-editor::backdrop, .slot-dialog::backdrop, .review-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+
+/* Card editor: the image large on the left, the images to choose from on the right */
+.card-editor { width: min(110rem, 96vw); height: 94vh; max-height: 94vh; }
+/* Only when open, a closed dialog must stay hidden. */
+.card-editor[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.card-editor:focus { outline: none; }
+.editor-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(20rem, 38%, 40rem); gap: 1.5rem; min-height: 0; }
+/* In small windows the settings scroll, so the image stays large enough to judge. */
+.editor-stage { display: grid; grid-template-rows: minmax(22rem, 1fr) auto auto; gap: 0.75rem; min-height: 0; overflow-y: auto; }
+.stage-column { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 0.4rem; min-height: 0; }
+.stage { container-type: size; display: flex; justify-content: center; gap: 1rem; min-height: 0; }
+.stage-pane { display: flex; flex-direction: column; gap: 0.35rem; width: min-content; margin: 0; }
+.stage-pane figcaption { text-align: center; }
+.stage-frame {
+    position: relative;
+    height: min(calc(100cqh - 2.4rem), calc(100cqw * 88 / 63));
+    aspect-ratio: 63 / 88;
+    overflow: hidden;
+    border-radius: 4.75% / 3.4%;
+    background: var(--raised);
+    cursor: zoom-in;
+    touch-action: none;
+}
+.stage.comparing .stage-frame { height: min(calc(100cqh - 2.4rem), calc((50cqw - 0.5rem) * 88 / 63)); }
+.stage.zoomed .stage-frame { border-radius: 0; cursor: grab; }
+.stage-content { position: absolute; inset: 0; transform-origin: 0 0; }
+.stage-content img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.stage-content img.loading { opacity: 0; }
+.stage-empty { display: grid; place-content: center; padding: 1rem; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); text-align: center; }
+.use-row { justify-content: flex-end; }
+.editor-settings { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.editor-settings .slider input[type="range"] { width: 7rem; }
+.editor-candidates { display: flex; flex-direction: column; gap: 0.6rem; min-height: 0; }
+.candidates { flex: 1; min-height: 0; overflow-y: auto; padding-right: 0.25rem; }
+.candidates h3 { margin-top: 1rem; }
+.own-image { display: flex; flex-direction: column; gap: 0.75rem; }
 .slot-dialog { width: min(64rem, 94vw); max-height: 94vh; }
 .slot-faces { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
 .slot-faces .proof { position: relative; margin: 0; }
@@ -359,13 +392,14 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .chip { padding: 0.2rem 0.7rem; border-radius: 999px; font-size: var(--step--1); }
 .chip[aria-pressed="true"] { border-color: var(--cyan); background: rgb(25 167 224 / 0.14); color: var(--cyan); }
 
-.printing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 1rem 0.75rem; margin-top: 0.75rem; }
+.printing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile-width, 9rem), 1fr)); gap: 1rem 0.75rem; margin-top: 0.75rem; }
 .printing { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 10px; border: none; background: none; text-align: left; }
 .printing-set { font-weight: 600; line-height: 1.2; margin-top: 0.3rem; }
 .printing-price { font-weight: 600; }
 .printing-current { font-size: var(--step--1); color: var(--cyan); }
 .printing img, .printing .thumb { width: 100%; aspect-ratio: 63 / 88; border-radius: 4px; object-fit: cover; }
 .printing:hover:not(:disabled) img { outline: 1px solid var(--muted); }
+.printing[aria-pressed="true"] img { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .printing.current { --mark-color: var(--cyan); width: auto; }
 
 /* Print */

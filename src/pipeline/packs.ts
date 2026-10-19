@@ -1,9 +1,15 @@
-import { type Adjustments, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris } from "../model.js";
+import { type Adjustments, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop } from "../model.js";
 
 export const CARDS_PER_PACK = 55;
 export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 export const PACK_PRICE_EUR = 19.95;
 export const BLANK_FILE = 'blank.jpg';
+
+// notmpc.eu sells decks of up to these many cards; the prices are those for one to five identical decks.
+export const NOTMPC_DECKS: [size: number, eur: number][] = [
+    [18, 10.85], [36, 14.09], [55, 16.88], [72, 21.69], [90, 25.88], [108, 29.97], [126, 35.78], [144, 41.58],
+    [162, 45.77], [180, 49.95], [198, 54.09], [216, 58.28], [234, 64.08], [396, 98.28], [504, 121.37], [612, 144.54]
+];
 
 export interface Slot {
     front: string;
@@ -15,6 +21,7 @@ export interface Slot {
 export type FaceSource =
     | { type: 'scryfall', printing: ScryfallCard, face: 'front' | 'back' }
     | { type: 'custom', image: string }
+    | { type: 'mpcfill', id: string }
     | { type: 'cardback', driveId: string }
     | { type: 'blank' };
 
@@ -27,7 +34,7 @@ export interface Face {
     adjustments?: Adjustments;
 }
 
-export type PackOrder = Pick<Order, 'cards' | 'cardBack' | 'adjustments'>;
+export type PackOrder = Pick<Order, 'cards' | 'cardBack' | 'adjustments' | 'shop'>;
 
 export interface DroppedToken {
     card: OrderCard;
@@ -37,6 +44,14 @@ export interface DroppedToken {
 export function faceImageUris(printing: ScryfallCard, face: 'front' | 'back'): ScryfallImageUris | undefined {
     if (face === 'front') return printing.image_uris ?? printing.card_faces?.[0]?.image_uris;
     return printing.card_faces?.find(cardFace => cardFace.image_uris?.png.includes('/back/'))?.image_uris;
+}
+
+// MPC Autofill images have 1/8 inch of bleed around the card: 33 × 30 pixels at 300 dpi.
+export const MPCFILL_BLEED = { x: 33 / 816, y: 30 / 1110 };
+
+// Previews MPC Autofill serves of an image: small is 294 × 400 pixels, large 588 × 800.
+export function mpcfillImage(id: string, size: 'small' | 'large') {
+    return `https://img.mpcautofill.com/${encodeURIComponent(id)}-${size}-google_drive`;
 }
 
 export const BLANK_FACE: Face = { file: BLANK_FILE, source: { type: 'blank' } };
@@ -62,14 +77,17 @@ export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adju
     const adjustments = combineAdjustments(order.adjustments, card.adjustments);
     const scryfall = (face: 'front' | 'back') => adjustedFace(`scryfall-${printing!.id}-${face}`, { type: 'scryfall', printing: printing!, face }, adjustments);
     const custom = (image: string) => adjustedFace(`custom-${image.replace(/\.[^.]+$/, '')}`, { type: 'custom', image }, adjustments);
+    const mpcfill = (id: string) => adjustedFace(`mpcfill-${id}`, { type: 'mpcfill', id }, adjustments);
 
     const front = card.customImage
         ? custom(card.customImage.front)
+        : card.mpcfill?.front ? mpcfill(card.mpcfill.front)
         : printing && faceImageUris(printing, 'front') ? scryfall('front') : undefined;
     if (!front) return undefined;
 
     const back = card.customImage?.back
         ? custom(card.customImage.back)
+        : card.mpcfill?.back ? mpcfill(card.mpcfill.back)
         : printing && faceImageUris(printing, 'back') ? scryfall('back') : cardBackFace(order);
 
     return { front, back };
@@ -93,8 +111,11 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
         }
     }
 
-    // Tokens only fill the free slots of the last pack, they never start a new one.
-    const freeSlots = (CARDS_PER_PACK - slots.length % CARDS_PER_PACK) % CARDS_PER_PACK;
+    // Tokens only fill the free slots of the last pack, they never start a new one or make it a larger deck.
+    const sizes = order.shop === 'notmpc' ? NOTMPC_DECKS.map(([size]) => size) : [CARDS_PER_PACK];
+    const largest = sizes.at(-1)!;
+    const rest = slots.length % largest;
+    const freeSlots = rest === 0 ? 0 : sizes.find(size => size >= rest)! - rest;
     slots.push(...tokens.slice(0, freeSlots).map(token => token.slot));
 
     const droppedTokens: DroppedToken[] = [];
@@ -108,16 +129,26 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
     }
 
     const packs: Slot[][] = [];
-    for (let i = 0; i < slots.length; i += CARDS_PER_PACK) {
-        packs.push(slots.slice(i, i + CARDS_PER_PACK));
+    for (let i = 0; i < slots.length; i += largest) {
+        packs.push(slots.slice(i, i + largest));
     }
 
+    // notmpc takes decks with fewer cards than their size, meinspiel's packs always have 55.
     const lastPack = packs.at(-1);
-    while (lastPack && lastPack.length < CARDS_PER_PACK) {
+    while (order.shop === 'meinspiel' && lastPack && lastPack.length < CARDS_PER_PACK) {
         lastPack.push({ front: BLANK_FILE, back: cardBackFace(order).file });
     }
 
     return { packs, droppedTokens };
+}
+
+// The smallest notmpc deck size that holds these cards, with its price.
+export function notmpcDeck(cards: number) {
+    return NOTMPC_DECKS.find(([size]) => size >= cards)!;
+}
+
+export function packPrice(shop: Shop, cards: number) {
+    return shop === 'meinspiel' ? PACK_PRICE_EUR : notmpcDeck(cards)[1];
 }
 
 // Each PDF embeds every distinct image once, so only unique files count.

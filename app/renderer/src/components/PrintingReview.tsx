@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Replace } from "lucide-react";
-import { changePrinting, type Order, type OrderCard } from "../../../../src/model.js";
+import type { Order, OrderCard } from "../../../../src/model.js";
 import { faceImageUris } from "../../../../src/pipeline/packs.js";
 import { printingPrice } from "../../../../src/printings.js";
 import { describePrinting, formatPrice } from "../format.js";
-import { PrintingDialog } from "./PrintingDialog.js";
+import { CardEditor } from "./CardEditor.js";
 
 interface Props {
     order: Order;
@@ -32,7 +32,7 @@ export function PrintingReview({ order, deckUrl, update, onClose }: Props) {
     const changed = (card: OrderCard) => card.printing?.id !== foils.get(card.id);
 
     return (
-        // React passes the close event of the printing dialog inside on to this one.
+        // React passes the close event of the card editor inside on to this one.
         <dialog ref={dialog} className="review-dialog" tabIndex={-1} onClose={event => event.target === event.currentTarget && onClose()}>
             <header className="dialog-header">
                 <div>
@@ -59,14 +59,7 @@ export function PrintingReview({ order, deckUrl, update, onClose }: Props) {
                     );
                 })}
             </ul>
-            {choosing && (
-                <PrintingDialog card={choosing} nonfoilOnly
-                                onClose={() => setChoosing(undefined)}
-                                onChoose={(printing, copies) => {
-                                    update(current => ({ ...current, cards: changePrinting(current.cards, choosing.id, printing, copies) }));
-                                    setChoosing(undefined);
-                                }}/>
-            )}
+            {choosing && <CardEditor order={order} update={update} ids={cards.map(card => card.id)} start={choosing.id} tab="printings" nonfoilOnly onClose={() => setChoosing(undefined)}/>}
         </dialog>
     );
 }

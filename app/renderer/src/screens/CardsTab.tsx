@@ -1,15 +1,18 @@
-import { type CSSProperties, type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
-import { GripVertical, ImageIcon, ImagePlus, ImageUp, LayoutGrid, List, Replace, Search, Sun, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
-import { type Adjustments, changePrinting, combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
-import { buildPacks, CARDS_PER_PACK, faceImageUris, PACK_PRICE_EUR } from "../../../../src/pipeline/packs.js";
+import { type CSSProperties, type DragEvent, useState } from "react";
+import { CircleStop, GripVertical, Images, LayoutGrid, List, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { combineAdjustments, type Order, type OrderCard } from "../../../../src/model.js";
+import { buildPacks, CARDS_PER_PACK, faceImageUris, mpcfillImage, notmpcDeck, packPrice } from "../../../../src/pipeline/packs.js";
 import { printedValue } from "../../../../src/printings.js";
-import { api, errorMessage } from "../api.js";
-import { count, describePrinting, formatEuro } from "../format.js";
-import { PrintingDialog } from "../components/PrintingDialog.js";
+import { api, errorMessage, wasStopped } from "../api.js";
+import { boardName, count, describePrinting, formatEuro } from "../format.js";
+import { CardEditor } from "../components/CardEditor.js";
+import { lacksMpcfill, MpcfillReview } from "../components/MpcfillReview.js";
 import { RegistrationMark } from "../components/Decor.js";
 import { useStoredState } from "../useStoredState.js";
-import { adjustmentFilter, percent } from "../adjust.js";
-import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
+import { adjustmentFilter } from "../adjust.js";
+import { ProgressBar } from "../components/ProgressBar.js";
+import { useTasks } from "../useTasks.js";
+import { useProgress } from "../useProgress.js";
 
 interface Props {
     order: Order;
@@ -24,7 +27,7 @@ const ZOOM_STEP = 30;
 
 export function CardsTab({ order, update }: Props) {
     const [filter, setFilter] = useState('');
-    const [expanded, setExpanded] = useState<string>();
+    const [editing, setEditing] = useState<string>();
     const [dragged, setDragged] = useState<number>();
     const [target, setTarget] = useState<number>();
     const [view, setView] = useStoredState<View>('cards-view', 'list');
@@ -45,14 +48,9 @@ export function CardsTab({ order, update }: Props) {
     const visible = order.cards
         .map((card, index) => ({ card, index }))
         .filter(({ card }) => !filtering || card.name.toLowerCase().includes(filter.trim().toLowerCase()));
-    const opened = view === 'cards' ? order.cards.find(card => card.id === expanded) : undefined;
 
     function changeCard(id: string, change: (card: OrderCard) => OrderCard) {
         update(current => ({ ...current, cards: current.cards.map(card => card.id === id ? change(card) : card) }));
-    }
-
-    function choosePrinting(id: string, printing: ScryfallCard, copies: number) {
-        update(current => ({ ...current, cards: changePrinting(current.cards, id, printing, copies) }));
     }
 
     function move(from: number, to: number) {
@@ -111,9 +109,10 @@ export function CardsTab({ order, update }: Props) {
                     </div>
                 )}
             </div>
+            <SharpestImages order={order} update={update}/>
             <p className="status">{filtering ? 'Clear the search to reorder cards.' : view === 'list'
                 ? 'Drag cards or use Alt + arrow keys on the handle to change the print order.'
-                : 'Drag cards to change the print order, click a card for its printing and own images.'}</p>
+                : 'Drag cards to change the print order, click a card to choose its image, copies and brightness.'}</p>
 
             {view === 'list' ? (
                 <ol className="card-list">
@@ -127,7 +126,7 @@ export function CardsTab({ order, update }: Props) {
                                             if (event.key === 'ArrowDown') move(index, index + 1);
                                         }}><GripVertical/></button>
                                 <Thumbnail card={card} filter={filterFor(card)}/>
-                                <button className="card-name" aria-expanded={expanded === card.id} onClick={() => setExpanded(expanded === card.id ? undefined : card.id)}>
+                                <button className="card-name" aria-haspopup="dialog" onClick={() => setEditing(card.id)}>
                                     <span className="name">{card.name}</span>
                                     <span className="meta">{describePrinting(card)}</span>
                                 </button>
@@ -140,8 +139,6 @@ export function CardsTab({ order, update }: Props) {
                                     <span>Print</span>
                                 </label>
                             </div>
-                            {expanded === card.id && <CardDetails card={card} orderAdjustments={order.adjustments} onChange={change => changeCard(card.id, change)}
-                                                                 onPrinting={(printing, copies) => choosePrinting(card.id, printing, copies)}/>}
                         </li>
                     ))}
                 </ol>
@@ -149,7 +146,7 @@ export function CardsTab({ order, update }: Props) {
                 <ol className="card-grid" style={{ '--card-width': `${zoom}px` } as CSSProperties}>
                     {visible.map(({ card, index }) => (
                         <li key={card.id} className={`card-tile${card.excluded ? ' excluded' : ''}${target === index ? ' drop-target' : ''}`} {...dragProps(index)}>
-                            <button className="tile-image" aria-label={`${card.name}, ${describePrinting(card)}`} onClick={() => setExpanded(card.id)}>
+                            <button className="tile-image" aria-label={`${card.name}, ${describePrinting(card)}`} onClick={() => setEditing(card.id)}>
                                 <CardImage card={card} large={zoom > 240} filter={filterFor(card)}/>
                                 {card.quantity > 1 && <span className="tile-quantity">×{card.quantity}</span>}
                                 {card.excluded && <span className="tile-off">Not printed</span>}
@@ -161,69 +158,67 @@ export function CardsTab({ order, update }: Props) {
                 </ol>
             )}
 
-            {opened && (
-                <CardDialog card={opened} deckName={deckNames.get(opened.deck)} orderAdjustments={order.adjustments}
-                            onQuantity={quantity => setQuantity(opened, quantity)}
-                            onPrinted={printed => setPrinted(opened, printed)}
-                            onChange={change => changeCard(opened.id, change)}
-                            onPrinting={(printing, copies) => choosePrinting(opened.id, printing, copies)}
-                            onClose={() => setExpanded(undefined)}/>
-            )}
+            {editing && <CardEditor order={order} update={update} ids={visible.map(({ card }) => card.id)} start={editing} onClose={() => setEditing(undefined)}/>}
+        </div>
+    );
+}
+
+// The image a face is printed from, in the same order as the processing: own image, MPC Autofill image, Scryfall scan.
+function faceImage(card: OrderCard, face: 'front' | 'back', size: 'small' | 'normal' | 'large') {
+    const own = face === 'front' ? card.customImage?.front : card.customImage?.back;
+    if (own) return `preview://image/${encodeURIComponent(own)}`;
+    const mpcfill = card.mpcfill?.[face];
+    if (mpcfill) return mpcfillImage(mpcfill, size === 'small' ? 'small' : 'large');
+    return card.printing && faceImageUris(card.printing, face)?.[size];
+}
+
+// For every card without an image of its own, the sharpest MPC Autofill image that shows its printing.
+function SharpestImages({ order, update }: Props) {
+    const tasks = useTasks();
+    const running = tasks.find(task => task.kind !== 'browser');
+    const job = running?.kind === 'mpcfill' && running.order === order.name ? running : undefined;
+    const progress = useProgress(job !== undefined);
+    const [result, setResult] = useState<string>();
+    const [error, setError] = useState<string>();
+    const [reviewing, setReviewing] = useState(false);
+    const missing = order.cards.filter(lacksMpcfill).length;
+
+    async function pick() {
+        if (!window.confirm('Use the sharpest MPC Autofill image that shows the printing for every printed card? Cards with an own or MPC Autofill image keep it, '
+            + 'cards without a matching image keep their Scryfall scan. Large decks take a few minutes.')) return;
+        const open = order.cards.filter(card => !card.excluded && card.printing && !card.customImage && !card.mpcfill).length;
+        setResult(undefined);
+        setError(undefined);
+        try {
+            const picks = await api.pickMpcfillImages(order);
+            const withPick = (card: OrderCard) => picks[card.id] && !card.customImage && !card.mpcfill ? { ...card, mpcfill: picks[card.id]! } : card;
+            update(current => ({ ...current, cards: current.cards.map(withPick) }));
+            setResult(`Found MPC Autofill images for ${Object.keys(picks).length} of ${count(open, 'card')}.`);
+            // The cards left over are picked by hand, from images of other printings.
+            if (order.cards.map(withPick).some(lacksMpcfill)) setReviewing(true);
+        } catch (e) {
+            if (!wasStopped(e)) setError(errorMessage(e));
+        }
+    }
+
+    return (
+        <div className="sharpest">
+            <div className="row">
+                <button disabled={running !== undefined} onClick={() => void pick()}><Images/>Use the sharpest MPC Autofill images</button>
+                {job && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
+                {!job && missing > 0 && <button className="quiet" onClick={() => setReviewing(true)}>Cards without an MPC Autofill image ({missing})</button>}
+                {result && <span className="status">{result}</span>}
+                {error && <span className="status error">{error}</span>}
+            </div>
+            {job && <ProgressBar progress={progress} label="Looking for MPC Autofill images"/>}
+            {reviewing && <MpcfillReview order={order} update={update} onClose={() => setReviewing(false)}/>}
         </div>
     );
 }
 
 function CardImage({ card, large, filter }: { card: OrderCard, large: boolean, filter: string }) {
-    const uris = card.printing && faceImageUris(card.printing, 'front');
-    const src = card.customImage ? `preview://image/${encodeURIComponent(card.customImage.front)}` : large ? uris?.large : uris?.normal;
+    const src = faceImage(card, 'front', large ? 'large' : 'normal');
     return src ? <img src={src} alt="" loading="lazy" style={{ filter }}/> : <span className="tile-missing">No image</span>;
-}
-
-interface CardDialogProps {
-    card: OrderCard;
-    deckName: string | undefined;
-    orderAdjustments: Adjustments;
-    onQuantity(quantity: number): void;
-    onPrinted(printed: boolean): void;
-    onChange(change: (card: OrderCard) => OrderCard): void;
-    onPrinting(printing: ScryfallCard, copies: number): void;
-    onClose(): void;
-}
-
-function CardDialog({ card, deckName, orderAdjustments, onQuantity, onPrinted, onChange, onPrinting, onClose }: CardDialogProps) {
-    const dialog = useRef<HTMLDialogElement>(null);
-
-    useEffect(() => {
-        dialog.current?.showModal();
-        // The dialog itself takes the focus, so Close does not light up as if it were the main action.
-        dialog.current?.focus();
-    }, []);
-
-    return (
-        // React passes the close event of the printing dialog inside on to this one.
-        <dialog ref={dialog} className="card-dialog" tabIndex={-1} onClose={event => event.target === event.currentTarget && onClose()}>
-            <header className="dialog-header">
-                <div>
-                    <h2>{card.name}</h2>
-                    <span className="meta">{describePrinting(card)}, {deckName}, {boardName(card.board)}</span>
-                </div>
-                <button className="quiet" onClick={() => dialog.current?.close()}><X/>Close</button>
-            </header>
-            <CardDetails card={card} orderAdjustments={orderAdjustments} onChange={onChange} onPrinting={onPrinting}>
-                <div className="row">
-                    <label className="row">
-                        <span className="muted">Copies</span>
-                        <input className="quantity" type="number" min={1} max={99} value={card.quantity} onChange={e => onQuantity(Number(e.target.value))}/>
-                    </label>
-                    <label className="print-toggle">
-                        <input type="checkbox" checked={!card.excluded} onChange={e => onPrinted(e.target.checked)}/>
-                        <span>Print</span>
-                    </label>
-                    <Badges card={card}/>
-                </div>
-            </CardDetails>
-        </dialog>
-    );
 }
 
 function Summary({ order }: { order: Order }) {
@@ -233,19 +228,23 @@ function Summary({ order }: { order: Order }) {
     const blank = slots.length - printed;
     const excluded = order.cards.filter(card => card.excluded).length;
     const missing = order.cards.filter(card => !card.excluded && !card.printing && !card.customImage).length;
-    const lowRes = order.cards.filter(card => !card.excluded && !card.customImage && card.printing?.image_status === 'lowres').length;
+    const lowRes = order.cards.filter(card => !card.excluded && !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres').length;
     const value = printedValue(order);
+    const price = packs.reduce((total, pack) => total + packPrice(order.shop, pack.length), 0);
+    const packing = order.shop === 'notmpc'
+        ? `${count(packs.length, 'deck')} of up to ${packs.map(pack => notmpcDeck(pack.length)[0]).join(', ')}`
+        : `${count(packs.length, 'pack')} of ${CARDS_PER_PACK}`;
 
     return (
         <div className="summary">
             <p className="headline">
-                {count(printed, 'card')} fill {count(packs.length, 'pack')} of {CARDS_PER_PACK}, about{' '}
+                {count(printed, 'card')} fill {packing}, about{' '}
                 {value > 0 && <><s title="Cardmarket value of the printed cards">{formatEuro(value)}</s>{' '}</>}
-                {formatEuro(packs.length * PACK_PRICE_EUR)} plus shipping.
+                {formatEuro(price)} plus shipping.
             </p>
             {blank > 0 && <p>{count(blank, 'slot stays', 'slots stay')} blank.</p>}
             {droppedTokens.length > 0 && (
-                <p>Left out because they would need another pack: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
+                <p>Left out because they would need {order.shop === 'notmpc' ? 'a larger deck' : 'another pack'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
             )}
             {excluded > 0 && <p className="muted">{count(excluded, 'card is', 'cards are')} switched off.</p>}
             {missing > 0 && <p className="error">{count(missing, 'card was', 'cards were')} not found on Scryfall and will not be printed. Pick another printing or an own image.</p>}
@@ -255,9 +254,7 @@ function Summary({ order }: { order: Order }) {
 }
 
 function Thumbnail({ card, filter }: { card: OrderCard, filter: string }) {
-    const src = card.customImage
-        ? `preview://image/${encodeURIComponent(card.customImage.front)}`
-        : card.printing && faceImageUris(card.printing, 'front')?.small;
+    const src = faceImage(card, 'front', 'small');
     return src ? <img className="thumb" src={src} alt="" loading="lazy" style={{ filter }}/> : <span className="thumb missing"/>;
 }
 
@@ -266,103 +263,9 @@ function Badges({ card }: { card: OrderCard }) {
     if (card.printing && faceImageUris(card.printing, 'back')) badges.push(['Double-faced', '']);
     if (card.isToken) badges.push(['Token', '']);
     if (card.customImage) badges.push(['Own image', 'own']);
-    if (!card.customImage && card.printing?.image_status === 'lowres') badges.push(['Low-res', 'warning']);
+    if (card.mpcfill) badges.push(['MPC Autofill', 'own']);
+    if (!card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres') badges.push(['Low-res', 'warning']);
     if (!card.printing && !card.customImage) badges.push(['Not on Scryfall', 'error']);
 
     return <span className="badges">{badges.map(([label, kind]) => <span key={label} className={`badge ${kind}`}>{label}</span>)}</span>;
-}
-
-interface CardDetailsProps {
-    card: OrderCard;
-    orderAdjustments: Adjustments;
-    onChange(change: (card: OrderCard) => OrderCard): void;
-    onPrinting(printing: ScryfallCard, copies: number): void;
-    // Shown above the controls.
-    children?: ReactNode;
-}
-
-function CardDetails({ card, orderAdjustments, onChange, onPrinting, children }: CardDetailsProps) {
-    const [choosingPrinting, setChoosingPrinting] = useState(false);
-    const [error, setError] = useState<string>();
-    const effective = combineAdjustments(orderAdjustments, card.adjustments);
-    const filter = adjustmentFilter(effective);
-    const front = card.customImage ? `preview://image/${encodeURIComponent(card.customImage.front)}` : card.printing && faceImageUris(card.printing, 'front')?.normal;
-    const back = card.customImage?.back ? `preview://image/${encodeURIComponent(card.customImage.back)}` : card.printing && faceImageUris(card.printing, 'back')?.normal;
-
-    async function pickImage(face: 'front' | 'back') {
-        setError(undefined);
-        try {
-            const file = await api.pickCustomImage();
-            if (!file) return;
-            onChange(current => ({ ...current, customImage: face === 'front' ? { ...current.customImage, front: file } : { front: current.customImage?.front ?? file, back: file } }));
-        } catch (e) {
-            setError(errorMessage(e));
-        }
-    }
-
-    function removeImages() {
-        onChange(({ customImage: _, ...rest }) => rest);
-    }
-
-    return (
-        <div className="card-details">
-            <div className="card-faces">
-                <figure className="proof">
-                    {front ? <img src={front} alt={`${card.name} front`} style={{ filter }}/> : <div className="placeholder">No image</div>}
-                    {back && <figcaption className="meta">Front</figcaption>}
-                </figure>
-                {back && (
-                    <figure className="proof">
-                        <img src={back} alt={`${card.name} back`} style={{ filter }}/>
-                        <figcaption className="meta">Back</figcaption>
-                    </figure>
-                )}
-            </div>
-            <div className="card-controls">
-                {children}
-                <section>
-                    <h3><ImageIcon/>Image</h3>
-                    <p className="status">{card.customImage
-                        ? 'Printed from your own image. Images with the page format 69 × 94 mm already contain the bleed, card-sized images get a mirrored 3 mm bleed.'
-                        : 'Printed from the Scryfall scan of this printing.'}</p>
-                    <div className="row">
-                        <button onClick={() => setChoosingPrinting(true)}><Replace/>Change printing…</button>
-                        <button onClick={() => void pickImage('front')}><ImagePlus/>Own front image…</button>
-                        <button onClick={() => void pickImage('back')}><ImageUp/>Own back image…</button>
-                        {card.customImage && <button className="quiet danger" onClick={removeImages}><Undo2/>Use Scryfall again</button>}
-                    </div>
-                    {error && <span className="status error">{error}</span>}
-                </section>
-                <section>
-                    <h3><Sun/>Brightness and contrast of this card</h3>
-                    <AdjustmentSliders
-                        adjustments={card.adjustments ?? { brightness: 1, contrast: 1 }}
-                        onChange={adjustments => onChange(current => ({ ...current, adjustments }))}
-                        onReset={() => onChange(({ adjustments: _, ...rest }) => rest)}
-                        resetLabel="Use the order's values"
-                        canReset={card.adjustments !== undefined}/>
-                    <p className="status">
-                        On top of the order's {percent(orderAdjustments.brightness)} brightness and {percent(orderAdjustments.contrast)} contrast,
-                        this card prints at {percent(effective.brightness)} and {percent(effective.contrast)}. The preview shows it approximately.
-                    </p>
-                </section>
-            </div>
-            {choosingPrinting && (
-                <PrintingDialog card={card}
-                                onClose={() => setChoosingPrinting(false)}
-                                onChoose={(printing, copies) => {
-                                    onPrinting(printing, copies);
-                                    setChoosingPrinting(false);
-                                }}/>
-            )}
-        </div>
-    );
-}
-
-function boardName(board: string) {
-    const names: Record<string, string> = {
-        commanders: 'Commander', companions: 'Companion', signatureSpells: 'Signature spell', mainboard: 'Main board', sideboard: 'Sideboard',
-        maybeboard: 'Considering', tokens: 'Token', attractions: 'Attraction', contraptions: 'Contraption', stickers: 'Sticker', planes: 'Plane', schemes: 'Scheme'
-    };
-    return names[board] ?? board;
 }

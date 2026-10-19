@@ -20,11 +20,13 @@ function card(id: string, quantity: number): OrderCard {
     return { id, deck: 'https://moxfield.com/decks/test', board: 'mainboard', name: `Card ${id}`, quantity, isToken: false, excluded: false, customImage: { front: `${id}.png` } };
 }
 
+// A data URL, because the card editor shows the scans and a scan that fails to load logs an error.
+const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
 function pricedPrinting(id: string, eur: string): ScryfallCard {
-    const png = `https://cards.scryfall.io/png/front/a/b/${id}.png`;
     return {
         id, name: `Card ${id}`, set: 'tst', collector_number: '1', lang: 'en', full_art: false, frame: '2015', type_line: 'Artifact', layout: 'normal',
-        image_uris: { small: png, normal: png, large: png, png, art_crop: png, border_crop: png }, prices: { eur }
+        image_uris: { small: PIXEL, normal: PIXEL, large: PIXEL, png: PIXEL, art_crop: PIXEL, border_crop: PIXEL }, prices: { eur }
     };
 }
 
@@ -42,6 +44,8 @@ before(async () => {
     await fs.mkdir(path.join(root, 'config', 'orders'), { recursive: true });
     await fs.mkdir(path.join(root, 'config', 'profiles'), { recursive: true });
     await fs.writeFile(path.join(root, 'config', 'orders', 'test.json'), JSON.stringify(order));
+    const notmpcOrder = { ...DefaultOrder, name: 'eu deck', shop: 'notmpc', cardBack: '', cards: [card('a', 60)] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'eu deck.json'), JSON.stringify(notmpcOrder));
     await fs.writeFile(path.join(root, 'config', 'profiles', 'default.json'), JSON.stringify(DefaultProfile));
     await fs.mkdir(path.join(root, 'config', 'images'), { recursive: true });
     for (const id of ['a', 'b']) {
@@ -74,6 +78,7 @@ before(async () => {
     await window.evaluate(() => localStorage.clear());
     await window.reload();
     await skipSplash();
+    await chooseShop('meinspiel.de');
 });
 
 // A key skips the splash at any moment; a click misses once it fades, which slow runners can reach first.
@@ -83,11 +88,17 @@ async function skipSplash() {
     await window.locator('.splash').waitFor({ state: 'detached' });
 }
 
-test('the splash screen shows the press card and gives way to the app', async () => {
+async function chooseShop(name: string) {
+    await window.locator('.shop-picker').getByRole('button', { name }).click();
+    await window.locator('.shop-picker').waitFor({ state: 'detached' });
+}
+
+test('the splash screen shows the press card and gives way to the choice of shop', async () => {
     await window.reload();
     await window.getByText('Black Lotus Press', { exact: true }).first().waitFor();
     await window.locator('.splash-hero').waitFor();
     await skipSplash();
+    await chooseShop('meinspiel.de');
 });
 
 after(async () => {
@@ -136,22 +147,36 @@ test('the cards can be shown as a zoomable grid', async () => {
     await window.locator('.card-list').waitFor();
 });
 
-test('closing the printing dialog keeps the card dialog it was opened from', async () => {
+test('a card opens in the card editor, which steps through the cards', async () => {
     await window.getByRole('button', { name: 'Cards', exact: true }).click();
     await window.locator('.card-tile .tile-image').first().click();
-    const card = window.locator('.card-dialog');
-    await card.getByRole('button', { name: /Change printing/ }).click();
-    const printings = window.locator('.printing-dialog');
-    await printings.waitFor();
+    const editor = window.locator('.card-editor');
+    await editor.getByRole('heading', { name: 'Card a' }).waitFor();
 
-    await printings.getByRole('button', { name: 'Close' }).click();
+    assert.equal(await editor.getByRole('button', { name: 'Own image', exact: true }).getAttribute('aria-pressed'), 'true');
+    assert.match(await editor.locator('.stage-frame img').first().getAttribute('src') ?? '', /^preview:\/\/image\/a\.png/);
 
-    await printings.waitFor({ state: 'detached' });
-    await window.waitForTimeout(300);
-    assert.equal(await card.isVisible(), true);
+    await window.keyboard.press('PageDown');
+    await editor.getByRole('heading', { name: 'Card b' }).waitFor();
+    await editor.getByRole('button', { name: 'Previous card' }).click();
+    await editor.getByRole('heading', { name: 'Card a' }).waitFor();
+
     await window.keyboard.press('Escape');
-    await card.waitFor({ state: 'detached' });
+    await editor.waitFor({ state: 'detached' });
     await window.getByRole('button', { name: 'List', exact: true }).click();
+});
+
+test('the card editor compares the image with the Scryfall scan', async () => {
+    await window.locator('.card-row', { hasText: 'Card a' }).locator('.card-name').click();
+    const editor = window.locator('.card-editor');
+    await editor.getByRole('button', { name: 'Printings', exact: true }).click();
+
+    await window.keyboard.press('c');
+
+    await editor.locator('.stage-frame').nth(1).waitFor();
+    assert.equal(await editor.locator('.stage-frame').count(), 2);
+    await window.keyboard.press('Escape');
+    await editor.waitFor({ state: 'detached' });
 });
 
 test('the print tab shows the pack as a sheet of 55 cards', async () => {
@@ -230,6 +255,26 @@ test('the profiles screen lists the profile', async () => {
 
     await window.getByRole('tab', { name: 'default' }).waitFor();
     assert.equal(await window.getByLabel('Resolution', { exact: true }).inputValue(), '300');
+});
+
+test('another shop lists only its own orders, in decks with the way to send them', async () => {
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('notmpc.eu');
+
+    const item = window.getByRole('button', { name: /eu deck/ });
+    assert.match(await item.innerText(), /1 deck/);
+    assert.equal(await window.getByRole('button', { name: /^test/ }).count(), 0);
+
+    await item.click();
+    await window.getByText(/60 cards fill 1 deck of up to 72/).waitFor();
+    await window.getByRole('tab', { name: 'Print' }).click();
+    assert.equal(await window.locator('.sheet .slot').count(), 60);
+    await window.getByRole('button', { name: 'Send to notmpc.eu' }).waitFor();
+    assert.equal(await window.getByRole('button', { name: 'Build PDFs' }).count(), 0);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /test/ }).waitFor();
 });
 
 test('the window logged no errors', () => {

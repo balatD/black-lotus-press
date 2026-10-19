@@ -9,6 +9,7 @@ import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
 import { forgetImages, imageStatus, processImages, settingsFingerprint } from "./processImages.js";
 
 const scan = await sharp({ create: { width: 745, height: 1040, channels: 4, background: { r: 90, g: 60, b: 40, alpha: 1 } } }).png().toBuffer();
+const mpcImage = await sharp({ create: { width: 816, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toBuffer();
 let fetched: string[] = [];
 
 beforeEach(async () => {
@@ -17,6 +18,7 @@ beforeEach(async () => {
     mock.method(globalThis, 'fetch', async (url: string) => {
         fetched.push(url);
         if (url.includes('/missing.png')) return new Response('not found', { status: 404 });
+        if (url.includes('googleusercontent.com')) return new Response(new Uint8Array(mpcImage), { status: 200, headers: { 'content-type': 'image/jpeg' } });
         return new Response(new Uint8Array(scan), { status: 200, headers: { 'content-type': 'image/png' } });
     });
 });
@@ -58,6 +60,44 @@ test('processImages names files after the printing and adds blanks and the card 
     assert.deepEqual(await processedFiles(target), expected);
     assert.deepEqual(ready.sort(), [...bases, ...expected].sort());
     assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'cmyk');
+});
+
+test('processImages makes sRGB print images for notmpc', async () => {
+    const target = { ...order([card('a', 1)]), shop: 'notmpc' as const };
+
+    await processImages(target, 'cmyk');
+
+    assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
+});
+
+test('processImages downloads MPC Autofill images at the height of the print and keeps their bleed', async () => {
+    const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 300);
+
+    await processImages(target, 'cmyk');
+
+    assert.ok(fetched.includes('https://lh3.googleusercontent.com/d/drive-a=h1110-l100'));
+    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
+    assert.deepEqual([base.width, base.height], [816, 1110]);
+});
+
+test('processImages never upscales MPC Autofill images and keeps the bleed they have', async () => {
+    const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 600);
+    target.profile = { ...target.profile, upscaling: { ...target.profile.upscaling, enabled: true, binaryFile: 'no-upscayl-here' } };
+
+    await processImages(target, 'cmyk');
+
+    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
+    assert.deepEqual([base.width, base.height], [816, 1110]);
+});
+
+test('processImages gives MPC Autofill images without bleed a mirrored one', async () => {
+    mock.method(globalThis, 'fetch', async () => new Response(new Uint8Array(await sharp({ create: { width: 750, height: 1048, channels: 3, background: '#3366aa' } }).jpeg().toBuffer()), { status: 200, headers: { 'content-type': 'image/jpeg' } }));
+    const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 300);
+
+    await processImages(target, 'cmyk');
+
+    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
+    assert.deepEqual([base.width, base.height], [822, 1120]);
 });
 
 test('processImages skips images that already exist', async () => {

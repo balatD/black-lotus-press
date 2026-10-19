@@ -29,10 +29,15 @@ export async function importCustomImage(sourcePath: string): Promise<string> {
 }
 
 // Images shaped like the page (69x94 mm, e.g. MPC images) already include the bleed,
-// images shaped like the card (63x88 mm) get a mirrored bleed around them.
+// images shaped like the card (63x88 mm) do not.
+export function hasBleed(width: number, height: number) {
+    return width / height >= (CARD_RATIO + PAGE_RATIO) / 2;
+}
+
+// Images without bleed get a mirrored bleed around them.
 export async function prepareCustomImage(image: Buffer, config: PostProcessingProfile): Promise<Buffer> {
     const { width, height } = await sharp(image).metadata();
-    if (width / height >= (CARD_RATIO + PAGE_RATIO) / 2) {
+    if (hasBleed(width, height)) {
         return await sharp(image).png().toBuffer();
     }
 

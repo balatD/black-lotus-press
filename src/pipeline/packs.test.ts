@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard } from "../model.js";
-import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes } from "./packs.js";
+import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
+import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, packPrice } from "./packs.js";
 
 const BACK = 'cardback-drive1-b100-c100.jpg';
 
-function order(cards: OrderCard[]) {
-    return { cards, cardBack: 'drive1', adjustments: NO_ADJUSTMENTS };
+function order(cards: OrderCard[], shop: Shop = 'meinspiel') {
+    return { cards, cardBack: 'drive1', adjustments: NO_ADJUSTMENTS, shop };
 }
 
 function uris(id: string, face: 'front' | 'back') {
@@ -82,6 +82,34 @@ test('buildPacks keeps the order of the card list', () => {
     assert.deepEqual(packs[0]!.slice(0, 2).map(slot => slot.cardId), ['b', 'a']);
 });
 
+test('buildPacks puts notmpc cards into the smallest deck size that holds them, without blanks', () => {
+    const { packs } = buildPacks(order([card('island', 60)], 'notmpc'));
+
+    assert.equal(packs.length, 1);
+    assert.equal(packs[0]!.length, 60);
+    assert.ok(packs[0]!.every(slot => slot.cardId === 'island'));
+});
+
+test('buildPacks fills the free slots of the notmpc deck size with tokens, but never a larger deck size', () => {
+    const { packs, droppedTokens } = buildPacks(order([card('island', 60), ...tokens(15)], 'notmpc'));
+
+    assert.equal(packs[0]!.length, 72);
+    assert.deepEqual(droppedTokens.map(token => token.card.id), ['token13', 'token14', 'token15']);
+});
+
+test('buildPacks splits notmpc orders into decks of 612', () => {
+    const { packs } = buildPacks(order([card('island', 700)], 'notmpc'));
+
+    assert.deepEqual(packs.map(pack => pack.length), [612, 88]);
+});
+
+test('packPrice is the pack price at meinspiel and the price of the smallest fitting deck size at notmpc', () => {
+    assert.equal(packPrice('meinspiel', 55), 19.95);
+    assert.equal(packPrice('notmpc', 18), 10.85);
+    assert.equal(packPrice('notmpc', 60), 21.69);
+    assert.equal(packPrice('notmpc', 612), 144.54);
+});
+
 test('cardFaces prefers the own back over the double-faced back over the card back', () => {
     const dfc = printing('dfc', true);
     const files = (options: Partial<OrderCard>) => {
@@ -92,6 +120,17 @@ test('cardFaces prefers the own back over the double-faced back over the card ba
     assert.deepEqual(files({ printing: dfc, customImage: { front: 'abc.png', back: 'def.jpg' } }), ['custom-abc-b100-c100.jpg', 'custom-def-b100-c100.jpg']);
     assert.deepEqual(files({ printing: dfc, customImage: { front: 'abc.png' } }), ['custom-abc-b100-c100.jpg', 'scryfall-dfc-back-b100-c100.jpg']);
     assert.deepEqual(files({ printing: printing('island'), customImage: { front: 'abc.png' } }), ['custom-abc-b100-c100.jpg', BACK]);
+});
+
+test('cardFaces prefers own images over MPC Autofill images over Scryfall', () => {
+    const dfc = printing('dfc', true);
+    const faces = (options: Partial<OrderCard>) => cardFaces(card('dfc', 1, { printing: dfc, ...options }), order([]))!;
+    const files = (options: Partial<OrderCard>) => [faces(options).front.file, faces(options).back.file];
+
+    assert.deepEqual(files({ mpcfill: { front: 'drive-f', back: 'drive-b' } }), ['mpcfill-drive-f-b100-c100.jpg', 'mpcfill-drive-b-b100-c100.jpg']);
+    assert.deepEqual(files({ mpcfill: { back: 'drive-b' } }), ['scryfall-dfc-front-b100-c100.jpg', 'mpcfill-drive-b-b100-c100.jpg']);
+    assert.deepEqual(files({ mpcfill: { front: 'drive-f' }, customImage: { front: 'abc.png' } }), ['custom-abc-b100-c100.jpg', 'scryfall-dfc-back-b100-c100.jpg']);
+    assert.deepEqual(faces({ mpcfill: { front: 'drive-f' } }).front.source, { type: 'mpcfill', id: 'drive-f' });
 });
 
 test('cardFaces names the source of every face', () => {

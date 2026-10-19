@@ -23,6 +23,10 @@ export async function runOrderMenu() {
 
     const order = await runSelectOrder('Select an order to process:', true, true, true);
     if (!order) return;
+    if (order.shop !== 'meinspiel') {
+        console.log('\n' + ui.attention('This order is for notmpc.eu, which only the app can print.') + '\n');
+        return;
+    }
 
     if (order.cards.length) {
         console.log('\n' + ui.attention('The decks of this order are already imported. Choose how to proceed.') + '\n');
