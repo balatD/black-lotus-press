@@ -88,6 +88,15 @@
         </ul>
     </div>
 
+    <section class="section" aria-labelledby="tour">
+        <h2 id="tour">See it at work</h2>
+        <p class="intro">Forty seconds from the start screen to the press sheet: choosing the print shop, the cards of a Commander deck, an MPC Autofill image next to the Scryfall scan, and the deck ready for printerstudio.de.</p>
+        <figure class="proof showcase">
+            <video src="img/showcase.mp4" width="1920" height="1200" poster="img/showcase-poster.webp" muted loop playsinline preload="none"
+                   aria-label="A tour of the app: the splash screen, the choice of print shop, the cards of an order as a grid, the card editor comparing an MPC Autofill image with the Scryfall scan, zoomed in, and the press sheet of the deck, fronts and backs."></video>
+        </figure>
+    </section>
+
     <section class="section" aria-labelledby="how">
         <h2 id="how">From deck list to press sheet</h2>
         <p class="intro">Everything happens on your computer. The app only goes online to load decks, card images and card backs, to install Upscayl and to upload, and only when you ask it to.</p>
@@ -289,6 +298,17 @@
             button.textContent = 'Copied';
             setTimeout(() => button.textContent = 'Copy', 2000);
         });
+    }
+
+    // The tour plays while it is in view; with reduced motion only when asked to.
+    const tour = document.querySelector('.showcase video');
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        tour.controls = true;
+    } else {
+        new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) tour.play().catch(() => tour.controls = true);
+            else tour.pause();
+        }, { threshold: 0.4 }).observe(tour);
     }
 </script>
 <script type="module">

@@ -2,7 +2,7 @@
 
 **Your Moxfield deck, printed.** Black Lotus Press is a free desktop app that turns [Moxfield](https://moxfield.com) decks into print-ready PDFs for the custom playing cards of [meinspiel.de](https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/) and uploads them to your account, or sends them to the designers of [notmpc.eu](https://notmpc.eu/de/) and [printerstudio.de](https://www.printerstudio.de/machen/blanko-spielkarten-63x88mm-personalisieren.html). It takes the exact printings from [Scryfall](https://scryfall.com) or high-resolution images from [MPC Autofill](https://mpcfill.com), cleans them up, upscales them with [Upscayl](https://github.com/upscayl/upscayl-ncnn) and makes them in the colours and size each shop asks for.
 
-![The Print tab with the press sheet of a pack](site/img/print.webp)
+![A tour of the app: the splash screen, the choice of print shop, the cards of an order, the card editor comparing an MPC Autofill image with the Scryfall scan, and the press sheet of the deck](site/img/showcase.webp)
 
 **[Download](https://github.com/balatD/black-lotus-press/releases/latest)** for macOS (Apple Silicon), Windows and Linux · **[Website](https://balatd.github.io/black-lotus-press/)** · **[Documentation and FAQ](https://balatd.github.io/black-lotus-press/docs.html)**
 

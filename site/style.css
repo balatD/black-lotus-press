@@ -73,7 +73,9 @@ kbd { border: 1px solid var(--line); }
         linear-gradient(var(--mark-color), var(--mark-color)) bottom right / var(--mark) 1px no-repeat,
         linear-gradient(var(--mark-color), var(--mark-color)) bottom right / 1px var(--mark) no-repeat;
 }
-.proof img { border-radius: 3px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.45); }
+.proof img, .proof video { border-radius: 3px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.45); }
+.proof video { display: block; width: 100%; height: auto; }
+.section > .showcase { margin-top: 2rem; }
 .proof figcaption { margin-top: 0.6rem; color: var(--muted); font-size: 0.85rem; }
 
 /* Top bar */
