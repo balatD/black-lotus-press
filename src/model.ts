@@ -190,8 +190,8 @@ export interface Order {
     // Print order.
     cards: OrderCard[];
     adjustments: Adjustments;
-    // The games of the last upload, so they can be found on meinspiel.de again.
-    uploaded?: { at: string, games: UploadedGame[] };
+    // The games of the last upload, so they can be found on meinspiel.de again. The fingerprint of its packs tells whether an upload that stopped can go on.
+    uploaded?: { at: string, games: UploadedGame[], fingerprint?: string };
 }
 
 export const DefaultOrder: Order = {
@@ -264,6 +264,12 @@ export function isMoxfieldDeckUrl(value: string) {
 }
 
 // Order names become file and folder names.
+// How many packs an upload that stopped has made, when the packs still print the same and its games are in the account.
+export function packsToSkip(uploaded: Order['uploaded'], packs: number, fingerprint: string) {
+    if (uploaded?.fingerprint !== fingerprint || uploaded.games.length >= packs || !uploaded.games.every(game => game.saved)) return 0;
+    return uploaded.games.length;
+}
+
 export function isValidOrderName(name: string) {
     return name.trim() === name && name !== '' && name !== '.' && name !== '..' && !/[\\/:*?"<>|]/.test(name);
 }

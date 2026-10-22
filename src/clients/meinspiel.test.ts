@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { Handover, UploadedGame } from "../model.js";
-import { finishUpload, type MeinspielSession, postMultipart, settleSession, waitForLogin } from "./meinspiel.js";
+import { finishUpload, type MeinspielSession, postMultipart, settleSession, uploadMissingPacks, waitForLogin } from "./meinspiel.js";
 
 function fakeUpload() {
     const done = { closed: 0, opened: [] as string[] };
@@ -41,6 +41,23 @@ test('finishUpload keeps the browser open with the games that are not saved, whi
 
     assert.deepEqual(upload.done, { closed: 0, opened: ['https://www.meinspiel.de/konfigurator/game/2?tid=10098'] });
     assert.match(upload.handover().next!, /Speichern/);
+});
+
+test('uploadMissingPacks goes on after the packs uploaded before and stops at a pack that fails, with the games made until then', async () => {
+    const posted: string[] = [];
+    const session = {
+        page: { request: { post: async (_url: string, { data }: { data: { name: string } }) => {
+            posted.push(data.name);
+            return { ok: () => false, status: () => 502, text: async () => 'Bad Gateway' };
+        } } }
+    } as unknown as MeinspielSession;
+    const packs = [1, 2].map(index => ({ fronts: `pack-0${index}-fronts.pdf`, backs: `pack-0${index}-backs.pdf`, bytes: 100 }));
+
+    const result = await uploadMissingPacks(session, 'sauron', packs, [game(1, true)], () => {});
+
+    assert.deepEqual(posted, ['sauron - Deck 2/2']);
+    assert.deepEqual(result.games, [game(1, true)]);
+    assert.match(String(result.error), /Creating the game failed \(502\)/);
 });
 
 test('settleSession loads the login page until meinspiel.de stops giving the new session another id', async () => {

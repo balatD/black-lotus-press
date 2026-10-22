@@ -6,7 +6,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { _electron as electron, type ElectronApplication, type Page } from "playwright";
 import { DeckData, DefaultOrder, DefaultProfile, type OrderCard, type ScryfallCard } from "../../src/model.js";
-import { cardFaces } from "../../src/pipeline/packs.js";
+import { buildPacks, cardFaces, packsFingerprint } from "../../src/pipeline/packs.js";
 import { settingsFingerprint } from "../../src/pipeline/processImages.js";
 
 const MAIN = path.resolve('out/main/index.js');
@@ -66,6 +66,12 @@ before(async () => {
     const oneClickOrder = { ...DefaultOrder, name: 'one click deck', cardBack: '', cards: [{ ...card('a', 55), customImage: { front: 'a.png', back: 'b.png' } }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'one click deck.json'), JSON.stringify(oneClickOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'rename deck.json'), JSON.stringify({ ...DefaultOrder, name: 'rename deck', cardBack: '', cards: [card('a', 2)] }));
+    // Its upload stopped after the first of two packs; unprocessed images have the version ''.
+    const resumeOrder = { ...DefaultOrder, name: 'resume deck', cardBack: '', cards: [card('a', 60)] };
+    const firstGame = { id: 7, name: 'resume deck - Deck 1/2', saved: true, url: 'https://www.meinspiel.de/konfigurator/game/7?tid=10098' };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'resume deck.json'), JSON.stringify({
+        ...resumeOrder, uploaded: { at: '2026-10-22T10:00:00.000Z', games: [firstGame], fingerprint: packsFingerprint(buildPacks(resumeOrder).packs, '') }
+    }));
     const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
@@ -543,6 +549,15 @@ test('an order is renamed, and the name of another order is refused', async () =
     await window.getByRole('button', { name: /renamed deck/ }).waitFor();
     assert.equal(await window.getByRole('button', { name: /rename deck/ }).count(), 0);
     await fs.access(path.join(root, 'config', 'orders', 'renamed deck.json'));
+});
+
+test('the print tab goes on with the next pack after an upload that stopped, or uploads all again', async () => {
+    await window.getByRole('button', { name: /resume deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+
+    await window.getByRole('button', { name: 'Continue with pack 2' }).waitFor();
+    await window.getByRole('button', { name: 'Upload all again' }).waitFor();
+    await window.getByRole('link', { name: 'resume deck - Deck 1/2' }).waitFor();
 });
 
 test('the window logged no errors', () => {

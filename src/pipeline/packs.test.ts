@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
-import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, fillFreeSlots, packPrice } from "./packs.js";
+import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, fillFreeSlots, packPrice, packsFingerprint } from "./packs.js";
 
 const BACK = 'cardback-drive1-b100-c100.jpg';
 
@@ -91,6 +91,14 @@ test('fillFreeSlots gives the first tokens one copy more when the slots do not d
     const filled = fillFreeSlots(order([card('island', 50), ...tokens(2), card('off', 1, { isToken: true, excluded: true })]));
 
     assert.deepEqual(filled.filter(c => c.isToken).map(c => c.quantity), [3, 2, 1]);
+});
+
+test('packsFingerprint stays the same for the same packs and changes with what they print and with the image settings', () => {
+    const packs = buildPacks(order([card('island', 60)])).packs;
+
+    assert.equal(packsFingerprint(packs, 'v1'), packsFingerprint(buildPacks(order([card('island', 60)])).packs, 'v1'));
+    assert.notEqual(packsFingerprint(packs, 'v1'), packsFingerprint(buildPacks(order([card('island', 59), card('swamp', 1)])).packs, 'v1'));
+    assert.notEqual(packsFingerprint(packs, 'v1'), packsFingerprint(packs, 'v2'));
 });
 
 test('buildPacks keeps the order of the card list', () => {

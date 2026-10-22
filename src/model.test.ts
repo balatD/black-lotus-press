@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePrinting, chooseMpcfillImage, DeckData, DefaultOrder, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, replaceDeckCards, type ScryfallCard, updateDeckCards, withDecks } from "./model.js";
+import { changePrinting, chooseMpcfillImage, DeckData, DefaultOrder, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
 
 function card(id: string, deck: string): OrderCard {
     return { id, deck, board: 'mainboard', name: id, quantity: 1, isToken: false, excluded: false };
@@ -217,4 +217,16 @@ test('updateDeckCards keeps the copies of a card split over several printings to
 
     const fewer = updateDeckCards(split, 'B', [imported('island', 2, 'A')]);
     assert.deepEqual(summary(fewer.cards), ['2 island A'], 'removed copies come off the last entries first');
+});
+
+test('packsToSkip goes on after the games of an upload that stopped, when the packs print the same and every game is saved', () => {
+    const game = (id: number, saved = true): UploadedGame => ({ id, name: `sauron - Deck ${id}/3`, saved, url: `https://www.meinspiel.de/konfigurator/game/${id}` });
+    const uploaded = (games: UploadedGame[], fingerprint?: string) => ({ at: '2026-10-22T10:00:00.000Z', games, ...(fingerprint ? { fingerprint } : {}) });
+
+    assert.equal(packsToSkip(uploaded([game(1), game(2)], 'a1b2'), 3, 'a1b2'), 2);
+    assert.equal(packsToSkip(uploaded([game(1), game(2), game(3)], 'a1b2'), 3, 'a1b2'), 0, 'every pack is uploaded');
+    assert.equal(packsToSkip(uploaded([game(1)], 'a1b2'), 3, 'c3d4'), 0, 'the packs print something else');
+    assert.equal(packsToSkip(uploaded([game(1, false)], 'a1b2'), 3, 'a1b2'), 0, 'a game is not saved in the account');
+    assert.equal(packsToSkip(uploaded([game(1)]), 3, 'a1b2'), 0, 'uploaded before the fingerprint was kept');
+    assert.equal(packsToSkip(undefined, 3, 'a1b2'), 0);
 });

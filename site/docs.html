@@ -217,7 +217,7 @@
                 <li>Pack by pack, the app creates a game, uploads its two PDFs, showing how many megabytes are up, and waits while meinspiel.de processes them; the steps show each of these with meinspiel.de's own status. Every pack becomes a game in your account, named after the order, for example <code>my-order - Deck 1/2</code>. Then the browser closes, and the app lists the games with links that open in your usual browser.</li>
                 <li>Open a game, choose the box, click <em>Speichern / Bestellen</em> and check out on meinspiel.de. The app never orders or pays anything.</li>
             </ol>
-            <p>The links to the games also stay in the step. Should meinspiel.de not save a game in your account, the browser stays open with that game; click <em>Speichern</em> there. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele". You can always upload the PDFs by hand instead: they are ordinary files in the order's folder.</p>
+            <p>When the upload stops at a pack, for example because meinspiel.de fails on it, the games made until then stay in the step. <em>Continue with pack 3</em>, or whichever pack is next, uploads only the rest, as long as the cards print the same; <em>Upload all again</em> starts over. The links to the games also stay in the step. Should meinspiel.de not save a game in your account, the browser stays open with that game; click <em>Speichern</em> there. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele". You can always upload the PDFs by hand instead: they are ordinary files in the order's folder.</p>
 
             <h3 id="notmpc">notmpc.eu: their designer</h3>
             <p class="note">notmpc.eu is not available at the moment, because sending orders to it does not work. Its orders are kept as they are and come back when it is available again.</p>
@@ -414,7 +414,7 @@
             <p>Do it again after every update. When macOS only says it "could not verify" the app, <em>System Settings → Privacy &amp; Security → Open Anyway</em> works as well.</p>
 
             <h3>The upload to meinspiel.de fails with "pcntl_waitpid failed"</h3>
-            <p>That message comes from meinspiel.de's server, which sometimes fails to process larger PDFs. Try again later, set the profile to 300 dpi to make the files smaller, or upload the PDFs by hand on meinspiel.de. If it keeps happening, please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue</a>.</p>
+            <p>That message comes from meinspiel.de's server, which sometimes fails to process larger PDFs. The packs uploaded before stay in your account, and <em>Continue with pack …</em> goes on with the rest. Try again later, set the profile to 300 dpi to make the files smaller, or upload the PDFs by hand on meinspiel.de. If it keeps happening, please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue</a>.</p>
 
             <h3>notmpc.eu takes no more uploads</h3>
             <p>After many uploads in a row, notmpc.eu asks to wait a few minutes. The app waits a minute at a time and tries again; when notmpc.eu still refuses after a quarter of an hour, the task stops with notmpc.eu's message. Send the order again later.</p>

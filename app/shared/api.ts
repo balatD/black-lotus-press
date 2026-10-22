@@ -52,7 +52,8 @@ export interface Api {
     reprocessImages(order: Order, files: string[]): Promise<void>;
     buildPdfs(order: Order): Promise<{ packs: PackFiles[], droppedTokens: DroppedToken[] }>;
     // The browser stays open after the upload so the user can order; it stays a task until closed.
-    uploadPacks(orderName: string, packs: PackFiles[], channel: PlaywrightChannel): Promise<UploadedGame[]>;
+    // Goes on after the games of the packs done before. A pack that fails returns the games made until then, with the error.
+    uploadPacks(orderName: string, packs: PackFiles[], done: UploadedGame[], channel: PlaywrightChannel): Promise<{ games: UploadedGame[], error?: string }>;
     // Uploads the print images and fills a notmpc.eu designer per deck; the browser stays open like after uploadPacks.
     sendToNotmpc(order: Order): Promise<void>;
     // Fills a printerstudio.de designer per deck up to its preview; the browser stays open like after uploadPacks.

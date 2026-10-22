@@ -3,7 +3,7 @@ import {
     AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FileText, FolderOpen, Gauge, Image as ImageIcon,
     Maximize2, Package, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
-import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, type PackFiles } from "../../../../src/model.js";
+import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, type PackFiles, packsToSkip, type UploadedGame } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
@@ -15,6 +15,7 @@ import {
     faceImageUris,
     MAX_UPLOAD_BYTES,
     mpcfillImage,
+    packsFingerprint,
     type Slot
 } from "../../../../src/pipeline/packs.js";
 import { adjustmentFilter, percent } from "../adjust.js";
@@ -134,11 +135,16 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
         setHandover(undefined);
         setShowHandover(true);
     };
-    const upload = () => {
+    const fingerprint = packsFingerprint(packs, status.version);
+    const skip = packsToSkip(order.uploaded, packs.length, fingerprint);
+    // The games made before a pack failed are kept as well, so the next upload can go on after them.
+    const upload = (done: UploadedGame[]) => {
         if (!pdfs || !window.confirm('Upload the PDFs to meinspiel.de? This confirms that you followed their design and PDF guidelines.')) return;
         handOver();
-        void run(() => api.uploadPacks(order.name, pdfs, order.profile.playwrightChannel),
-            games => update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games } })));
+        void run(() => api.uploadPacks(order.name, pdfs, done, order.profile.playwrightChannel), result => {
+            if (result.games.length > 0) update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games: result.games, fingerprint } }));
+            if (result.error) setError(result.error);
+        });
     };
     const sendToNotmpc = () => run(() => api.sendToNotmpc(order));
     const sendToPrinterstudio = () => {
@@ -210,7 +216,12 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     <h2><CloudUpload/>Upload to meinspiel.de</h2>
                     <p className="muted">A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account, then the browser closes and the app lists the games; you choose the box and order on meinspiel.de yourself.</p>
                     <div className="row">
-                        <button className={pdfs && !tooBig && !order.uploaded ? 'primary' : ''} disabled={running !== undefined || !pdfs || tooBig} onClick={upload}><CloudUpload/>Upload</button>
+                        {skip > 0 ? <>
+                            <button className="primary" disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload(order.uploaded!.games)}><CloudUpload/>Continue with pack {skip + 1}</button>
+                            <button disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload([])}><RotateCw/>Upload all again</button>
+                        </> : (
+                            <button className={pdfs && !tooBig && !order.uploaded ? 'primary' : ''} disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload([])}><CloudUpload/>Upload</button>
+                        )}
                         {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
                         {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
                     </div>

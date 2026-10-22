@@ -177,6 +177,14 @@ export function fillFreeSlots(order: PackOrder): OrderCard[] {
     });
 }
 
+// What the packs print with the images made under these settings, in short. The PDFs themselves differ with every build.
+export function packsFingerprint(packs: Slot[][], imagesVersion: string) {
+    // FNV-1a
+    let hash = 0x811c9dc5;
+    for (const char of JSON.stringify([imagesVersion, packs])) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193);
+    return (hash >>> 0).toString(16);
+}
+
 // The smallest deck size of the shop that holds these cards, with its price.
 export function shopDeck(shop: DeckShop, cards: number) {
     return DECKS[shop].find(([size]) => size >= cards)!;

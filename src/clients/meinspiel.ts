@@ -199,12 +199,36 @@ export async function finishUpload(window: Pick<ShopWindow, 'update'>, session: 
     return session;
 }
 
+type Step = (index: number, state: HandoverStep['state'], detail?: string, progress?: HandoverStep['progress']) => void;
+
+// Goes on after the packs done before. A pack that fails ends it, and the games made until then come back with the error.
+export async function uploadMissingPacks(session: MeinspielSession, orderName: string, packs: PackFiles[], done: UploadedGame[], step: Step,
+                                         signal?: AbortSignal): Promise<{ games: UploadedGame[], error?: unknown }> {
+    const games = [...done];
+    for (const [index, pack] of packs.entries()) {
+        if (index < done.length) continue;
+        const name = `${orderName} - Deck ${index + 1}/${packs.length}`;
+        try {
+            const game = await uploadPack(session, pack, name, (message, progress) => step(index + 1, 'active', message, progress), signal);
+            games.push({ ...game, name, url: gameUrl(game.id) });
+            step(index + 1, game.saved ? 'done' : 'warning',
+                game.saved ? `Saved in your account as "${name}"` : `"${name}" is not saved in your account; click Speichern in its window`);
+        } catch (error) {
+            return { games, error };
+        }
+    }
+    return { games };
+}
+
 // Each step of the upload is a step of the hand-over, which the app and the bar over meinspiel.de's pages show.
-export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], channel: PlaywrightChannel, bounds: WindowBounds | undefined,
+// The games of the packs uploaded before are passed in as done; a failed pack returns the games made until then.
+export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], done: UploadedGame[], channel: PlaywrightChannel, bounds: WindowBounds | undefined,
                                         onProgress?: OnProgress, signal?: AbortSignal) {
     const steps: HandoverStep[] = [
         { label: 'Log in', state: 'active', detail: 'In this window, or create an account; Black Lotus Press never sees your password.' },
-        ...packs.map((_, index): HandoverStep => ({ label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' }))
+        ...packs.map((_, index): HandoverStep => index < done.length
+            ? { label: `Pack ${index + 1} of ${packs.length}`, state: 'done', detail: `Uploaded before as "${done[index]!.name}"` }
+            : { label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' })
     ];
     const window = await openShopWindow(channel, bounds, {
         order: orderName, title: `${orderName} to meinspiel.de`, steps,
@@ -221,16 +245,12 @@ export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], c
         window.update(handover => ({ ...handover, highlight: [], callout: '' }));
         step(0, 'done', `Logged in as ${user}`);
 
-        const games: UploadedGame[] = [];
-        for (const [index, pack] of packs.entries()) {
-            const name = `${orderName} - Deck ${index + 1}/${packs.length}`;
-            const game = await uploadPack(session, pack, name, (message, progress) => step(index + 1, 'active', message, progress), signal);
-            games.push({ ...game, name, url: gameUrl(game.id) });
-            step(index + 1, game.saved ? 'done' : 'warning',
-                game.saved ? `Saved in your account as "${name}"` : `"${name}" is not saved in your account; click Speichern in its window`);
-        }
+        const { games, error } = await uploadMissingPacks(session, orderName, packs, done, step, signal);
+        if (error === undefined) return { session: await finishUpload(window, session, games), games };
 
-        return { session: await finishUpload(window, session, games), games };
+        const reason = window.fail(error);
+        await session.context.close();
+        return { session: undefined, games, error: reason };
     } catch (error) {
         const reason = window.fail(error);
         await session.context.close();

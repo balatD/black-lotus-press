@@ -92,8 +92,9 @@ async function upload(order: Order, packs: PackFiles[]) {
     let session: MeinspielSession | undefined;
 
     try {
-        const result = await runTask('Uploading to meinspiel.de', onProgress => uploadToMeinspiel(order.name, packs, order.profile.playwrightChannel, undefined, onProgress));
+        const result = await runTask('Uploading to meinspiel.de', onProgress => uploadToMeinspiel(order.name, packs, [], order.profile.playwrightChannel, undefined, onProgress));
         session = result.session;
+        if (result.error) throw result.error;
 
         console.log('\n' + ui.success(`Uploaded ${result.games.length} deck(s) to your meinspiel.de account under "Gestaltete Spiele".`));
         result.games.forEach(game => console.log(`${game.name}: ${game.url}`));

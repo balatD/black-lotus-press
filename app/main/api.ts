@@ -76,14 +76,17 @@ export function registerApi(window: BrowserWindow) {
 
     window.on('closed', () => void closeUploadBrowser());
 
-    async function runJob<T>(task: Omit<Task, 'id'>, work: (onProgress: OnProgress, signal: AbortSignal) => Promise<T>): Promise<T> {
+    // The outcome is what the notification says when the job returns.
+    async function runJob<T>(task: Omit<Task, 'id'>, work: (onProgress: OnProgress, signal: AbortSignal) => Promise<T>,
+                             outcome: (result: T) => string = () => 'Done.'): Promise<T> {
         if (job) throw new Error('Another task is still running. Wait for it or cancel it first.');
         const controller = new AbortController();
         job = { task: { ...task, id: nextTaskId++ }, controller };
         publishTasks();
         try {
             const result = await work(event => window.webContents.send('progress', event), controller.signal);
-            notify(task.title, 'Done.');
+            // A cancelled job may still return what it did until then.
+            if (!controller.signal.aborted) notify(task.title, outcome(result));
             return result;
         } catch (error) {
             // Stopping a browser task closes the browser, which surfaces as some Playwright error.
@@ -192,20 +195,21 @@ export function registerApi(window: BrowserWindow) {
         buildPdfs: order => runJob(
             { kind: 'pdfs', title: `Writing the PDFs of ${order.name}`, order: order.name, stoppable: false },
             async onProgress => buildPdfs(order, await fs.readFile(await ensureIccProfile()), onProgress)),
-        uploadPacks: (orderName, packs, channel) => runJob(
+        uploadPacks: (orderName, packs, done, channel) => runJob(
             { kind: 'upload', title: `Uploading ${orderName} to meinspiel.de`, order: orderName, stoppable: true },
             async (onProgress, signal) => {
                 await closeUploadBrowser();
+                const byHand = (error: unknown) => `${error instanceof Error ? error.message : String(error)} You can upload the PDFs by hand at ${MANUAL_UPLOAD_URL}`;
                 try {
-                    const { session, games } = await uploadToMeinspiel(orderName, packs, channel, window.getBounds(), onProgress, signal);
+                    const { session, games, error } = await uploadToMeinspiel(orderName, packs, done, channel, window.getBounds(), onProgress, signal);
                     if (session) keepBrowser(session.context, `meinspiel.de with the games of ${orderName}`, orderName);
-                    return games;
+                    // Cancelling keeps the games made until then, without an error to show.
+                    return error === undefined || signal.aborted ? { games } : { games, error: byHand(error) };
                 } catch (error) {
                     if (signal.aborted) throw error;
-                    const message = error instanceof Error ? error.message : String(error);
-                    throw new Error(`${message} You can upload the PDFs by hand at ${MANUAL_UPLOAD_URL}`);
+                    throw new Error(byHand(error));
                 }
-            }),
+            }, result => result.error ?? 'Done.'),
         sendToNotmpc: order => runJob(
             { kind: 'upload', title: `Sending ${order.name} to notmpc.eu`, order: order.name, stoppable: true },
             async (onProgress, signal) => {
