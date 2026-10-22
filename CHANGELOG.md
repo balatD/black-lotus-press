@@ -1,22 +1,24 @@
 # Changelog
 
-## Unreleased
+## 2.2.0
 
-- When an upload to meinspiel.de stops at a pack, the games made until then are kept, and *Continue with pack …* uploads only the rest, as long as the cards print the same. *Upload all again* starts over.
-- Importing a deck asks Scryfall for 75 cards at a time instead of one by one, which makes the lookup much faster for large decks.
-- Rename an order: *Rename* at the top of the order. Its images, PDFs and the links to its meinspiel.de games come along.
-- A task that ends while the app is in the background, such as processing the images or an upload, says so in a notification of your system; clicking it brings the app back.
-- Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: Cmd+1, 2 and 3 switch between the tabs of an order, Cmd+F finds a card, Cmd+N starts a new order.
-- The order list has a field that finds an order by name.
-- For meinspiel.de, one click processes the missing card images and builds the PDFs: *Process images and build PDFs*.
-- Card images that fail to process are outlined on the press sheet, with the reason in the tooltip and the large view, and *Retry the failed images* processes only those again.
-- The Cards tab shows only the low-res cards, the cards not on Scryfall, those with an MPC Autofill image, the tokens or the switched-off cards at a click, also together with the name search. The card editor steps through the cards shown when it opened.
+Blank slots filled with tokens, uploads to meinspiel.de that close the browser by themselves and carry on after a pack that failed, and a set of smaller conveniences: filters, renaming, keyboard shortcuts, notifications and a faster import.
+
+- Blank slots in the last meinspiel.de pack can be filled with tokens. The Cards tab says how many slots stay blank and offers another copy of each token of the order with one click, or any token from Scryfall by name with *Find a token…*. A token added this way belongs to no deck, so updating the decks from Moxfield keeps it.
 - *Fill all blank slots* on the Cards tab shares the blank slots of the last meinspiel.de pack out over the order's tokens in one click.
 - A token added with *Find a token…* can be removed again: *Remove from the order* in its card editor. Cards from a deck are switched off instead, since the next update from Moxfield would bring them back.
-- An edit made just before quitting the app is saved; the app waits for it before it quits.
-- A damaged order or profile file no longer empties the list: the app shows all the others, names the file it could not read and leaves it as it is.
 - After the upload to meinspiel.de, the browser closes by itself: the games are saved in your account already. The app lists them with links that open in your usual browser, where you choose the box and order. Only a game meinspiel.de did not save keeps the browser open, so you can save it there.
-- Blank slots in the last meinspiel.de pack can be filled with tokens. The Cards tab says how many slots stay blank and offers another copy of each token of the order with one click, or any token from Scryfall by name with *Find a token…*. A token added this way belongs to no deck, so updating the decks from Moxfield keeps it.
+- When an upload to meinspiel.de stops at a pack, the games made until then are kept, and *Continue with pack …* uploads only the rest, as long as the cards print the same. *Upload all again* starts over.
+- For meinspiel.de, one click processes the missing card images and builds the PDFs: *Process images and build PDFs*.
+- The Cards tab shows only the low-res cards, the cards not on Scryfall, those with an MPC Autofill image, the tokens or the switched-off cards at a click, also together with the name search. The card editor steps through the cards shown when it opened.
+- Card images that fail to process are outlined on the press sheet, with the reason in the tooltip and the large view, and *Retry the failed images* processes only those again.
+- Rename an order: *Rename* at the top of the order. Its images, PDFs and the links to its meinspiel.de games come along.
+- The order list has a field that finds an order by name.
+- Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: Cmd+1, 2 and 3 switch between the tabs of an order, Cmd+F finds a card, Cmd+N starts a new order.
+- A task that ends while the app is in the background, such as processing the images or an upload, says so in a notification of your system; clicking it brings the app back.
+- Importing a deck asks Scryfall for 75 cards at a time instead of one by one, which makes the lookup much faster for large decks.
+- A damaged order or profile file no longer empties the list: the app shows all the others, names the file it could not read and leaves it as it is.
+- An edit made just before quitting the app is saved; the app waits for it before it quits.
 
 ## 2.1.0
 
