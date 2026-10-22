@@ -123,7 +123,13 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
         if (!window.confirm(`Process all images of ${order.name} again? Every card is downloaded, post-processed and upscaled anew, which can take a while.`)) return;
         void reprocess([...needed]);
     };
-    const buildPdfs = () => run(() => api.buildPdfs(order), result => onBuilt({ key: pdfKey, packs: result.packs }));
+    // Missing images are processed first, so one click goes from the cards to the PDFs.
+    const buildPdfs = () => run(async () => {
+        if (!allProcessed) await api.processImages(order);
+        const result = await api.buildPdfs(order);
+        // Processing can change the version of the images, so the key is taken afterwards.
+        return { key: JSON.stringify([(await api.imageStatus(order)).version, packs]), packs: result.packs };
+    }, onBuilt);
     const handOver = () => {
         setHandover(undefined);
         setShowHandover(true);
@@ -165,7 +171,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     <h2><WandSparkles/>Process the card images</h2>
                     <p className="muted">{processed} of {needed.size} images are ready ({describeProcessing(order.profile)}).</p>
                     <div className="row">
-                        <button className="primary" disabled={running !== undefined || allProcessed} onClick={() => void processImages()}>
+                        <button className={order.shop === 'meinspiel' ? '' : 'primary'} disabled={running !== undefined || allProcessed} onClick={() => void processImages()}>
                             {allProcessed ? <><Check/>All images are ready</> : <><WandSparkles/>Process images</>}
                         </button>
                         {job?.kind === 'process' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
@@ -184,7 +190,9 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     <h2><FileText/>Build the PDFs</h2>
                     <p className="muted">Two PDFs per pack: all fronts and all backs, 55 pages each.</p>
                     <div className="row">
-                        <button className={allProcessed && !pdfs ? 'primary' : ''} disabled={running !== undefined || !allProcessed} onClick={() => void buildPdfs()}><FileText/>Build PDFs</button>
+                        <button className={pdfs ? '' : 'primary'} disabled={running !== undefined || needed.size === 0} onClick={() => void buildPdfs()}>
+                            <FileText/>{allProcessed ? 'Build PDFs' : 'Process images and build PDFs'}
+                        </button>
                         <button className="quiet" onClick={() => void api.openOrderFolder(order)}><FolderOpen/>Open order folder</button>
                     </div>
                     {job?.kind === 'pdfs' && <ProgressBar progress={progress} label="Writing the PDFs"/>}

@@ -62,6 +62,9 @@ before(async () => {
         { ...card('a', 1), id: 'off', name: 'Off card', excluded: true },
         { ...card('c', 1), customImage: undefined, printing: { ...pricedPrinting('c', '1.00'), image_status: 'lowres' } }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'filter deck.json'), JSON.stringify(filterOrder));
+    // Own images on both faces and a full pack, so it prints without a card back or blank cards.
+    const oneClickOrder = { ...DefaultOrder, name: 'one click deck', cardBack: '', cards: [{ ...card('a', 55), customImage: { front: 'a.png', back: 'b.png' } }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'one click deck.json'), JSON.stringify(oneClickOrder));
     const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
@@ -456,6 +459,15 @@ test('the cards tab shows only the cards of one kind, together with the name sea
     await search.fill('');
     assert.deepEqual(await names(), ['Card a', 'Treasure', 'Off card', 'Card c']);
     assert.ok(await window.getByRole('button', { name: 'Move Card a' }).isEnabled());
+});
+
+test('one click processes the missing images and builds the PDFs', async () => {
+    await window.getByRole('button', { name: /one click deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+
+    await window.getByRole('button', { name: 'Process images and build PDFs' }).click();
+    await window.getByText(/^Pack 1:/).waitFor({ timeout: 120000 });
+    await window.getByRole('button', { name: 'Build PDFs', exact: true }).waitFor();
 });
 
 test('the window logged no errors', () => {
