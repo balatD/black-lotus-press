@@ -6,6 +6,7 @@ import { errorMessage } from "../api.js";
 import { ColorBar, RegistrationMark } from "./Decor.js";
 import { Tasks } from "./Tasks.js";
 import { UpdateNotice } from "./UpdateNotice.js";
+import { useShortcut } from "../useShortcut.js";
 import { SHOPS } from "../shops.js";
 
 interface Props {
@@ -25,6 +26,8 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
     const [name, setName] = useState('');
     const [error, setError] = useState<string>();
     const [query, setQuery] = useState('');
+    // Orders belong to a shop, so there is none to create before one is chosen.
+    useShortcut('n', () => shop && setCreating(true));
 
     const problem = orderNameProblem(name, orders, shop);
 

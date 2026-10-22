@@ -1,4 +1,4 @@
-import { type CSSProperties, type DragEvent, useState } from "react";
+import { type CSSProperties, type DragEvent, type RefObject, useState } from "react";
 import { CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
 import { buildPacks, cardFaces, CARDS_PER_PACK, faceImageUris, fillFreeSlots, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
@@ -18,6 +18,8 @@ import { useProgress } from "../useProgress.js";
 interface Props {
     order: Order;
     update(change: (order: Order) => Order): void;
+    // The name search, which Cmd/Ctrl+F focuses.
+    search?: RefObject<HTMLInputElement | null>;
 }
 
 type View = 'list' | 'cards';
@@ -38,7 +40,7 @@ const ZOOM_MIN = 110;
 const ZOOM_MAX = 420;
 const ZOOM_STEP = 30;
 
-export function CardsTab({ order, update }: Props) {
+export function CardsTab({ order, update, search }: Props) {
     const [filter, setFilter] = useState('');
     const [kind, setKind] = useState<string>();
     // The cards Previous and Next step through stay those shown when the editor opened, even when an edit takes a card out of the filter.
@@ -114,7 +116,7 @@ export function CardsTab({ order, update }: Props) {
             <div className="toolbar">
                 <label className="search grow">
                     <Search/>
-                    <input type="search" placeholder="Find a card by name" value={filter} onChange={e => setFilter(e.target.value)}/>
+                    <input ref={search} type="search" placeholder="Find a card by name" value={filter} onChange={e => setFilter(e.target.value)}/>
                 </label>
                 <div className="segmented" role="group" aria-label="View">
                     <button aria-pressed={view === 'list'} onClick={() => setView('list')}><List/>List</button>

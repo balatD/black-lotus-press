@@ -480,6 +480,30 @@ test('one click processes the missing images and builds the PDFs', async () => {
     await window.getByRole('button', { name: 'Build PDFs', exact: true }).waitFor();
 });
 
+test('keyboard shortcuts switch the tabs, find a card and start a new order, but not behind a dialog', async () => {
+    const selectedTab = window.locator('[role="tab"][aria-selected="true"]');
+    await window.getByRole('button', { name: /^test/ }).click();
+    await window.keyboard.press('ControlOrMeta+1');
+    await selectedTab.filter({ hasText: 'Setup' }).waitFor();
+    await window.keyboard.press('ControlOrMeta+3');
+    await selectedTab.filter({ hasText: 'Print' }).waitFor();
+    await window.keyboard.press('ControlOrMeta+F');
+    await selectedTab.filter({ hasText: 'Cards' }).waitFor();
+    await window.locator('input[placeholder="Find a card by name"]:focus').waitFor();
+
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    await window.locator('.card-row .card-name').first().click();
+    await window.locator('.card-editor').waitFor();
+    await window.keyboard.press('ControlOrMeta+3');
+    assert.equal(await selectedTab.textContent(), 'Cards');
+    await window.keyboard.press('Escape');
+    await window.locator('.card-editor').waitFor({ state: 'detached' });
+
+    await window.keyboard.press('ControlOrMeta+N');
+    await window.locator('input[placeholder="Order name"]:focus').waitFor();
+    await window.locator('.rail').getByRole('button', { name: 'Cancel' }).click();
+});
+
 test('the window logged no errors', () => {
     assert.deepEqual(consoleErrors, []);
 });

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: Cmd+1, 2 and 3 switch between the tabs of an order, Cmd+F finds a card, Cmd+N starts a new order.
 - The order list has a field that finds an order by name.
 - For meinspiel.de, one click processes the missing card images and builds the PDFs: *Process images and build PDFs*.
 - Card images that fail to process are outlined on the press sheet, with the reason in the tooltip and the large view, and *Retry the failed images* processes only those again.

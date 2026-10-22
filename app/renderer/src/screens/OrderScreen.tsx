@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ArrowRightLeft, GalleryVerticalEnd, type LucideIcon, Printer, Settings2, Trash } from "lucide-react";
 import type { Order, ProcessingProfile, Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab } from "./CardsTab.js";
 import { type BuiltPdfs, PrintTab } from "./PrintTab.js";
 import { ShopTransfer } from "../components/ShopTransfer.js";
+import { useShortcut } from "../useShortcut.js";
 
 interface Props {
     order: Order;
@@ -29,6 +31,16 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
     const [transferring, setTransferring] = useState(false);
     const latest = useRef(order);
     latest.current = order;
+    const search = useRef<HTMLInputElement>(null);
+
+    useShortcut('1', () => setTab('Setup'));
+    useShortcut('2', () => setTab('Cards'));
+    useShortcut('3', () => setTab('Print'));
+    // The Cards tab has to be on screen before its search can take the focus.
+    useShortcut('f', () => {
+        flushSync(() => setTab('Cards'));
+        search.current?.focus();
+    });
 
     // Changes apply to the latest order, so results of long jobs do not overwrite edits made meanwhile.
     function update(change: (order: Order) => Order) {
@@ -55,7 +67,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
             </header>
             <div className="screen-body">
                 {tab === 'Setup' && <SetupTab order={order} profiles={profiles} update={update}/>}
-                {tab === 'Cards' && <CardsTab order={order} update={update}/>}
+                {tab === 'Cards' && <CardsTab order={order} update={update} search={search}/>}
                 {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush} built={pdfs} onBuilt={setPdfs}/>}
             </div>
             {transferring && <ShopTransfer order={order} orders={orders} onMove={onMove} onCopy={onCopy} onClose={() => setTransferring(false)}/>}
