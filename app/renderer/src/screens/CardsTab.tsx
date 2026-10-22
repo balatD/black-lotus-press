@@ -22,13 +22,27 @@ interface Props {
 
 type View = 'list' | 'cards';
 
+const isLowRes = (card: OrderCard) => !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres';
+const isNotOnScryfall = (card: OrderCard) => !card.printing && !card.customImage;
+
+// The kinds of cards the tab can show alone, as the badges name them.
+const KINDS: [label: string, matches: (card: OrderCard) => boolean][] = [
+    ['Low-res', isLowRes],
+    ['Not on Scryfall', isNotOnScryfall],
+    ['MPC Autofill', card => card.mpcfill !== undefined],
+    ['Tokens', card => card.isToken],
+    ['Switched off', card => card.excluded]
+];
+
 const ZOOM_MIN = 110;
 const ZOOM_MAX = 420;
 const ZOOM_STEP = 30;
 
 export function CardsTab({ order, update }: Props) {
     const [filter, setFilter] = useState('');
-    const [editing, setEditing] = useState<string>();
+    const [kind, setKind] = useState<string>();
+    // The cards Previous and Next step through stay those shown when the editor opened, even when an edit takes a card out of the filter.
+    const [editing, setEditing] = useState<{ id: string, ids: string[] }>();
     const [dragged, setDragged] = useState<number>();
     const [target, setTarget] = useState<number>();
     const [view, setView] = useStoredState<View>('cards-view', 'list');
@@ -45,10 +59,14 @@ export function CardsTab({ order, update }: Props) {
     }
 
     const deckNames = new Map(order.decks.map(deck => [deck.url, deck.name ?? deck.url]));
-    const filtering = filter.trim() !== '';
+    const searching = filter.trim() !== '';
+    const filtering = searching || kind !== undefined;
+    const matchesKind = KINDS.find(([label]) => label === kind)?.[1];
     const visible = order.cards
         .map((card, index) => ({ card, index }))
-        .filter(({ card }) => !filtering || card.name.toLowerCase().includes(filter.trim().toLowerCase()));
+        .filter(({ card }) => (!searching || card.name.toLowerCase().includes(filter.trim().toLowerCase())) && (!matchesKind || matchesKind(card)));
+    const kinds = KINDS.map(([label, matches]) => ({ label, amount: order.cards.filter(matches).length })).filter(({ label, amount }) => amount > 0 || label === kind);
+    const edit = (id: string) => setEditing({ id, ids: visible.map(({ card }) => card.id) });
 
     function changeCard(id: string, change: (card: OrderCard) => OrderCard) {
         update(current => ({ ...current, cards: current.cards.map(card => card.id === id ? change(card) : card) }));
@@ -110,8 +128,16 @@ export function CardsTab({ order, update }: Props) {
                     </div>
                 )}
             </div>
+            {kinds.length > 0 && (
+                <div className="chips" role="group" aria-label="Show">
+                    <button className="chip" aria-pressed={kind === undefined} onClick={() => setKind(undefined)}>All ({order.cards.length})</button>
+                    {kinds.map(({ label, amount }) => (
+                        <button key={label} className="chip" aria-pressed={kind === label} onClick={() => setKind(kind === label ? undefined : label)}>{label} ({amount})</button>
+                    ))}
+                </div>
+            )}
             <SharpestImages order={order} update={update}/>
-            <p className="status">{filtering ? 'Clear the search to reorder cards.' : view === 'list'
+            <p className="status">{filtering ? 'Clear the search and show all cards to reorder them.' : view === 'list'
                 ? 'Drag cards or use Alt + arrow keys on the handle to change the print order.'
                 : 'Drag cards to change the print order, click a card to choose its image, copies and brightness.'}</p>
 
@@ -127,7 +153,7 @@ export function CardsTab({ order, update }: Props) {
                                             if (event.key === 'ArrowDown') move(index, index + 1);
                                         }}><GripVertical/></button>
                                 <Thumbnail card={card} filter={filterFor(card)}/>
-                                <button className="card-name" aria-haspopup="dialog" onClick={() => setEditing(card.id)}>
+                                <button className="card-name" aria-haspopup="dialog" onClick={() => edit(card.id)}>
                                     <span className="name">{card.name}</span>
                                     <span className="meta">{describePrinting(card)}</span>
                                 </button>
@@ -147,7 +173,7 @@ export function CardsTab({ order, update }: Props) {
                 <ol className="card-grid" style={{ '--card-width': `${zoom}px` } as CSSProperties}>
                     {visible.map(({ card, index }) => (
                         <li key={card.id} className={`card-tile${card.excluded ? ' excluded' : ''}${target === index ? ' drop-target' : ''}`} {...dragProps(index)}>
-                            <button className="tile-image" aria-label={`${card.name}, ${describePrinting(card)}`} onClick={() => setEditing(card.id)}>
+                            <button className="tile-image" aria-label={`${card.name}, ${describePrinting(card)}`} onClick={() => edit(card.id)}>
                                 <CardImage card={card} large={zoom > 240} filter={filterFor(card)}/>
                                 {card.quantity > 1 && <span className="tile-quantity">×{card.quantity}</span>}
                                 {card.excluded && <span className="tile-off">Not printed</span>}
@@ -159,7 +185,7 @@ export function CardsTab({ order, update }: Props) {
                 </ol>
             )}
 
-            {editing && <CardEditor order={order} update={update} ids={visible.map(({ card }) => card.id)} start={editing} onClose={() => setEditing(undefined)}/>}
+            {editing && <CardEditor order={order} update={update} ids={editing.ids} start={editing.id} onClose={() => setEditing(undefined)}/>}
         </div>
     );
 }
@@ -229,8 +255,8 @@ function Summary({ order, update }: Props) {
     const printed = slots.filter(slot => slot.cardId !== undefined).length;
     const blank = slots.length - printed;
     const excluded = order.cards.filter(card => card.excluded).length;
-    const missing = order.cards.filter(card => !card.excluded && !card.printing && !card.customImage).length;
-    const lowRes = order.cards.filter(card => !card.excluded && !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres').length;
+    const missing = order.cards.filter(card => !card.excluded && isNotOnScryfall(card)).length;
+    const lowRes = order.cards.filter(card => !card.excluded && isLowRes(card)).length;
     const value = printedValue(order);
     const price = packs.reduce((total, pack) => total + packPrice(order.shop, pack.length), 0);
     const { shop } = order;
@@ -298,8 +324,8 @@ function Badges({ card }: { card: OrderCard }) {
     if (card.isToken) badges.push(['Token', '']);
     if (card.customImage) badges.push(['Own image', 'own']);
     if (card.mpcfill) badges.push(['MPC Autofill', 'own']);
-    if (!card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres') badges.push(['Low-res', 'warning']);
-    if (!card.printing && !card.customImage) badges.push(['Not on Scryfall', 'error']);
+    if (isLowRes(card)) badges.push(['Low-res', 'warning']);
+    if (isNotOnScryfall(card)) badges.push(['Not on Scryfall', 'error']);
 
     return <span className="badges">{badges.map(([label, kind]) => <span key={label} className={`badge ${kind}`}>{label}</span>)}</span>;
 }

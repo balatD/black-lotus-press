@@ -57,6 +57,11 @@ before(async () => {
     const fillOrder = { ...DefaultOrder, name: 'fill deck', cardBack: '', cards: [card('a', 50),
         { ...card('b', 1), id: 't1', name: 'Treasure', board: 'tokens', isToken: true }, { ...card('b', 1), id: 't2', name: 'Clue', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'fill deck.json'), JSON.stringify(fillOrder));
+    const filterOrder = { ...DefaultOrder, name: 'filter deck', cardBack: '', cards: [card('a', 2),
+        { ...card('b', 1), id: 'treasure', name: 'Treasure', board: 'tokens', isToken: true },
+        { ...card('a', 1), id: 'off', name: 'Off card', excluded: true },
+        { ...card('c', 1), customImage: undefined, printing: { ...pricedPrinting('c', '1.00'), image_status: 'lowres' } }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'filter deck.json'), JSON.stringify(filterOrder));
     const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
@@ -415,6 +420,29 @@ test('one click fills all blank slots of the pack with copies of the tokens', as
     await window.getByText('55 cards fill 1 pack of 55', { exact: false }).waitFor();
     assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Treasure' }).inputValue(), '3');
     assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Clue' }).inputValue(), '2');
+});
+
+test('the cards tab shows only the cards of one kind, together with the name search', async () => {
+    await window.getByRole('button', { name: /filter deck/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    const names = () => window.locator('.card-row .card-name .name').allTextContents();
+    const search = window.getByPlaceholder('Find a card by name');
+
+    await window.getByRole('button', { name: 'Switched off (1)' }).click();
+    assert.deepEqual(await names(), ['Off card']);
+    assert.ok(await window.getByRole('button', { name: 'Move Off card' }).isDisabled());
+
+    await window.getByRole('button', { name: 'Low-res (1)' }).click();
+    assert.deepEqual(await names(), ['Card c']);
+    await search.fill('Card a');
+    assert.deepEqual(await names(), []);
+
+    await window.getByRole('button', { name: /^All/ }).click();
+    assert.deepEqual(await names(), ['Card a']);
+    await search.fill('');
+    assert.deepEqual(await names(), ['Card a', 'Treasure', 'Off card', 'Card c']);
+    assert.ok(await window.getByRole('button', { name: 'Move Card a' }).isEnabled());
 });
 
 test('the window logged no errors', () => {
