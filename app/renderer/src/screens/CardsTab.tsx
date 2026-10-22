@@ -1,7 +1,7 @@
 import { type CSSProperties, type DragEvent, useState } from "react";
-import { CircleStop, GripVertical, Images, LayoutGrid, List, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
-import { buildPacks, cardFaces, CARDS_PER_PACK, faceImageUris, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
+import { buildPacks, cardFaces, CARDS_PER_PACK, faceImageUris, fillFreeSlots, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
 import { printedValue } from "../../../../src/printings.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { boardName, count, describePrinting, formatEuro } from "../format.js";
@@ -271,6 +271,7 @@ function Summary({ order, update }: Props) {
                                 <Plus/>
                             </button>
                         ))}
+                        {tokens.length > 0 && <button onClick={() => update(current => ({ ...current, cards: fillFreeSlots(current) }))}><ListPlus/>Fill all blank slots</button>}
                         <button className="quiet" onClick={() => setFindingToken(true)}><Search/>Find a token…</button>
                     </div>
                 </div>

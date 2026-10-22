@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- *Fill all blank slots* on the Cards tab shares the blank slots of the last meinspiel.de pack out over the order's tokens in one click.
 - A token added with *Find a token…* can be removed again: *Remove from the order* in its card editor. Cards from a deck are switched off instead, since the next update from Moxfield would bring them back.
 - An edit made just before quitting the app is saved; the app waits for it before it quits.
 - A damaged order or profile file no longer empties the list: the app shows all the others, names the file it could not read and leaves it as it is.

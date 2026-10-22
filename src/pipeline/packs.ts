@@ -164,6 +164,19 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
     return { packs, droppedTokens };
 }
 
+// Hands the blank slots out over the tokens that print, in turn, so the last pack has no blank card left.
+export function fillFreeSlots(order: PackOrder): OrderCard[] {
+    const blank = buildPacks(order).packs.flat().filter(slot => slot.cardId === undefined).length;
+    const printed = order.cards.filter(card => card.isToken && !card.excluded && cardFaces(card, order));
+    if (blank === 0 || printed.length === 0) return order.cards;
+
+    return order.cards.map(card => {
+        const index = printed.indexOf(card);
+        if (index === -1) return card;
+        return { ...card, quantity: card.quantity + Math.floor(blank / printed.length) + (index < blank % printed.length ? 1 : 0) };
+    });
+}
+
 // The smallest deck size of the shop that holds these cards, with its price.
 export function shopDeck(shop: DeckShop, cards: number) {
     return DECKS[shop].find(([size]) => size >= cards)!;

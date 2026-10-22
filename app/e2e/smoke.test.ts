@@ -53,6 +53,10 @@ before(async () => {
     const tokenOrder = { ...DefaultOrder, name: 'token deck', cardBack: '', cards: [card('a', 52), { ...card('b', 1), id: 't', name: 'Treasure', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'token deck.json'), JSON.stringify(tokenOrder));
     // A token added in the app belongs to no deck.
+    // 50 cards and two tokens leave three slots of the pack blank.
+    const fillOrder = { ...DefaultOrder, name: 'fill deck', cardBack: '', cards: [card('a', 50),
+        { ...card('b', 1), id: 't1', name: 'Treasure', board: 'tokens', isToken: true }, { ...card('b', 1), id: 't2', name: 'Clue', board: 'tokens', isToken: true }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'fill deck.json'), JSON.stringify(fillOrder));
     const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
@@ -399,6 +403,18 @@ test('a card added in the app can be removed from the order, an imported card on
     await editor.getByRole('button', { name: 'Remove from the order' }).click();
     await editor.waitFor({ state: 'detached' });
     assert.deepEqual(await window.locator('.card-row .card-name .name').allTextContents(), ['Card a']);
+});
+
+test('one click fills all blank slots of the pack with copies of the tokens', async () => {
+    await window.getByRole('button', { name: /fill deck/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    await window.getByText('3 slots stay blank.', { exact: false }).waitFor();
+
+    await window.getByRole('button', { name: 'Fill all blank slots' }).click();
+    await window.getByText('55 cards fill 1 pack of 55', { exact: false }).waitFor();
+    assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Treasure' }).inputValue(), '3');
+    assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Clue' }).inputValue(), '2');
 });
 
 test('the window logged no errors', () => {

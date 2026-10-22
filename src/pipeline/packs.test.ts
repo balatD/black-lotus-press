@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
-import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, packPrice } from "./packs.js";
+import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, fillFreeSlots, packPrice } from "./packs.js";
 
 const BACK = 'cardback-drive1-b100-c100.jpg';
 
@@ -74,6 +74,23 @@ test('buildPacks counts dropped copies per token when the cards fill their packs
 
     assert.equal(packs.length, 1);
     assert.deepEqual(droppedTokens.map(token => [token.card.id, token.copies]), [['treasure', 3]]);
+});
+
+test('fillFreeSlots hands the blank slots of the last pack out over the tokens in turn', () => {
+    // 45 cards and 6 tokens leave 4 blank slots.
+    const filled = fillFreeSlots(order([card('island', 45), ...tokens(6)]));
+
+    assert.deepEqual(filled.filter(c => c.isToken).map(c => c.quantity), [2, 2, 2, 2, 1, 1]);
+    const { packs, droppedTokens } = buildPacks(order(filled));
+    assert.ok(packs[0]!.every(slot => slot.cardId !== undefined));
+    assert.deepEqual(droppedTokens, []);
+});
+
+test('fillFreeSlots gives the first tokens one copy more when the slots do not divide evenly and leaves switched-off tokens alone', () => {
+    // 50 cards and 2 tokens leave 3 blank slots.
+    const filled = fillFreeSlots(order([card('island', 50), ...tokens(2), card('off', 1, { isToken: true, excluded: true })]));
+
+    assert.deepEqual(filled.filter(c => c.isToken).map(c => c.quantity), [3, 2, 1]);
 });
 
 test('buildPacks keeps the order of the card list', () => {
