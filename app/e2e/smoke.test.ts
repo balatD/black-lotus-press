@@ -108,10 +108,11 @@ before(async () => {
     }
 
     app = await electron.launch({ args: [MAIN], cwd: root });
-    // Notifications are recorded instead of shown, as the tests' window is rarely the focused one.
+    // Notifications are recorded instead of shown, as the tests' window is rarely the focused one. Linux runners have no notification service.
     await app.evaluate(({ Notification }) => {
         const shown: { title: string, body: string }[] = [];
         Object.assign(globalThis, { shownNotifications: shown });
+        Notification.isSupported = () => true;
         Notification.prototype.show = function (this: Electron.Notification) {
             shown.push({ title: this.title, body: this.body });
         };
