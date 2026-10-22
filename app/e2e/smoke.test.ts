@@ -119,6 +119,8 @@ test('the splash screen shows the press card and gives way to the choice of shop
 });
 
 after(async () => {
+    // A pending save holds back the close, which Playwright reports as a dialog Electron never shows.
+    window?.on('dialog', dialog => void dialog.dismiss().catch(() => {}));
     await app?.close();
 });
 

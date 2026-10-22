@@ -29,11 +29,25 @@ before(async () => {
 });
 
 after(async () => {
-    await app?.close();
+    await app?.close().catch(() => {});
 });
 
 test('an order file that cannot be read is named and left as it is, and the other orders load', async () => {
     await window.getByRole('alert').filter({ hasText: 'broken.json' }).waitFor();
     await window.getByRole('button', { name: /^good/ }).waitFor();
     assert.equal(await fs.readFile(path.join(root, 'config', 'orders', 'broken.json'), 'utf-8'), '{"name":');
+});
+
+// Last, since it quits the app.
+test('an edit made just before quitting is saved', async () => {
+    // Playwright reports the held-back close as a dialog, which Electron never shows, so dismissing it fails.
+    window.on('dialog', dialog => void dialog.dismiss().catch(() => {}));
+    await window.getByRole('button', { name: /^good/ }).click();
+    await window.locator('#card-back').fill('edited-before-quitting');
+    const closed = app.waitForEvent('close');
+    await app.evaluate(({ app }) => app.quit());
+    await closed;
+
+    const saved = JSON.parse(await fs.readFile(path.join(root, 'config', 'orders', 'good.json'), 'utf-8'));
+    assert.equal(saved.cardBack, 'edited-before-quitting');
 });

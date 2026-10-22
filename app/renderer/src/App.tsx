@@ -59,6 +59,17 @@ export function App() {
         await Promise.all(pending.map(({ order }) => save(order)));
     }, [save]);
 
+    // Holding back the close also holds back quitting the app; once saved, the window closes and the app quits.
+    useEffect(() => {
+        function beforeUnload(event: BeforeUnloadEvent) {
+            if (pendingSaves.current.size === 0) return;
+            event.returnValue = false;
+            void flushSaves().then(() => window.close());
+        }
+        window.addEventListener('beforeunload', beforeUnload);
+        return () => window.removeEventListener('beforeunload', beforeUnload);
+    }, [flushSaves]);
+
     async function createOrder(name: string) {
         const order: Order = { ...DefaultOrder, name, shop: shop!, profile: profiles[0] ?? DefaultOrder.profile };
         await api.saveOrder(order);
