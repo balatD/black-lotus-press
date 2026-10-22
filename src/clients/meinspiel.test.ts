@@ -5,7 +5,43 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { type MeinspielSession, postMultipart, settleSession, waitForLogin } from "./meinspiel.js";
+import type { Handover, UploadedGame } from "../model.js";
+import { finishUpload, type MeinspielSession, postMultipart, settleSession, waitForLogin } from "./meinspiel.js";
+
+function fakeUpload() {
+    const done = { closed: 0, opened: [] as string[] };
+    let handover: Handover = { order: 'sauron', title: 'sauron to meinspiel.de', steps: [] };
+    const window = { update: (change: (current: Handover) => Handover) => void (handover = change(handover)) };
+    const session = {
+        context: { close: async () => void done.closed++ },
+        page: { context: () => ({ newPage: async () => ({ goto: async (url: string) => void done.opened.push(url) }) }), close: async () => {} }
+    } as unknown as MeinspielSession;
+    return { done, window, session, handover: () => handover };
+}
+
+const game = (id: number, saved: boolean): UploadedGame => ({ id, saved, name: `sauron - Deck ${id}/2`, url: `https://www.meinspiel.de/konfigurator/game/${id}?tid=10098` });
+
+test('finishUpload closes the browser once every game is saved and lists the games in the hand-over', async () => {
+    const upload = fakeUpload();
+
+    assert.equal(await finishUpload(upload.window, upload.session, [game(1, true), game(2, true)]), undefined);
+
+    assert.deepEqual(upload.done, { closed: 1, opened: [] });
+    assert.deepEqual(upload.handover().links, [
+        { label: 'sauron - Deck 1/2', url: 'https://www.meinspiel.de/konfigurator/game/1?tid=10098' },
+        { label: 'sauron - Deck 2/2', url: 'https://www.meinspiel.de/konfigurator/game/2?tid=10098' }
+    ]);
+    assert.match(upload.handover().next!, /saved in your meinspiel.de account/);
+});
+
+test('finishUpload keeps the browser open with the games that are not saved, which only it has', async () => {
+    const upload = fakeUpload();
+
+    assert.equal(await finishUpload(upload.window, upload.session, [game(1, true), game(2, false)]), upload.session);
+
+    assert.deepEqual(upload.done, { closed: 0, opened: ['https://www.meinspiel.de/konfigurator/game/2?tid=10098'] });
+    assert.match(upload.handover().next!, /Speichern/);
+});
 
 test('settleSession loads the login page until meinspiel.de stops giving the new session another id', async () => {
     // As measured: a new session changes its id on the first two loads, then keeps it.

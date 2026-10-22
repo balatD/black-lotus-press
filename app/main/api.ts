@@ -173,7 +173,7 @@ export function registerApi(window: BrowserWindow) {
                 await closeUploadBrowser();
                 try {
                     const { session, games } = await uploadToMeinspiel(orderName, packs, channel, window.getBounds(), onProgress, signal);
-                    keepBrowser(session.context, `meinspiel.de with the games of ${orderName}`, orderName);
+                    if (session) keepBrowser(session.context, `meinspiel.de with the games of ${orderName}`, orderName);
                     return games;
                 } catch (error) {
                     if (signal.aborted) throw error;

@@ -190,7 +190,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                 </li>
                 <li>
                     <h2><CloudUpload/>Upload to meinspiel.de</h2>
-                    <p className="muted">A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account; you choose the box and order there yourself.</p>
+                    <p className="muted">A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account, then the browser closes and the app lists the games; you choose the box and order on meinspiel.de yourself.</p>
                     <div className="row">
                         <button className={pdfs && !tooBig && !order.uploaded ? 'primary' : ''} disabled={running !== undefined || !pdfs || tooBig} onClick={upload}><CloudUpload/>Upload</button>
                         {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}

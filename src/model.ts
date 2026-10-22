@@ -235,6 +235,8 @@ export interface Handover {
     callout?: string;
     // What is left to the user once every step is done.
     next?: string;
+    // Pages to go on with, such as the games made, which open in the usual browser.
+    links?: { label: string, url: string }[];
 }
 
 export type ProgressEvent =

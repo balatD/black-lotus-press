@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- After the upload to meinspiel.de, the browser closes by itself: the games are saved in your account already. The app lists them with links that open in your usual browser, where you choose the box and order. Only a game meinspiel.de did not save keeps the browser open, so you can save it there.
 - Blank slots in the last meinspiel.de pack can be filled with tokens. The Cards tab says how many slots stay blank and offers another copy of each token of the order with one click, or any token from Scryfall by name with *Find a token…*. A token added this way belongs to no deck, so updating the decks from Moxfield keeps it.
 
 ## 2.1.0

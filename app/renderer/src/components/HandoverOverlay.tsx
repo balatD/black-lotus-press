@@ -1,4 +1,4 @@
-import { AppWindow, Check, Circle, CircleStop, LoaderCircle, LogIn, type LucideIcon, TriangleAlert, X } from "lucide-react";
+import { AppWindow, Check, Circle, CircleStop, ExternalLink, LoaderCircle, LogIn, type LucideIcon, TriangleAlert, X } from "lucide-react";
 import type { Handover, HandoverStep } from "../../../../src/model.js";
 
 interface Props {
@@ -49,6 +49,11 @@ export function HandoverOverlay({ handover, running, browserOpen, onShowBrowser,
                     })}
                 </ol>
                 {!running && !failed && handover.next && <p className="status">{handover.next}</p>}
+                {!running && !failed && handover.links && (
+                    <ul className="files">
+                        {handover.links.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noreferrer">{link.label}<ExternalLink/></a></li>)}
+                    </ul>
+                )}
                 <div className="row">
                     {browserOpen && <button className="primary" onClick={onShowBrowser}><AppWindow/>Show the browser window</button>}
                     {running && <button className="quiet" onClick={onCancel}><CircleStop/>Cancel</button>}

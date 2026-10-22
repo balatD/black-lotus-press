@@ -180,14 +180,31 @@ export async function postMultipart(url: string, browser: { cookie: string, user
     });
 }
 
+// Saved games are in the account, so the browser closes and the app lists them.
+// A game that is not saved only exists in this browser's session, so then the browser stays open with those games and is returned.
+export async function finishUpload(window: Pick<ShopWindow, 'update'>, session: MeinspielSession, games: UploadedGame[]) {
+    const unsaved = games.filter(game => !game.saved);
+    window.update(handover => ({
+        ...handover,
+        links: games.map(game => ({ label: game.name, url: game.url })),
+        next: unsaved.length === 0
+            ? 'Every game is saved in your meinspiel.de account. Open it to choose the box and order; the links open in your usual browser, which needs to be logged in to meinspiel.de.'
+            : 'Click Speichern in the window of every game that is not saved, then choose the box and order on meinspiel.de.'
+    }));
+    if (unsaved.length === 0) {
+        await session.context.close();
+        return undefined;
+    }
+    await showGames(session, unsaved.map(game => game.id));
+    return session;
+}
+
 // Each step of the upload is a step of the hand-over, which the app and the bar over meinspiel.de's pages show.
-// On success the browser stays open so the user can order; the caller closes it.
 export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], channel: PlaywrightChannel, bounds: WindowBounds | undefined,
                                         onProgress?: OnProgress, signal?: AbortSignal) {
     const steps: HandoverStep[] = [
         { label: 'Log in', state: 'active', detail: 'In this window, or create an account; Black Lotus Press never sees your password.' },
-        ...packs.map((_, index): HandoverStep => ({ label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' })),
-        { label: 'Open the games', state: 'pending' }
+        ...packs.map((_, index): HandoverStep => ({ label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' }))
     ];
     const window = await openShopWindow(channel, bounds, {
         order: orderName, title: `${orderName} to meinspiel.de`, steps,
@@ -213,11 +230,7 @@ export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], c
                 game.saved ? `Saved in your account as "${name}"` : `"${name}" is not saved in your account; click Speichern in its window`);
         }
 
-        step(packs.length + 1, 'active', `Opening ${games.length === 1 ? 'the game' : `the ${games.length} games, each in its own window`}`);
-        await showGames(session, games.map(game => game.id));
-        step(packs.length + 1, 'done', `Opened ${games.length === 1 ? 'the game' : `the ${games.length} games`}`);
-        window.update(handover => ({ ...handover, next: 'Choose the box for every game, click Speichern / Bestellen and order on meinspiel.de.' }));
-        return { session, games };
+        return { session: await finishUpload(window, session, games), games };
     } catch (error) {
         const reason = window.fail(error);
         await session.context.close();

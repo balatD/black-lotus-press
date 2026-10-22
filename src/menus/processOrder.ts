@@ -95,13 +95,14 @@ async function upload(order: Order, packs: PackFiles[]) {
         const result = await runTask('Uploading to meinspiel.de', onProgress => uploadToMeinspiel(order.name, packs, order.profile.playwrightChannel, undefined, onProgress));
         session = result.session;
 
-        console.log('\n' + ui.success(`Uploaded ${result.games.length} deck(s) to your meinspiel.de account under "Gestaltete Spiele". Each one is open in its own browser window.`));
+        console.log('\n' + ui.success(`Uploaded ${result.games.length} deck(s) to your meinspiel.de account under "Gestaltete Spiele".`));
         result.games.forEach(game => console.log(`${game.name}: ${game.url}`));
         result.games.filter(game => !game.saved).forEach(game => {
             console.log(ui.attention(`"${game.name}" is not saved in your account. Click "Speichern" in its window before closing the browser.`));
         });
-        console.log(ui.information('To order, click "Speichern / Bestellen" in every window, choose the box and check out.'));
-        await inquirer.prompt([{ type: 'input', name: 'done', message: 'Press Enter to close the browser.' }]);
+        console.log(ui.information('To order, open every game, choose the box, click "Speichern / Bestellen" and check out.'));
+        // The browser only stays open for games that are not saved.
+        if (session) await inquirer.prompt([{ type: 'input', name: 'done', message: 'Press Enter to close the browser.' }]);
     } catch (err) {
         console.error('\n' + ui.error('Upload failed:'), err);
         console.log(ui.information(`You can upload the PDFs from ${path.dirname(packs[0]!.fronts)} manually at ${MANUAL_UPLOAD_URL}`));
