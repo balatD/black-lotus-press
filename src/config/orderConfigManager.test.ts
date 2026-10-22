@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { copyOrder, deleteOrder, loadOrders, moveOrder, saveOrder } from "./orderConfigManager.js";
+import { copyOrder, deleteOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "./orderConfigManager.js";
 import { DefaultOrder, type Order } from "../model.js";
-import { cardsDir, setDataRoot } from "./paths.js";
+import { cardsDir, orderDir, setDataRoot } from "./paths.js";
 import { PREVIEW_DIR } from "../output/printImage.js";
 
 afterEach(() => setDataRoot(process.cwd()));
@@ -117,6 +117,37 @@ test('copyOrder refuses a name that is taken or invalid', async () => {
     await assert.rejects(copyOrder(order, 'printerstudio', 'urza'), /exists already/);
     await assert.rejects(copyOrder(order, 'printerstudio', '../urza'), /Invalid order name/);
     assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['sauron', 'meinspiel'], ['urza', 'notmpc']]);
+});
+
+test('renameOrder takes the images, the PDFs and the last upload along to the new name', async () => {
+    await tempRoot();
+    const uploaded = { at: '2026-10-22T10:00:00.000Z', games: [{ id: 1, name: 'sauron - Deck 1/1', saved: true, url: 'https://www.meinspiel.de/konfigurator/game/1?tid=10098' }] };
+    const order: Order = { ...DefaultOrder, name: 'sauron', uploaded };
+    await saveOrder(order);
+    await processedImages(order);
+    await fs.mkdir(path.join(orderDir(order), 'meinspiel'));
+    await fs.writeFile(path.join(orderDir(order), 'meinspiel', 'pack-01-fronts.pdf'), 'pdf');
+
+    await renameOrder(order, 'sauron deck');
+
+    const renamed = { ...order, name: 'sauron deck' };
+    assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.uploaded]), [['sauron deck', uploaded]]);
+    assert.equal((await files(renamed)).length, 5);
+    assert.equal(await fs.readFile(path.join(orderDir(renamed), 'meinspiel', 'pack-01-fronts.pdf'), 'utf-8'), 'pdf');
+    await assert.rejects(fs.stat(orderDir(order)), /ENOENT/);
+});
+
+test('renameOrder refuses a name that is taken, invalid or the name of a folder left in the orders folder', async () => {
+    await tempRoot();
+    const order: Order = { ...DefaultOrder, name: 'sauron' };
+    await saveOrder(order);
+    await saveOrder({ ...order, name: 'urza', shop: 'notmpc' });
+    await fs.mkdir(orderDir({ ...order, name: 'deleted' }), { recursive: true });
+
+    await assert.rejects(renameOrder(order, 'urza'), /exists already/);
+    await assert.rejects(renameOrder(order, '../urza'), /Invalid order name/);
+    await assert.rejects(renameOrder(order, 'deleted'), /folder/);
+    assert.deepEqual((await loadOrders()).map(saved => saved.name), ['sauron', 'urza']);
 });
 
 test('loadOrders gives orders saved before there was a choice of shop to meinspiel.de', async () => {

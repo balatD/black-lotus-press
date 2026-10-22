@@ -97,6 +97,14 @@ export function App() {
         setView({ type: 'order', name: copyName ?? order.name });
     }
 
+    // Saved first, so a pending save does not write the order under its old name again.
+    async function renameOrder(order: Order, name: string) {
+        await flushSaves();
+        await api.renameOrder(order, name);
+        await reload();
+        setView({ type: 'order', name });
+    }
+
     async function show(next: View) {
         await flushSaves();
         setView(next);
@@ -137,6 +145,7 @@ export function App() {
                         onDelete={() => void deleteOrder(order).catch(e => setError(errorMessage(e)))}
                         onMove={shop => sendToShop(order, shop)}
                         onCopy={(shop, name) => sendToShop(order, shop, name)}
+                        onRename={name => renameOrder(order, name)}
                     />
                 )}
                 {view.type === 'profiles' && <ProfilesScreen profiles={profiles} onSaved={reload}/>}

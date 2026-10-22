@@ -3,7 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { app, type BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
 import type { Browser, BrowserContext } from "playwright";
-import { copyOrder, deleteOrder, loadOrders, moveOrder, saveOrder } from "../../src/config/orderConfigManager.js";
+import { copyOrder, deleteOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
 import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
@@ -143,6 +143,10 @@ export function registerApi(window: BrowserWindow) {
         async copyOrder(order, shop, name) {
             assertIdle(order.name);
             await copyOrder(order, shop, name);
+        },
+        async renameOrder(order, name) {
+            assertIdle(order.name);
+            await renameOrder(order, name);
         },
         listCardbacks: searchCardbacks,
         async previewCardBack(driveId) {

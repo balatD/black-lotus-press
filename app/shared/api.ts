@@ -36,6 +36,8 @@ export interface Api {
     moveOrder(order: Order, shop: Shop): Promise<void>;
     // A copy under a new name, with the processed downloads, so nothing is upscaled again.
     copyOrder(order: Order, shop: Shop, name: string): Promise<void>;
+    // With its images, PDFs and the games of the last upload.
+    renameOrder(order: Order, name: string): Promise<void>;
     // Every card back of MPC Autofill, in its order.
     listCardbacks(): Promise<MpcfillCard[]>;
     previewCardBack(driveId: string): Promise<string>;
@@ -85,7 +87,7 @@ export interface Api {
 
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
-    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'openOrderFolder',
+    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'openOrderFolder',
     'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
     'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];

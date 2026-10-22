@@ -65,6 +65,7 @@ before(async () => {
     // Own images on both faces and a full pack, so it prints without a card back or blank cards.
     const oneClickOrder = { ...DefaultOrder, name: 'one click deck', cardBack: '', cards: [{ ...card('a', 55), customImage: { front: 'a.png', back: 'b.png' } }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'one click deck.json'), JSON.stringify(oneClickOrder));
+    await fs.writeFile(path.join(root, 'config', 'orders', 'rename deck.json'), JSON.stringify({ ...DefaultOrder, name: 'rename deck', cardBack: '', cards: [card('a', 2)] }));
     const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
@@ -526,6 +527,22 @@ test('a task that ends while the app is in the background shows a notification',
     assert.deepEqual(await shown(), [{ title: 'Writing the PDFs of one click deck', body: 'Done.' }]);
 
     await app.evaluate(({ BrowserWindow }) => void delete (BrowserWindow.getAllWindows()[0] as { isFocused?: unknown }).isFocused);
+});
+
+test('an order is renamed, and the name of another order is refused', async () => {
+    await window.getByRole('button', { name: /rename deck/ }).click();
+    await window.getByRole('button', { name: 'Rename', exact: true }).click();
+    const name = window.getByRole('textbox', { name: 'New name of the order' });
+    await name.fill('test');
+    await window.getByText('An order with this name exists already.').waitFor();
+    assert.ok(await window.getByRole('button', { name: 'Rename', exact: true }).isDisabled());
+
+    await name.fill('renamed deck');
+    await window.getByRole('button', { name: 'Rename', exact: true }).click();
+    await window.getByRole('heading', { name: 'renamed deck' }).waitFor();
+    await window.getByRole('button', { name: /renamed deck/ }).waitFor();
+    assert.equal(await window.getByRole('button', { name: /rename deck/ }).count(), 0);
+    await fs.access(path.join(root, 'config', 'orders', 'renamed deck.json'));
 });
 
 test('the window logged no errors', () => {
