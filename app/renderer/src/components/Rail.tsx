@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Package, Plus, SlidersHorizontal, Store, X } from "lucide-react";
+import { Package, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
 import { isValidOrderName, type Order, type Shop } from "../../../../src/model.js";
 import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
@@ -24,6 +24,7 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
     const [error, setError] = useState<string>();
+    const [query, setQuery] = useState('');
 
     const problem = orderNameProblem(name, orders, shop);
 
@@ -52,8 +53,12 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
 
             <div>
                 <h2>Orders</h2>
+                <label className="search rail-search">
+                    <Search/>
+                    <input type="search" placeholder="Find an order" value={query} onChange={e => setQuery(e.target.value)}/>
+                </label>
                 <ul className="rail-list">
-                    {orders.filter(order => order.shop === shop).map(order => (
+                    {orders.filter(order => order.shop === shop && order.name.toLowerCase().includes(query.trim().toLowerCase())).map(order => (
                         <li key={order.name}>
                             <button className="rail-item" aria-current={order.name === selected ? 'page' : undefined} onClick={() => onSelectOrder(order.name)}>
                                 <span className="with-icon"><Package/>{order.name}</span>

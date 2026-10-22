@@ -134,6 +134,7 @@ input[type="checkbox"] { accent-color: var(--cyan); }
 .rail > .color-bar { margin: -0.4rem 0.5rem 0; }
 .rail .brand small { display: block; font-size: var(--step--1); font-weight: 400; color: var(--muted); }
 .rail h2 { padding: 0 0.5rem; font-size: var(--step--1); color: var(--muted); font-weight: 500; }
+.rail-search { margin: 0.35rem 0 0.25rem; }
 
 .rail-list { display: flex; flex-direction: column; gap: 2px; margin: 0.35rem 0 0; padding: 0; list-style: none; }
 

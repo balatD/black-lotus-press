@@ -146,6 +146,16 @@ test('the order list shows the order with its pack count', async () => {
     assert.match(await item.innerText(), /1 pack/);
 });
 
+test('the order list finds orders by name', async () => {
+    const search = window.getByPlaceholder('Find an order');
+    await search.fill('deck');
+    await window.getByRole('button', { name: /travel deck/ }).waitFor();
+    assert.equal(await window.getByRole('button', { name: /^test/ }).count(), 0);
+
+    await search.fill('');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
 test('opening an order shows its cards with a summary', async () => {
     await window.getByRole('button', { name: /test/ }).click();
 
