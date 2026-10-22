@@ -52,6 +52,9 @@ before(async () => {
     // 52 cards and a token leave two slots of the pack blank.
     const tokenOrder = { ...DefaultOrder, name: 'token deck', cardBack: '', cards: [card('a', 52), { ...card('b', 1), id: 't', name: 'Treasure', board: 'tokens', isToken: true }] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'token deck.json'), JSON.stringify(tokenOrder));
+    // A token added in the app belongs to no deck.
+    const addedOrder = { ...DefaultOrder, name: 'added deck', cardBack: '', cards: [card('a', 3), { ...card('b', 1), id: 'clue', name: 'Clue', deck: '', board: 'tokens', isToken: true }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'added deck.json'), JSON.stringify(addedOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
     // Processed, so the order can be saved as an MPC Autofill XML.
     const xmlOrder = { ...DefaultOrder, name: 'xml deck', shop: 'printerstudio' as const, cardBack: '', cards: [card('a', 2)] };
@@ -377,6 +380,25 @@ test('the cards tab tells of the blank slots of a pack and fills them with copie
     await window.getByText('55 cards fill 1 pack of 55', { exact: false }).waitFor();
     assert.equal(await window.getByText(/stays? blank/).count(), 0);
     assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Treasure' }).inputValue(), '3');
+});
+
+test('a card added in the app can be removed from the order, an imported card only switched off', async () => {
+    await window.getByRole('button', { name: /added deck/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    const editor = window.locator('.card-editor');
+
+    await window.locator('.card-row', { hasText: 'Card a' }).locator('.card-name').click();
+    await editor.waitFor();
+    assert.equal(await editor.getByRole('button', { name: 'Remove from the order' }).count(), 0);
+    await window.keyboard.press('Escape');
+    await editor.waitFor({ state: 'detached' });
+
+    await window.locator('.card-row', { hasText: 'Clue' }).locator('.card-name').click();
+    window.once('dialog', dialog => void dialog.accept());
+    await editor.getByRole('button', { name: 'Remove from the order' }).click();
+    await editor.waitFor({ state: 'detached' });
+    assert.deepEqual(await window.locator('.card-row .card-name .name').allTextContents(), ['Card a']);
 });
 
 test('the window logged no errors', () => {

@@ -1,5 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Columns2, ImagePlus, ImageUp, Undo2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Columns2, ImagePlus, ImageUp, Trash2, Undo2, X } from "lucide-react";
 import { changePrinting, chooseMpcfillImage, combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
 import type { MpcfillCard } from "../../../../src/clients/mpcfill.js";
 import { cardFaces, faceImageUris, mpcfillImage } from "../../../../src/pipeline/packs.js";
@@ -74,6 +74,13 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
 
     function changeCard(change: (card: OrderCard) => OrderCard) {
         update(current => ({ ...current, cards: current.cards.map(c => c.id === card!.id ? change(c) : c) }));
+    }
+
+    // Only for cards added in the app: an imported card would come back with the next update from Moxfield.
+    function remove() {
+        if (!window.confirm(`Remove ${card!.name} from the order?`)) return;
+        update(current => ({ ...current, cards: current.cards.filter(c => c.id !== card!.id) }));
+        dialog.current?.close();
     }
 
     function open(next: string | undefined) {
@@ -229,6 +236,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                                 {' '}Brightness and contrast apply on top of the order's {percent(order.adjustments.brightness)} and {percent(order.adjustments.contrast)}; the preview shows them approximately.
                             </span>
                             {(card.customImage || card.mpcfill) && <button className="quiet danger" onClick={() => changeCard(({ customImage: _, mpcfill: __, ...rest }) => rest)}><Undo2/>Use Scryfall again</button>}
+                            {card.deck === '' && <button className="quiet danger" onClick={remove}><Trash2/>Remove from the order</button>}
                         </div>
                     </div>
                 </section>
