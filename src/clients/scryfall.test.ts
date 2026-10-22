@@ -1,7 +1,7 @@
 import { afterEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ScryfallCard } from "../model.js";
-import { searchPrintings } from "./scryfall.js";
+import { searchPrintings, searchTokens } from "./scryfall.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -81,4 +81,16 @@ test('searchPrintings falls back to the exact name and returns nothing when Scry
 
     assert.deepEqual(await searchPrintings({ name: 'A-The One Ring' }), []);
     assert.match(decodeURIComponent(urls[0]!), /q=!"A-The One Ring"/);
+});
+
+test('searchTokens finds paper tokens by name, one per artwork, and nothing when no token has the name', async () => {
+    const urls = mockPages({ 'clue': { data: [printing('t1', { name: 'Clue', type_line: 'Token Artifact — Clue', layout: 'token' })], has_more: false } });
+
+    const tokens = await searchTokens('clue');
+    assert.deepEqual(tokens.map(token => [token.id, token.name]), [['t1', 'Clue']]);
+    const url = new URL(urls[0]!);
+    assert.equal(url.searchParams.get('q'), 't:token -is:digital clue');
+    assert.equal(url.searchParams.get('unique'), 'art');
+
+    assert.deepEqual(await searchTokens('zzqx'), []);
 });

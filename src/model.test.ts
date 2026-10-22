@@ -64,6 +64,14 @@ test('withDecks keeps cards of unchanged decks and drops cards of changed or rem
     assert.deepEqual(result.decks.map(deck => deck.name ?? deck.url), ['Deck A', 'B', 'D']);
 });
 
+test('withDecks keeps the cards that belong to no deck, like tokens added in the app', () => {
+    const order = { ...DefaultOrder, decks: [{ url: 'A', data: [DeckData.MainBoard] }], cards: [card('a1', 'A'), card('t1', '')] };
+
+    const result = withDecks(order, [{ url: 'A', data: [DeckData.MainBoard, DeckData.Tokens] }]);
+
+    assert.deepEqual(result.cards.map(c => c.id), ['t1']);
+});
+
 function imported(id: string, quantity: number, printingId = `${id}-print`): OrderCard {
     return { ...card(id, 'B'), quantity, printing: printing(printingId), imported: { moxfieldId: id, quantity, printingId } };
 }

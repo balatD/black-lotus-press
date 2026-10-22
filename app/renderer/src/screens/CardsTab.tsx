@@ -1,13 +1,14 @@
 import { type CSSProperties, type DragEvent, useState } from "react";
-import { CircleStop, GripVertical, Images, LayoutGrid, List, Search, ZoomIn, ZoomOut } from "lucide-react";
-import { combineAdjustments, type Order, type OrderCard } from "../../../../src/model.js";
-import { buildPacks, CARDS_PER_PACK, faceImageUris, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
+import { CircleStop, GripVertical, Images, LayoutGrid, List, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
+import { buildPacks, cardFaces, CARDS_PER_PACK, faceImageUris, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
 import { printedValue } from "../../../../src/printings.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { boardName, count, describePrinting, formatEuro } from "../format.js";
 import { CardEditor } from "../components/CardEditor.js";
 import { lacksMpcfill, MpcfillReview } from "../components/MpcfillReview.js";
 import { RegistrationMark } from "../components/Decor.js";
+import { TokenPicker } from "../components/TokenPicker.js";
 import { useStoredState } from "../useStoredState.js";
 import { adjustmentFilter } from "../adjust.js";
 import { ProgressBar } from "../components/ProgressBar.js";
@@ -90,7 +91,7 @@ export function CardsTab({ order, update }: Props) {
 
     return (
         <div className="cards">
-            <Summary order={order}/>
+            <Summary order={order} update={update}/>
 
             <div className="toolbar">
                 <label className="search grow">
@@ -130,7 +131,7 @@ export function CardsTab({ order, update }: Props) {
                                     <span className="name">{card.name}</span>
                                     <span className="meta">{describePrinting(card)}</span>
                                 </button>
-                                <span className="meta deck-board">{deckNames.get(card.deck)}<br/>{boardName(card.board)}</span>
+                                <span className="meta deck-board">{deckNames.get(card.deck) ?? 'Added here'}<br/>{boardName(card.board)}</span>
                                 <Badges card={card}/>
                                 <input className="quantity" type="number" min={1} max={99} value={card.quantity} aria-label={`Copies of ${card.name}`}
                                        onChange={e => setQuantity(card, Number(e.target.value))}/>
@@ -221,7 +222,8 @@ function CardImage({ card, large, filter }: { card: OrderCard, large: boolean, f
     return src ? <img src={src} alt="" loading="lazy" style={{ filter }}/> : <span className="tile-missing">No image</span>;
 }
 
-function Summary({ order }: { order: Order }) {
+function Summary({ order, update }: Props) {
+    const [findingToken, setFindingToken] = useState(false);
     const { packs, droppedTokens } = buildPacks(order);
     const slots = packs.flat();
     const printed = slots.filter(slot => slot.cardId !== undefined).length;
@@ -232,6 +234,21 @@ function Summary({ order }: { order: Order }) {
     const value = printedValue(order);
     const price = packs.reduce((total, pack) => total + packPrice(order.shop, pack.length), 0);
     const { shop } = order;
+    // The tokens that print, whose copies fill the blank slots first.
+    const tokens = order.cards.filter(card => card.isToken && !card.excluded && cardFaces(card, order));
+
+    function addCopy(id: string) {
+        update(current => ({ ...current, cards: current.cards.map(card => card.id === id ? { ...card, quantity: card.quantity + 1 } : card) }));
+    }
+
+    // A token found on Scryfall belongs to no deck, so updating the decks from Moxfield keeps it.
+    function addToken(printing: ScryfallCard) {
+        const existing = order.cards.find(card => card.isToken && card.printing?.id === printing.id && !card.customImage && !card.mpcfill);
+        if (existing) return addCopy(existing.id);
+        const token: OrderCard = { id: crypto.randomUUID(), deck: '', board: 'tokens', name: printing.name, quantity: 1, isToken: true, excluded: false, printing };
+        update(current => ({ ...current, cards: [...current.cards, token] }));
+    }
+
     const packing = shop === 'meinspiel'
         ? `${count(packs.length, 'pack')} of ${CARDS_PER_PACK}`
         : `${count(packs.length, 'deck')} of up to ${packs.map(pack => shopDeck(shop, pack.length)[0]).join(', ')}`;
@@ -243,7 +260,22 @@ function Summary({ order }: { order: Order }) {
                 {value > 0 && <><s title="Cardmarket value of the printed cards">{formatEuro(value)}</s>{' '}</>}
                 {formatEuro(price)} plus shipping.
             </p>
-            {blank > 0 && <p>{count(blank, 'slot stays', 'slots stay')} blank.</p>}
+            {blank > 0 && (
+                <div className="free-slots">
+                    <p>{count(blank, 'slot')}{packs.length > 1 ? ` of pack ${packs.length}` : ''} {blank === 1 ? 'stays' : 'stay'} blank. Fill {blank === 1 ? 'it' : 'them'} with tokens:</p>
+                    <div className="row">
+                        {tokens.map(token => (
+                            <button key={token.id} className="token-copy" aria-label={`Add a copy of ${token.name}`} onClick={() => addCopy(token.id)}>
+                                <Thumbnail card={token} filter={adjustmentFilter(combineAdjustments(order.adjustments, token.adjustments))}/>
+                                <span>{token.name}<span className="meta"> ×{token.quantity}</span></span>
+                                <Plus/>
+                            </button>
+                        ))}
+                        <button className="quiet" onClick={() => setFindingToken(true)}><Search/>Find a token…</button>
+                    </div>
+                </div>
+            )}
+            {findingToken && <TokenPicker onPick={addToken} onClose={() => setFindingToken(false)}/>}
             {droppedTokens.length > 0 && (
                 <p>Left out because they would need {order.shop === 'meinspiel' ? 'another pack' : 'a larger deck'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
             )}

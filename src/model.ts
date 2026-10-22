@@ -155,6 +155,7 @@ export interface MpcfillImage {
 
 export interface OrderCard {
     id: string;
+    // The deck's URL; empty for cards added in the app, which no import touches.
     deck: string;
     board: string;
     name: string;
@@ -274,7 +275,7 @@ export function replaceDeckCards(cards: OrderCard[], deckUrl: string, imported: 
     return [...before, ...imported, ...others.slice(before.length)];
 }
 
-// Cards of decks that were removed or changed are dropped, so only those decks get imported again.
+// Cards of decks that were removed or changed are dropped, so only those decks get imported again. Cards added in the app stay.
 export function withDecks(order: Order, decks: DeckConfig[]): Order {
     const kept = decks.map(deck => {
         const previous = order.decks.find(existing => existing.url === deck.url);
@@ -283,7 +284,7 @@ export function withDecks(order: Order, decks: DeckConfig[]): Order {
     });
     const unchangedUrls = new Set(kept.filter(entry => entry.unchanged).map(entry => entry.deck.url));
 
-    return { ...order, decks: kept.map(entry => entry.deck), cards: order.cards.filter(card => unchangedUrls.has(card.deck)) };
+    return { ...order, decks: kept.map(entry => entry.deck), cards: order.cards.filter(card => card.deck === '' || unchangedUrls.has(card.deck)) };
 }
 
 function sameBoards(a: DeckData[], b: DeckData[]) {

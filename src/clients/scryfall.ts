@@ -106,6 +106,18 @@ export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>
     return printings;
 }
 
+// Paper tokens whose name has the words, one per artwork, newest first; the first page of results is plenty to choose from.
+export async function searchTokens(name: string): Promise<ScryfallCard[]> {
+    const query = `t:token -is:digital ${name}`;
+    const response = await scryfallFetch(scryfallSearchBottleneck,
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=art&order=released&dir=desc`, { headers: jsonHeaders });
+    if (response.status === 404) return [];
+    if (!response.ok) {
+        throw new Error(`Scryfall search for tokens named ${name} failed (${response.status}): ${await response.text()}`);
+    }
+    return (await response.json() as { data: Record<string, unknown>[] }).data.map(toPrinting);
+}
+
 export async function fetchScryfallImage(url: string): Promise<Buffer> {
     const response = await scryfallImageBottleneck.schedule(() => fetch(url, {
         headers: {

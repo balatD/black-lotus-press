@@ -66,6 +66,7 @@ export interface Api {
     gpuStats(): Promise<GpuStats>;
 
     searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
+    searchTokens(name: string): Promise<ScryfallCard[]>;
     // The MPC Autofill images of a face of the card, in MPC Autofill's order.
     searchMpcfill(card: Pick<OrderCard, 'name' | 'printing' | 'isToken'>, face: 'front' | 'back'): Promise<MpcfillCard[]>;
     // Loads the Scryfall scans the comparison needs; the window asks for a few at a time to show the progress.
@@ -85,7 +86,7 @@ export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'openOrderFolder',
     'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
+    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.

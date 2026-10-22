@@ -49,6 +49,9 @@ before(async () => {
     const printerstudioOrder = { ...DefaultOrder, name: 'studio deck', shop: 'printerstudio', cardBack: '', cards: [card('a', 55)] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'studio deck.json'), JSON.stringify(printerstudioOrder));
     const travelOrder = { ...DefaultOrder, name: 'travel deck', cardBack: '', cards: [card('a', 3)] };
+    // 52 cards and a token leave two slots of the pack blank.
+    const tokenOrder = { ...DefaultOrder, name: 'token deck', cardBack: '', cards: [card('a', 52), { ...card('b', 1), id: 't', name: 'Treasure', board: 'tokens', isToken: true }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'token deck.json'), JSON.stringify(tokenOrder));
     await fs.writeFile(path.join(root, 'config', 'orders', 'travel deck.json'), JSON.stringify(travelOrder));
     // Processed, so the order can be saved as an MPC Autofill XML.
     const xmlOrder = { ...DefaultOrder, name: 'xml deck', shop: 'printerstudio' as const, cardBack: '', cards: [card('a', 2)] };
@@ -352,6 +355,26 @@ test('the print tab saves the order as an MPC Autofill XML that points to the pr
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');
     await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
+test('the cards tab tells of the blank slots of a pack and fills them with copies of the tokens', async () => {
+    await window.getByRole('button', { name: /token deck/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByText('2 slots stay blank. Fill them with tokens:').waitFor();
+
+    await window.getByRole('button', { name: 'Add a copy of Treasure' }).click();
+    await window.getByText('1 slot stays blank. Fill it with tokens:').waitFor();
+
+    await window.getByRole('button', { name: 'Find a token…' }).click();
+    const finder = window.getByRole('dialog', { name: 'Tokens from Scryfall' });
+    await finder.getByRole('searchbox', { name: 'Name of the token' }).waitFor();
+    await finder.getByRole('button', { name: 'Close' }).click();
+    await finder.waitFor({ state: 'detached' });
+
+    await window.getByRole('button', { name: 'Add a copy of Treasure' }).click();
+    await window.getByText('55 cards fill 1 pack of 55', { exact: false }).waitFor();
+    assert.equal(await window.getByText(/stays? blank/).count(), 0);
+    assert.equal(await window.getByRole('spinbutton', { name: 'Copies of Treasure' }).inputValue(), '3');
 });
 
 test('the window logged no errors', () => {

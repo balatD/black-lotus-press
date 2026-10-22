@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Blank slots in the last meinspiel.de pack can be filled with tokens. The Cards tab says how many slots stay blank and offers another copy of each token of the order with one click, or any token from Scryfall by name with *Find a token…*. A token added this way belongs to no deck, so updating the decks from Moxfield keeps it.
+
 ## 2.1.0
 
 printerstudio.de as a third print shop, the shops in a window that looks like part of the app, and orders that move between shops. notmpc.eu is not available at the moment.

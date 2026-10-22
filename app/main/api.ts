@@ -11,7 +11,7 @@ import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js"
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
 import { DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
-import { searchPrintings } from "../../src/clients/scryfall.js";
+import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
 import { MANUAL_UPLOAD_URL, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
 import { sendToNotmpc } from "../../src/clients/notmpc.js";
@@ -212,6 +212,7 @@ export function registerApi(window: BrowserWindow) {
         },
 
         searchPrintings,
+        searchTokens,
         searchMpcfill: findMpcfillImages,
         loadPrintingScans,
         recogniseMpcfill: recogniseMpcfillImages,
