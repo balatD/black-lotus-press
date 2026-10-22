@@ -1,7 +1,8 @@
 import { afterEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ScryfallCard } from "../model.js";
-import { searchPrintings, searchTokens } from "./scryfall.js";
+import type { MoxfieldCardDetails } from "./moxfield.js";
+import { findScryfallCards, searchPrintings, searchTokens } from "./scryfall.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -93,4 +94,33 @@ test('searchTokens finds paper tokens by name, one per artwork, and nothing when
     assert.equal(url.searchParams.get('unique'), 'art');
 
     assert.deepEqual(await searchTokens('zzqx'), []);
+});
+
+test('findScryfallCards looks up 75 cards a request, and a card Scryfall does not know by its id by its name and set', async () => {
+    const calls: { url: string, ids?: string[] }[] = [];
+    mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+        const ids = init?.body ? (JSON.parse(String(init.body)) as { identifiers: { id: string }[] }).identifiers.map(identifier => identifier.id) : undefined;
+        calls.push({ url, ...(ids ? { ids } : {}) });
+        if (ids) return Response.json({ data: ids.filter(id => id !== UNKNOWN).map(id => printing(id)), not_found: ids.filter(id => id === UNKNOWN).map(id => ({ id })) });
+        return Response.json(printing(`named-${new URL(url).searchParams.get('exact')}`));
+    });
+    const UNKNOWN = '00000000-0000-4000-8000-000000000079';
+    // A malformed id would make Scryfall refuse the whole request, so that card is looked up by name right away.
+    const ids = [...Array.from({ length: 80 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`), ''];
+    const cards: MoxfieldCardDetails[] = ids.map((scryfall_id, i) => ({ id: `m${i}`, name: `Card ${i}`, set: 'tst', cn: '1', scryfall_id, isToken: false, type_line: 'Artifact', card_faces: [] }));
+    const lookedUp: string[] = [];
+
+    const found = await findScryfallCards(cards, card => lookedUp.push(card.id));
+
+    assert.deepEqual(calls.filter(call => call.ids).map(call => [call.url, call.ids!.length]), [
+        ['https://api.scryfall.com/cards/collection', 75], ['https://api.scryfall.com/cards/collection', 5]
+    ]);
+    assert.deepEqual(calls.filter(call => !call.ids).map(call => decodeURIComponent(call.url)).sort(), [
+        'https://api.scryfall.com/cards/named?exact=Card 79&set=tst', 'https://api.scryfall.com/cards/named?exact=Card 80&set=tst'
+    ]);
+    assert.equal(found.size, 81);
+    assert.equal(found.get('m0')?.id, ids[0]);
+    assert.equal(found.get('m79')?.id, 'named-Card 79');
+    assert.equal(found.get('m80')?.id, 'named-Card 80');
+    assert.equal(lookedUp.length, 81);
 });

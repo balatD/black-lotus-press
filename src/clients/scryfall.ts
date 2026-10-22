@@ -2,12 +2,7 @@ import type { MoxfieldCardDetails } from "./moxfield.js";
 import type { OrderCard, ScryfallCard } from "../model.js";
 import Bottleneck from "bottleneck";
 
-const scryfallBottleneck = new Bottleneck({
-    maxConcurrent: 5,
-    minTime: 200
-});
-
-// Scryfall allows two searches and two lookups by name a second. Requests sent 500 ms apart can arrive closer together.
+// Scryfall allows two searches, two lookups by name and two collections a second. Requests sent 500 ms apart can arrive closer together.
 const scryfallSearchBottleneck = new Bottleneck({
     maxConcurrent: 1,
     minTime: 600
@@ -61,24 +56,53 @@ export function toPrinting(json: Record<string, unknown>): ScryfallCard {
     return printing as ScryfallCard;
 }
 
-export async function findScryfallCard(card: MoxfieldCardDetails): Promise<ScryfallCard | undefined> {
-    let headers = new Headers({
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": scryfallUserAgent
-    });
+// As many cards as Scryfall takes in one request for a collection.
+const COLLECTION_SIZE = 75;
+// Scryfall refuses the whole collection when one id is no valid UUID.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-    let response = await scryfallFetch(scryfallBottleneck, `https://api.scryfall.com/cards/${card.scryfall_id}`, { headers });
+// The printings of the cards, by their Moxfield id. A card Scryfall no longer has under its id is looked up by its name and set.
+export async function findScryfallCards(cards: MoxfieldCardDetails[], onLookedUp?: (card: MoxfieldCardDetails) => void): Promise<Map<string, ScryfallCard>> {
+    const found = new Map<string, ScryfallCard>();
+    const lookUpByName = async (card: MoxfieldCardDetails) => {
+        const printing = await findByName(card);
+        if (printing) found.set(card.id, printing);
+        onLookedUp?.(card);
+    };
 
-    if (response.status === 404) {
-        response = await scryfallFetch(scryfallSearchBottleneck, `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&set=${card.set}`, { headers });
-        if (response.status === 404) return;
+    for (const card of cards.filter(card => !UUID.test(card.scryfall_id))) await lookUpByName(card);
+    const known = cards.filter(card => UUID.test(card.scryfall_id));
+    for (let start = 0; start < known.length; start += COLLECTION_SIZE) {
+        const batch = known.slice(start, start + COLLECTION_SIZE);
+        const response = await scryfallFetch(scryfallSearchBottleneck, 'https://api.scryfall.com/cards/collection', {
+            method: 'POST',
+            headers: { ...jsonHeaders, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifiers: batch.map(card => ({ id: card.scryfall_id })) })
+        });
+        if (!response.ok) {
+            throw new Error(`Scryfall lookup of ${batch.length} cards failed (${response.status}): ${await response.text()}`);
+        }
+
+        const printings = new Map((await response.json() as { data: Record<string, unknown>[] }).data.map(json => [json.id as string, toPrinting(json)]));
+        for (const card of batch) {
+            const printing = printings.get(card.scryfall_id);
+            if (printing) {
+                found.set(card.id, printing);
+                onLookedUp?.(card);
+            } else {
+                await lookUpByName(card);
+            }
+        }
     }
+    return found;
+}
 
+async function findByName(card: MoxfieldCardDetails): Promise<ScryfallCard | undefined> {
+    const response = await scryfallFetch(scryfallSearchBottleneck, `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&set=${card.set}`, { headers: jsonHeaders });
+    if (response.status === 404) return undefined;
     if (response.status !== 200) {
         throw new Error(`Scryfall lookup of ${card.name} failed (${response.status}): ${await response.text()}`);
     }
-
     return toPrinting(await response.json() as Record<string, unknown>);
 }
 

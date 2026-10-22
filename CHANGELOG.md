@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Importing a deck asks Scryfall for 75 cards at a time instead of one by one, which makes the lookup much faster for large decks.
 - Rename an order: *Rename* at the top of the order. Its images, PDFs and the links to its meinspiel.de games come along.
 - A task that ends while the app is in the background, such as processing the images or an upload, says so in a notification of your system; clicking it brings the app back.
 - Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: Cmd+1, 2 and 3 switch between the tabs of an order, Cmd+F finds a card, Cmd+N starts a new order.
