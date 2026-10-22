@@ -498,6 +498,7 @@ progress:indeterminate::-webkit-progress-bar { background: transparent; }
 .slot-faces .slot-pending { top: 18px; right: 18px; width: 10px; height: 10px; }
 .slot .slot-placeholder { display: grid; place-content: center; padding: 0.25rem; background: var(--raised); color: var(--muted); font-size: 0.65rem; text-align: center; overflow: hidden; }
 .slot.blank .slot-placeholder { background: var(--paper); }
+.slot.failed img, .slot.failed .slot-placeholder { outline: 2px solid var(--magenta); outline-offset: 2px; }
 .slot-tag { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); padding: 0 0.3rem; border-radius: 2px; background: var(--cyan); color: #06141b; font-size: 0.65rem; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {

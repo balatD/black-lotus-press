@@ -266,6 +266,19 @@ test('all images of the order can be processed again at once', async () => {
     await window.getByRole('button', { name: 'Process all again' }).waitFor({ timeout: 60000 });
 });
 
+test('the images that failed to process are marked on the sheet and can be tried again', async () => {
+    // The order has no card back, so its image fails to process.
+    await window.getByRole('tab', { name: 'Backs' }).click();
+    const failed = window.locator('.sheet .slot.failed .slot-button');
+    await failed.first().waitFor();
+    assert.match(await failed.first().getAttribute('title') ?? '', /card back/);
+
+    await window.getByRole('button', { name: 'Retry the failed images' }).click();
+    await window.getByRole('button', { name: 'Process all again' }).waitFor({ timeout: 60000 });
+    await failed.first().waitFor();
+    await window.getByRole('tab', { name: 'Fronts' }).click();
+});
+
 test('the print tab links the decks of the last upload on meinspiel.de', async () => {
     const link = window.getByRole('link', { name: 'test - Deck 1/1' });
 

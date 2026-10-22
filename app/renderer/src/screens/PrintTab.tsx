@@ -61,6 +61,8 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     const [packIndex, setPackIndex] = useState(0);
     const [side, setSide] = useState<'front' | 'back'>('front');
     const [savedXml, setSavedXml] = useState<string>();
+    // The error of every image that failed in a run of this tab, until it is made.
+    const [failed, setFailed] = useState<Record<string, string>>({});
     // The hand-over to the shop, shown from the click on upload or send until it is closed.
     const [handover, setHandover] = useState<Handover>();
     const [showHandover, setShowHandover] = useState(false);
@@ -80,7 +82,11 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     }, [refresh, running?.id]);
 
     useEffect(() => api.onProgress(event => {
-        if (event.type === 'face-ready') setStatus(current => ({ ...current, files: { ...current.files, [event.file]: event.bytes } }));
+        if (event.type === 'face-ready') {
+            setStatus(current => ({ ...current, files: { ...current.files, [event.file]: event.bytes } }));
+            setFailed(({ [event.file]: _, ...rest }) => rest);
+        }
+        if (event.type === 'face-failed') setFailed(current => ({ ...current, [event.file]: event.error }));
         if (event.type === 'handover' && event.handover.order === order.name) setHandover(event.handover);
     }), [order.name]);
 
@@ -89,6 +95,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     const needed = new Set(packs.flat().flatMap(slot => [slot.front, slot.back]));
     const processed = [...needed].filter(file => status.files[file] !== undefined).length;
     const allProcessed = needed.size > 0 && processed === needed.size;
+    const failedFiles = [...needed].filter(file => failed[file] !== undefined);
     const pdfKey = JSON.stringify([status.version, packs]);
     const pdfs = built?.key === pdfKey ? built.packs : undefined;
     const tooBig = pdfs?.some(pack => pack.bytes > MAX_UPLOAD_BYTES) ?? false;
@@ -164,6 +171,9 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         {job?.kind === 'process' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
                         {job?.kind !== 'process' && processed > 0 && (
                             <button className="quiet" disabled={running !== undefined} onClick={reprocessAll}><RotateCw/>Process all again</button>
+                        )}
+                        {job?.kind !== 'process' && failedFiles.length > 0 && (
+                            <button disabled={running !== undefined} title="Downloads, post-processes and upscales them again" onClick={() => void reprocess(failedFiles)}><RotateCw/>Retry the failed images</button>
                         )}
                     </div>
                     {job?.kind === 'process' && <ProgressBar progress={progress} label="Processing card images"/>}
@@ -306,7 +316,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     <ol className="sheet">
                         {pack.map((slot, index) => (
                             <SheetSlot key={index} side={side} card={slot.cardId === undefined ? undefined : cards.get(slot.cardId)} order={order} status={status}
-                                       onOpen={() => setOpened(index)}/>
+                                       failed={failed} onOpen={() => setOpened(index)}/>
                         ))}
                     </ol>
                     <p className="slug">
@@ -321,7 +331,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                 </div>
                 </div>
                 {opened !== undefined && (
-                    <SlotDialog pack={pack} packNumber={packIndex + 1} index={opened} cards={cards} order={order} status={status}
+                    <SlotDialog pack={pack} packNumber={packIndex + 1} index={opened} cards={cards} order={order} status={status} failed={failed}
                                 busy={running !== undefined} onReprocess={files => void reprocess(files)}
                                 onIndex={setOpened} onClose={() => setOpened(undefined)}/>
                 )}
@@ -338,15 +348,17 @@ interface SlotProps {
     card: OrderCard | undefined;
     order: Order;
     status: Status;
+    failed: Record<string, string>;
 }
 
-function SheetSlot({ side, card, order, status, onOpen }: SlotProps & { onOpen(): void }) {
+function SheetSlot({ side, card, order, status, failed, onOpen }: SlotProps & { onOpen(): void }) {
     const face = slotFace(side, card, order);
     const label = card ? `${card.name}${side === 'back' && face.source.type === 'cardback' ? ' (card back)' : ''}` : 'Blank card';
+    const error = failed[face.file];
 
     return (
-        <li className={`slot${card ? '' : ' blank'}`}>
-            <button className="slot-button" title={label} onClick={onOpen}>
+        <li className={`slot${card ? '' : ' blank'}${error ? ' failed' : ''}`}>
+            <button className="slot-button" title={error ? `${label}. Failed: ${error}` : label} onClick={onOpen}>
                 <SlotImage face={face} order={order} status={status} label={label}/>
                 {card?.isToken && <span className="slot-tag">Token</span>}
             </button>
@@ -366,8 +378,8 @@ function SlotImage({ face, order, status, label }: { face: Face, order: Order, s
     );
 }
 
-function SlotDialog({ pack, packNumber, index, cards, order, status, busy, onReprocess, onIndex, onClose }: {
-    pack: Slot[], packNumber: number, index: number, cards: Map<string, OrderCard>, order: Order, status: Status, busy: boolean,
+function SlotDialog({ pack, packNumber, index, cards, order, status, failed, busy, onReprocess, onIndex, onClose }: {
+    pack: Slot[], packNumber: number, index: number, cards: Map<string, OrderCard>, order: Order, status: Status, failed: Record<string, string>, busy: boolean,
     onReprocess(files: string[]): void, onIndex(index: number): void, onClose(): void
 }) {
     const dialog = useRef<HTMLDialogElement>(null);
@@ -407,6 +419,7 @@ function SlotDialog({ pack, packNumber, index, cards, order, status, busy, onRep
                     <figure key={i} className="proof">
                         <SlotImage face={face} order={order} status={status} label={i === 0 ? 'Front' : 'Back'}/>
                         <figcaption className="meta">{i === 0 ? 'Front' : 'Back'}{slotImage(face, order, status).done ? '' : ', not processed with these settings yet'}</figcaption>
+                        {failed[face.file] && <p className="error">{failed[face.file]}</p>}
                         {face.base && status.files[face.base] !== undefined && (
                             <button className="quiet" disabled={busy} title="Downloads, post-processes and upscales this image again"
                                     onClick={() => onReprocess([face.file])}><RotateCw/>Process again</button>

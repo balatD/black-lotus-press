@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Card images that fail to process are outlined on the press sheet, with the reason in the tooltip and the large view, and *Retry the failed images* processes only those again.
 - The Cards tab shows only the low-res cards, the cards not on Scryfall, those with an MPC Autofill image, the tokens or the switched-off cards at a click, also together with the name search. The card editor steps through the cards shown when it opened.
 - *Fill all blank slots* on the Cards tab shares the blank slots of the last meinspiel.de pack out over the order's tokens in one click.
 - A token added with *Find a token…* can be removed again: *Remove from the order* in its card editor. Cards from a deck are switched off instead, since the next update from Moxfield would bring them back.
