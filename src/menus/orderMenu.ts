@@ -63,7 +63,7 @@ async function runSelectOrder(
     offerUpdate: boolean = true,
     offerDelete: boolean = true
 ) {
-    const orders = await loadOrders();
+    const orders = await loadOrders(file => console.log(ui.attention(`Could not read ${file}, which stays as it is.`)));
 
     const choices: unknown[] = orders.map(c => ({ name: c.name, value: c }));
 

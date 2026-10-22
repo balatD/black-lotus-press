@@ -26,8 +26,10 @@ export function App() {
 
     const reload = useCallback(async () => {
         const [loadedOrders, loadedProfiles] = await Promise.all([api.listOrders(), api.listProfiles()]);
-        setOrders(loadedOrders);
-        setProfiles(loadedProfiles);
+        setOrders(loadedOrders.orders);
+        setProfiles(loadedProfiles.profiles);
+        const unreadable = [...loadedOrders.unreadable, ...loadedProfiles.unreadable];
+        if (unreadable.length > 0) setError(`Left out the files that could not be read, which stay as they are: ${unreadable.join(', ')}`);
     }, []);
 
     useEffect(() => {

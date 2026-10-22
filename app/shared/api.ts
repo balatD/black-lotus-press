@@ -21,14 +21,15 @@ export interface Update {
 
 // Everything the window can ask the main process to do.
 export interface Api {
-    listProfiles(): Promise<ProcessingProfile[]>;
+    // Files that cannot be read are left out and named.
+    listProfiles(): Promise<{ profiles: ProcessingProfile[], unreadable: string[] }>;
     saveProfile(profile: ProcessingProfile): Promise<void>;
     deleteProfile(profile: ProcessingProfile): Promise<void>;
     installUpscayl(binaryFile: string, modelsDirectory: string): Promise<string[]>;
     listUpscaylModels(modelsDirectory: string): Promise<string[]>;
     chooseFolder(): Promise<string | undefined>;
 
-    listOrders(): Promise<Order[]>;
+    listOrders(): Promise<{ orders: Order[], unreadable: string[] }>;
     saveOrder(order: Order): Promise<void>;
     deleteOrder(order: Order): Promise<void>;
     // The order keeps its name; its print images are made anew in the other shop's format.

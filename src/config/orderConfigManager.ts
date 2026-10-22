@@ -15,8 +15,8 @@ function fromJson(json: unknown): Order {
     return { ...DefaultOrder, ...order, cards: order.cards ?? [] };
 }
 
-export async function loadOrders(): Promise<Order[]> {
-    const orders = (await readJsonFiles(dataPath('config', 'orders'))).map(fromJson);
+export async function loadOrders(onUnreadable?: (file: string) => void): Promise<Order[]> {
+    const orders = (await readJsonFiles(dataPath('config', 'orders'), onUnreadable)).map(fromJson);
     return orders.sort((a, b) => a.name.localeCompare(b.name));
 }
 

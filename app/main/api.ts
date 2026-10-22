@@ -87,15 +87,17 @@ export function registerApi(window: BrowserWindow) {
 
     const handlers: Api = {
         async listProfiles() {
-            const profiles = await loadProcessingProfiles();
-            if (profiles.length > 0) return profiles;
+            const unreadable: string[] = [];
+            const profiles = await loadProcessingProfiles(file => unreadable.push(file));
+            // A default profile written over one that cannot be read would destroy it.
+            if (profiles.length > 0 || unreadable.length > 0) return { profiles, unreadable };
 
             // The packaged app has no project folder, so orders go to the documents folder.
             const profile = app.isPackaged
                 ? { ...DefaultProfile, outputDirectory: path.join(app.getPath('documents'), 'Black Lotus Press', 'orders') }
                 : DefaultProfile;
             await saveProcessingProfile(profile);
-            return [profile];
+            return { profiles: [profile], unreadable };
         },
         saveProfile: saveProcessingProfile,
         deleteProfile: deleteProcessingProfile,
@@ -112,7 +114,10 @@ export function registerApi(window: BrowserWindow) {
             return result.filePaths[0];
         },
 
-        listOrders: loadOrders,
+        async listOrders() {
+            const unreadable: string[] = [];
+            return { orders: await loadOrders(file => unreadable.push(file)), unreadable };
+        },
         saveOrder,
         deleteOrder,
         async moveOrder(order, shop) {

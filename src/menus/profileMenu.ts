@@ -27,7 +27,7 @@ export async function runSelectProfile(
     offerDelete: boolean = true,
     showProfiles: boolean = true
 ) {
-    const profiles = await loadProcessingProfiles();
+    const profiles = await loadProcessingProfiles(file => console.log(ui.attention(`Could not read ${file}, which stays as it is.`)));
 
     const choices: unknown[] = showProfiles ? profiles.map(c => ({ name: c.name, value: c })) : [];
 

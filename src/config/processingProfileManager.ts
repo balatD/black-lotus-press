@@ -7,8 +7,8 @@ function profileFile(name: string) {
     return dataPath('config', 'profiles', `${name}.json`);
 }
 
-export async function loadProcessingProfiles(): Promise<ProcessingProfile[]> {
-    const configs = (await readJsonFiles(dataPath('config', 'profiles'))).map(config => ({ ...DefaultProfile, ...config as Partial<ProcessingProfile> }));
+export async function loadProcessingProfiles(onUnreadable?: (file: string) => void): Promise<ProcessingProfile[]> {
+    const configs = (await readJsonFiles(dataPath('config', 'profiles'), onUnreadable)).map(config => ({ ...DefaultProfile, ...config as Partial<ProcessingProfile> }));
     return configs.sort((a, b) => a.name.localeCompare(b.name));
 }
 

@@ -33,6 +33,18 @@ test('loadOrders ignores files that are not JSON', async () => {
     assert.deepEqual((await loadOrders()).map(order => order.name), ['sauron']);
 });
 
+test('loadOrders skips an order file it cannot read, names it and leaves it as it is', async () => {
+    const root = await tempRoot();
+    await saveOrder({ ...DefaultOrder, name: 'sauron' });
+    const broken = path.join(root, 'config', 'orders', 'broken.json');
+    await fs.writeFile(broken, '{"name":');
+    const unreadable: string[] = [];
+
+    assert.deepEqual((await loadOrders(file => unreadable.push(file))).map(order => order.name), ['sauron']);
+    assert.deepEqual(unreadable, [broken]);
+    assert.equal(await fs.readFile(broken, 'utf-8'), '{"name":');
+});
+
 test('deleteOrder removes the file', async () => {
     await tempRoot();
     const order = { ...DefaultOrder, name: 'sauron' };
