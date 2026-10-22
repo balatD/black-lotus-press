@@ -101,6 +101,14 @@ before(async () => {
     }
 
     app = await electron.launch({ args: [MAIN], cwd: root });
+    // Notifications are recorded instead of shown, as the tests' window is rarely the focused one.
+    await app.evaluate(({ Notification }) => {
+        const shown: { title: string, body: string }[] = [];
+        Object.assign(globalThis, { shownNotifications: shown });
+        Notification.prototype.show = function (this: Electron.Notification) {
+            shown.push({ title: this.title, body: this.body });
+        };
+    });
     window = await app.firstWindow();
     window.on('console', message => message.type() === 'error' && consoleErrors.push(message.text()));
     // The layout depends on the window size, which runners with small screens would shrink.
@@ -502,6 +510,22 @@ test('keyboard shortcuts switch the tabs, find a card and start a new order, but
     await window.keyboard.press('ControlOrMeta+N');
     await window.locator('input[placeholder="Order name"]:focus').waitFor();
     await window.locator('.rail').getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('a task that ends while the app is in the background shows a notification', async () => {
+    await app.evaluate(({ BrowserWindow }) => {
+        (globalThis as unknown as { shownNotifications: unknown[] }).shownNotifications.length = 0;
+        BrowserWindow.getAllWindows()[0]!.isFocused = () => false;
+    });
+    await window.getByRole('button', { name: /one click deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+
+    await window.getByRole('button', { name: 'Build PDFs', exact: true }).click();
+    const shown = () => app.evaluate(() => (globalThis as unknown as { shownNotifications: unknown[] }).shownNotifications);
+    for (let attempt = 0; attempt < 60 && (await shown()).length === 0; attempt++) await window.waitForTimeout(500);
+    assert.deepEqual(await shown(), [{ title: 'Writing the PDFs of one click deck', body: 'Done.' }]);
+
+    await app.evaluate(({ BrowserWindow }) => void delete (BrowserWindow.getAllWindows()[0] as { isFocused?: unknown }).isFocused);
 });
 
 test('the window logged no errors', () => {

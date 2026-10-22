@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { app, type BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, type BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
 import type { Browser, BrowserContext } from "playwright";
 import { copyOrder, deleteOrder, loadOrders, moveOrder, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
@@ -39,6 +39,19 @@ export function registerApi(window: BrowserWindow) {
 
     const listTasks = () => [job?.task, upload?.task].filter(task => task !== undefined);
 
+    // Kept, because a notification that is collected as garbage no longer reports its click.
+    let notification: Notification | undefined;
+    function notify(title: string, body: string) {
+        if (window.isDestroyed() || window.isFocused() || !Notification.isSupported()) return;
+        notification = new Notification({ title, body });
+        notification.on('click', () => {
+            if (window.isMinimized()) window.restore();
+            window.focus();
+        });
+        notification.show();
+    }
+
+
     function publishTasks() {
         if (!window.isDestroyed()) window.webContents.send('tasks', listTasks());
     }
@@ -69,10 +82,13 @@ export function registerApi(window: BrowserWindow) {
         job = { task: { ...task, id: nextTaskId++ }, controller };
         publishTasks();
         try {
-            return await work(event => window.webContents.send('progress', event), controller.signal);
+            const result = await work(event => window.webContents.send('progress', event), controller.signal);
+            notify(task.title, 'Done.');
+            return result;
         } catch (error) {
             // Stopping a browser task closes the browser, which surfaces as some Playwright error.
             controller.signal.throwIfAborted();
+            notify(task.title, error instanceof Error ? error.message : String(error));
             throw error;
         } finally {
             job = undefined;
