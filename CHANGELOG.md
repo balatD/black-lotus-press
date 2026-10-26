@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.3.0
+
+Orders shared with friends as a file, with or without their processed images, and the actions of an order gathered in one menu.
 
 - Share an order: *Export* in the *⋯* menu at the top of an order saves it as a file, with the downloaded and upscaled images or only the order, and *Import order* below the order list adds it in another Black Lotus Press with the same processing settings.
 - Processing an order that upscales without Upscayl installed says so, instead of failing with an unclear error.
