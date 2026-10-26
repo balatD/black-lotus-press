@@ -97,6 +97,16 @@ export function App() {
         setView({ type: 'order', name: copyName ?? order.name });
     }
 
+    // Afterwards the app goes to the order's shop, where it opens.
+    async function importOrder() {
+        await flushSaves();
+        const order = await api.importOrder();
+        if (!order) return;
+        await reload();
+        setShop(order.shop);
+        setView({ type: 'order', name: order.name });
+    }
+
     // Saved first, so a pending save does not write the order under its old name again.
     async function renameOrder(order: Order, name: string) {
         await flushSaves();
@@ -131,6 +141,7 @@ export function App() {
                 onSelectOrder={name => void show({ type: 'order', name })}
                 onSelectProfiles={() => void show({ type: 'profiles' })}
                 onCreateOrder={createOrder}
+                onImportOrder={() => void importOrder().catch(e => setError(errorMessage(e)))}
             />
             <main className="content">
                 {error && <p className="error" role="alert" style={{ padding: '0.75rem 1.75rem' }}>{error}</p>}

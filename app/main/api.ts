@@ -3,7 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { app, type BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
 import type { Browser, BrowserContext } from "playwright";
-import { copyOrder, deleteOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "../../src/config/orderConfigManager.js";
+import { copyOrder, deleteOrder, exportOrder, importOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
 import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
@@ -26,6 +26,8 @@ import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
 import { API_METHODS, type Api, type Task } from "../shared/api.js";
 import { installUpdate, updateStatus } from "./updater.js";
+
+const ORDER_FILES = { name: 'Black Lotus Press order', extensions: ['zip'] };
 
 export function registerApi(window: BrowserWindow) {
     let nextTaskId = 1;
@@ -173,6 +175,21 @@ export function registerApi(window: BrowserWindow) {
             if (result.canceled || !result.filePath) return undefined;
             await fs.writeFile(result.filePath, mpcfillXml(order, names));
             return result.filePath;
+        },
+        async exportOrder(order, withImages) {
+            assertIdle(order.name);
+            const result = await dialog.showSaveDialog(window, {
+                defaultPath: path.join(app.getPath('downloads'), `${order.name}.zip`),
+                filters: [ORDER_FILES]
+            });
+            if (result.canceled || !result.filePath) return undefined;
+            await exportOrder(order, result.filePath, withImages);
+            return result.filePath;
+        },
+        async importOrder() {
+            const result = await dialog.showOpenDialog(window, { properties: ['openFile'], filters: [ORDER_FILES] });
+            const file = result.filePaths[0];
+            return file ? await importOrder(file, await loadProcessingProfiles()) : undefined;
         },
         async openOrderFolder(order) {
             const folder = orderDir(order);

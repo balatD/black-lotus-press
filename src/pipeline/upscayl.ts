@@ -11,10 +11,12 @@ import Bottleneck from "bottleneck";
 // The upscaler already uses the whole GPU, so images are upscaled one at a time.
 const upscaylBottleneck = new Bottleneck({ maxConcurrent: 1 });
 
+// Where the profiles screen installs Upscayl, unless a profile names another place.
+export const UPSCAYL_BINARY = process.platform === 'win32' ? './upscayl/upscayl-bin.exe' : './upscayl/upscayl-bin';
+export const UPSCAYL_MODELS = './upscayl/models';
+
 export async function upscaleImage(filePath: string, postProcessing: PostProcessingProfile, upscaling: UpscaylSettings, signal?: AbortSignal) {
     if (!upscaling.enabled) return;
-
-    const upscaylBinary = resolveDataPath(upscaling.binaryFile!);
 
     const temporaryPath = filePath.replace('.png', '-temp.png');
 
@@ -25,6 +27,9 @@ export async function upscaleImage(filePath: string, postProcessing: PostProcess
     let scale = Math.ceil(targetWidth / width);
     if (scale <= 1) return;
     if (scale > 4) scale = 4;
+
+    const upscaylBinary = upscaling.binaryFile && resolveDataPath(upscaling.binaryFile);
+    if (!upscaylBinary || !await exists(upscaylBinary)) throw new Error('Upscayl is not installed. Install it under Processing profiles.');
 
     const args = ['-i', filePath, '-o', temporaryPath, '-n', upscaling.model, '-s', String(scale)];
     if (upscaling.modelsDirectory) args.push('-m', resolveDataPath(upscaling.modelsDirectory));

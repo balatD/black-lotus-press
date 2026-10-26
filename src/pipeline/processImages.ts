@@ -154,6 +154,18 @@ export async function copyBaseImages(from: Order, to: Order) {
     }
 }
 
+// The base images in the order's packs with the file that keeps them valid, to take them to another computer.
+export async function usedBaseImages(order: Order): Promise<string[]> {
+    const dir = cardsDir(order);
+    if (await cachedSettings(dir) !== settingsFingerprint(order.profile)) return [];
+
+    const files = ['cache.json'];
+    for (const base of new Set([...faceJobs(order).values()].map(face => face.base))) {
+        if (base && await exists(path.join(dir, base))) files.push(base);
+    }
+    return files;
+}
+
 // Processed images of the order and their sizes. Images made with other settings do not count.
 export async function imageStatus(order: Order): Promise<{ version: string, files: Record<string, number> }> {
     const dir = cardsDir(order);

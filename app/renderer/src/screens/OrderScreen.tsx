@@ -1,11 +1,12 @@
 import { type FormEvent, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ArrowRightLeft, Check, GalleryVerticalEnd, type LucideIcon, PencilLine, Printer, Settings2, Trash, X } from "lucide-react";
+import { ArrowRightLeft, Check, GalleryVerticalEnd, type LucideIcon, PencilLine, Printer, Settings2, Share2, Trash, X } from "lucide-react";
 import type { Order, ProcessingProfile, Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab } from "./CardsTab.js";
 import { type BuiltPdfs, PrintTab } from "./PrintTab.js";
 import { ShopTransfer } from "../components/ShopTransfer.js";
+import { OrderExport } from "../components/OrderExport.js";
 import { useShortcut } from "../useShortcut.js";
 import { useTasks } from "../useTasks.js";
 import { orderNameProblem } from "../components/Rail.js";
@@ -33,6 +34,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
     // Kept here, so the built PDFs survive switching tabs.
     const [pdfs, setPdfs] = useState<BuiltPdfs>();
     const [transferring, setTransferring] = useState(false);
+    const [exporting, setExporting] = useState(false);
     // The new name while it is being typed.
     const [renaming, setRenaming] = useState<string>();
     const [renameError, setRenameError] = useState<string>();
@@ -90,6 +92,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
                     })}
                 </div>
                 <button className="quiet" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }} onClick={() => setTransferring(true)}><ArrowRightLeft/>Move or copy</button>
+                <button className="quiet" style={{ marginBottom: '0.75rem' }} onClick={() => setExporting(true)}><Share2/>Export</button>
                 {renaming === undefined && <button className="quiet" style={{ marginBottom: '0.75rem' }} disabled={busy} onClick={() => setRenaming(order.name)}><PencilLine/>Rename</button>}
                 <button className="quiet danger" style={{ marginBottom: '0.75rem' }} onClick={confirmDelete}><Trash/>Delete order</button>
             </header>
@@ -99,6 +102,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
                 {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush} built={pdfs} onBuilt={setPdfs}/>}
             </div>
             {transferring && <ShopTransfer order={order} orders={orders} onMove={onMove} onCopy={onCopy} onClose={() => setTransferring(false)}/>}
+            {exporting && <OrderExport order={order} onClose={() => setExporting(false)}/>}
         </>
     );
 }

@@ -43,6 +43,10 @@ export interface Api {
     previewCardBack(driveId: string): Promise<string>;
     // Asks where to save the order file; the path, or undefined when the dialog was cancelled.
     saveMpcfillXml(order: Order): Promise<string | undefined>;
+    // Asks where to save the order for another computer; the path, or undefined when the dialog was cancelled.
+    exportOrder(order: Order, withImages: boolean): Promise<string | undefined>;
+    // Asks for an exported order and adds it under a free name; undefined when the dialog was cancelled.
+    importOrder(): Promise<Order | undefined>;
     openOrderFolder(order: Order): Promise<void>;
 
     // Long-running jobs report through onProgress and show up in the tasks; only one runs at a time.
@@ -88,7 +92,7 @@ export interface Api {
 
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
-    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'openOrderFolder',
+    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'exportOrder', 'importOrder', 'openOrderFolder',
     'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
     'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];

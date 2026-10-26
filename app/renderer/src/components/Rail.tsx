@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Package, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
+import { Package, PackageOpen, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
 import { isValidOrderName, type Order, type Shop } from "../../../../src/model.js";
 import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
@@ -19,9 +19,10 @@ interface Props {
     onSelectOrder(name: string): void;
     onSelectProfiles(): void;
     onCreateOrder(name: string): Promise<void>;
+    onImportOrder(): void;
 }
 
-export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder }: Props) {
+export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder, onImportOrder }: Props) {
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
     const [error, setError] = useState<string>();
@@ -83,7 +84,10 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
                     </div>
                 </form>
             ) : (
-                <button className="quiet" onClick={() => setCreating(true)}><Plus/>New order</button>
+                <div className="row">
+                    <button className="quiet" onClick={() => setCreating(true)}><Plus/>New order</button>
+                    <button className="quiet" onClick={onImportOrder}><PackageOpen/>Import order</button>
+                </div>
             )}
 
             <Tasks/>

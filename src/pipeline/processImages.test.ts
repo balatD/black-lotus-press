@@ -6,7 +6,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { DefaultOrder, DefaultProfile, type Order, type OrderCard, type ScryfallCard } from "../model.js";
 import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
-import { forgetImages, imageStatus, processImages, settingsFingerprint } from "./processImages.js";
+import { forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages } from "./processImages.js";
 import { moveOrder, saveOrder } from "../config/orderConfigManager.js";
 
 const scan = await sharp({ create: { width: 745, height: 1040, channels: 4, background: { r: 90, g: 60, b: 40, alpha: 1 } } }).png().toBuffer();
@@ -198,6 +198,13 @@ test('imageStatus lists the processed images and their sizes for the current set
     assert.ok(Object.values(status.files).every(bytes => bytes > 0));
     assert.match(status.version, /^[0-9a-f]{8}$/);
     assert.deepEqual(await imageStatus(order([card('a', 1)], 160)), { version: '', files: {} });
+});
+
+test('usedBaseImages names the base images the packs use with the cache file, and none made with other settings', async () => {
+    await processImages(order([card('a', 1), card('b', 1)]), 'cmyk');
+
+    assert.deepEqual((await usedBaseImages(order([card('a', 1)]))).sort(), ['base-cardback-drive1.jpg', 'base-scryfall-a-front.jpg', 'cache.json']);
+    assert.deepEqual(await usedBaseImages(order([card('a', 1)], 160)), []);
 });
 
 test('processImages renders new adjustments from the stored base images and removes the old print images', async () => {

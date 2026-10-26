@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Share an order: *Export* at the top of an order saves it as a file, with the downloaded and upscaled images or only the order, and *Import order* below the order list adds it in another Black Lotus Press with the same processing settings.
+- Processing an order that upscales without Upscayl installed says so, instead of failing with an unclear error.
+
 ## 2.2.0
 
 Blank slots filled with tokens, uploads to meinspiel.de that close the browser by themselves and carry on after a pack that failed, and a set of smaller conveniences: filters, renaming, keyboard shortcuts, notifications and a faster import.

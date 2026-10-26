@@ -413,6 +413,34 @@ test('the print tab saves the order as an MPC Autofill XML that points to the pr
     await window.getByRole('button', { name: /^test/ }).waitFor();
 });
 
+test('an order exported with its images is imported under a free name at its shop, with the base images', async () => {
+    const file = path.join(root, 'shared.zip');
+    await app.evaluate(({ dialog }, filePath) => {
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath })) as typeof dialog.showSaveDialog;
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [filePath] })) as typeof dialog.showOpenDialog;
+    }, file);
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('printerstudio.de');
+    await window.getByRole('button', { name: /xml deck/ }).click();
+    await window.getByRole('button', { name: 'Export', exact: true }).click();
+    await window.getByRole('button', { name: 'Export with the images' }).click();
+    await window.getByText(`Saved as ${file}`).waitFor();
+    await window.locator('.transfer-dialog').getByRole('button', { name: 'Close' }).click();
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+
+    await window.getByRole('button', { name: 'Import order' }).click();
+
+    await window.getByText('Print files for printerstudio.de').waitFor();
+    await window.getByRole('heading', { name: 'xml deck (1)' }).waitFor();
+    const cards = await fs.readdir(path.join(root, 'orders', 'xml deck (1)', 'cards'), { withFileTypes: true });
+    assert.deepEqual(cards.filter(entry => entry.isFile()).map(entry => entry.name).sort(), ['base-cardback-.jpg', 'base-custom-a.jpg', 'cache.json']);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
 test('the cards tab tells of the blank slots of a pack and fills them with copies of the tokens', async () => {
     await window.getByRole('button', { name: /token deck/ }).click();
     await window.getByRole('tab', { name: 'Cards' }).click();

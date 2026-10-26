@@ -23,6 +23,7 @@
 - For notmpc.eu, uploads RGB images and fills their designer with every card of a deck in its slot; you choose the options and order there. notmpc.eu is not available at the moment.
 - For printerstudio.de, lets you log in, uploads RGB images, fills their designer for 63 × 88 mm cards on Standard stock up to the preview and saves every deck in your account; you confirm the copyright and put the decks into the cart.
 - Moves an order to another shop, or copies it there, with its cards, images and edits; the upscaled images are kept.
+- Exports an order as a file to share, with or without the upscaled images, and imports such files.
 - Offers all card backs of MPC Autofill in a searchable gallery.
 - Saves an order as an MPC Autofill XML for MPC Autofill's desktop tool and its editor.
 - Swaps the Scryfall scan of a card for a high-resolution image from [MPC Autofill](https://mpcfill.com) and recognises which printing each image shows, so custom art stays apart.

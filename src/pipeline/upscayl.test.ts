@@ -23,3 +23,11 @@ test('upscaleImage skips Upscayl when the card already has the target resolution
 test('upscaleImage runs Upscayl when the target resolution is higher', async () => {
     await assert.rejects(upscaleImage(await postProcessedCard(), { ...DefaultProfile.postProcessing, dpi: 600 }, missingBinary));
 });
+
+test('upscaleImage says that Upscayl is missing when it is not installed', async () => {
+    const card = await postProcessedCard();
+    const postProcessing = { ...DefaultProfile.postProcessing, dpi: 600 };
+
+    await assert.rejects(upscaleImage(card, postProcessing, missingBinary), /Upscayl is not installed/);
+    await assert.rejects(upscaleImage(card, postProcessing, { enabled: true, model: 'upscayl-standard-4x' }), /Upscayl is not installed/);
+});
