@@ -175,6 +175,22 @@ input[type="checkbox"] { accent-color: var(--cyan); }
 
 .screen-header h1 { padding-bottom: 0.75rem; }
 .rename-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-bottom: 0.75rem; }
+.order-menu-button { anchor-name: --order-menu; }
+/* A popover is hidden while closed, so it only becomes a flex box when open. */
+.order-menu:popover-open { display: flex; }
+.order-menu {
+    position-anchor: --order-menu;
+    inset: auto;
+    top: anchor(bottom);
+    right: anchor(right);
+    flex-direction: column;
+    margin: 0.25rem 0 0;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--text);
+}
 
 .tabs { display: flex; gap: 0.25rem; align-self: flex-end; }
 

@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Share an order: *Export* at the top of an order saves it as a file, with the downloaded and upscaled images or only the order, and *Import order* below the order list adds it in another Black Lotus Press with the same processing settings.
+- Share an order: *Export* in the *⋯* menu at the top of an order saves it as a file, with the downloaded and upscaled images or only the order, and *Import order* below the order list adds it in another Black Lotus Press with the same processing settings.
 - Processing an order that upscales without Upscayl installed says so, instead of failing with an unclear error.
+- *Move or copy*, *Export*, *Rename* and *Delete order* are in the *⋯* menu at the top of an order, so the top of the order stays tidy, also in a narrow window.
 
 ## 2.2.0
 

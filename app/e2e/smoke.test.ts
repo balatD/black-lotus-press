@@ -361,6 +361,7 @@ test('an order moves to another shop and is copied back, and opens there each ti
     await window.getByRole('button', { name: /travel deck/ }).click();
     const dialog = window.locator('.transfer-dialog');
 
+    await window.getByRole('button', { name: 'Order actions' }).click();
     await window.getByRole('button', { name: 'Move or copy' }).click();
     assert.equal(await dialog.getByRole('button', { name: 'notmpc.eu', exact: true }).count(), 0, 'notmpc.eu is not available');
     await dialog.getByRole('button', { name: 'Move to printerstudio.de' }).click();
@@ -368,6 +369,7 @@ test('an order moves to another shop and is copied back, and opens there each ti
     await window.getByText('Print files for printerstudio.de').waitFor();
     await window.getByRole('heading', { name: 'travel deck' }).waitFor();
 
+    await window.getByRole('button', { name: 'Order actions' }).click();
     await window.getByRole('button', { name: 'Move or copy' }).click();
     assert.equal(await dialog.getByLabel('Name of the copy').inputValue(), 'travel deck meinspiel.de');
     await dialog.getByLabel('Name of the copy').fill('eu deck');
@@ -422,6 +424,7 @@ test('an order exported with its images is imported under a free name at its sho
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('printerstudio.de');
     await window.getByRole('button', { name: /xml deck/ }).click();
+    await window.getByRole('button', { name: 'Order actions' }).click();
     await window.getByRole('button', { name: 'Export', exact: true }).click();
     await window.getByRole('button', { name: 'Export with the images' }).click();
     await window.getByText(`Saved as ${file}`).waitFor();
@@ -566,6 +569,7 @@ test('a task that ends while the app is in the background shows a notification',
 
 test('an order is renamed, and the name of another order is refused', async () => {
     await window.getByRole('button', { name: /rename deck/ }).click();
+    await window.getByRole('button', { name: 'Order actions' }).click();
     await window.getByRole('button', { name: 'Rename', exact: true }).click();
     const name = window.getByRole('textbox', { name: 'New name of the order' });
     await name.fill('test');

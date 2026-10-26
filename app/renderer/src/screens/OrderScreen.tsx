@@ -1,6 +1,6 @@
 import { type FormEvent, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ArrowRightLeft, Check, GalleryVerticalEnd, type LucideIcon, PencilLine, Printer, Settings2, Share2, Trash, X } from "lucide-react";
+import { ArrowRightLeft, Check, Ellipsis, GalleryVerticalEnd, type LucideIcon, PencilLine, Printer, Settings2, Share2, Trash, X } from "lucide-react";
 import type { Order, ProcessingProfile, Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab } from "./CardsTab.js";
@@ -44,6 +44,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
     const latest = useRef(order);
     latest.current = order;
     const search = useRef<HTMLInputElement>(null);
+    const menu = useRef<HTMLDivElement>(null);
 
     useShortcut('1', () => setTab('Setup'));
     useShortcut('2', () => setTab('Cards'));
@@ -69,6 +70,14 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
         }
     }
 
+    // The menu closes first, as the rename form or a confirmation follows.
+    function fromMenu(action: () => void) {
+        return () => {
+            menu.current?.hidePopover();
+            action();
+        };
+    }
+
     function confirmDelete() {
         if (window.confirm(`Delete the order "${order.name}"? The processed images and PDFs stay in the orders folder.`)) onDelete();
     }
@@ -91,10 +100,13 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
                         return <button key={name} role="tab" aria-selected={tab === name} onClick={() => setTab(name)}><Icon/>{name}</button>;
                     })}
                 </div>
-                <button className="quiet" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }} onClick={() => setTransferring(true)}><ArrowRightLeft/>Move or copy</button>
-                <button className="quiet" style={{ marginBottom: '0.75rem' }} onClick={() => setExporting(true)}><Share2/>Export</button>
-                {renaming === undefined && <button className="quiet" style={{ marginBottom: '0.75rem' }} disabled={busy} onClick={() => setRenaming(order.name)}><PencilLine/>Rename</button>}
-                <button className="quiet danger" style={{ marginBottom: '0.75rem' }} onClick={confirmDelete}><Trash/>Delete order</button>
+                <button className="quiet order-menu-button" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }} popoverTarget="order-menu" aria-label="Order actions" title="Order actions"><Ellipsis/></button>
+                <div ref={menu} id="order-menu" popover="auto" className="order-menu">
+                    <button className="quiet" onClick={fromMenu(() => setTransferring(true))}><ArrowRightLeft/>Move or copy</button>
+                    <button className="quiet" onClick={fromMenu(() => setExporting(true))}><Share2/>Export</button>
+                    {renaming === undefined && <button className="quiet" disabled={busy} onClick={fromMenu(() => setRenaming(order.name))}><PencilLine/>Rename</button>}
+                    <button className="quiet danger" onClick={fromMenu(confirmDelete)}><Trash/>Delete order</button>
+                </div>
             </header>
             <div className="screen-body">
                 {tab === 'Setup' && <SetupTab order={order} profiles={profiles} update={update}/>}
