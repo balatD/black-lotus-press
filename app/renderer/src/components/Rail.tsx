@@ -112,6 +112,6 @@ export function orderNameProblem(name: string, orders: Order[], shop: Shop | und
 function describe(order: Order) {
     if (order.cards.length === 0) return 'not imported';
     const packs = buildPacks(order).packs.length;
-    const unit = order.shop === 'meinspiel' ? 'pack' : 'deck';
+    const unit = order.shop === 'meinspiel' ? 'pack' : order.shop === 'home' ? 'page' : 'deck';
     return packs === 1 ? `1 ${unit}` : `${packs} ${unit}s`;
 }

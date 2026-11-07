@@ -179,7 +179,28 @@ export interface ImportedState {
     printingId?: string;
 }
 
-export type Shop = 'meinspiel' | 'notmpc' | 'printerstudio';
+export type Shop = 'meinspiel' | 'notmpc' | 'printerstudio' | 'home';
+
+export type Paper = 'a4' | 'letter';
+
+// The PDF of an order printed at home, lengths in millimetres.
+export interface HomePrint {
+    paper: Paper;
+    landscape: boolean;
+    columns: number;
+    rows: number;
+    gap: number;
+    // Of the 3 mm the print images have around the card.
+    bleed: number;
+    guides: 'none' | 'crop-marks' | 'cut-lines';
+    // The PDF repeats all its pages this many times.
+    copies: number;
+    cards: 'all' | 'tokens' | { deck: string };
+}
+
+export const DEFAULT_HOME_PRINT: HomePrint = {
+    paper: 'a4', landscape: false, columns: 3, rows: 3, gap: 0, bleed: 0, guides: 'crop-marks', copies: 1, cards: 'all'
+};
 
 export interface Order {
     name: string;
@@ -193,6 +214,7 @@ export interface Order {
     adjustments: Adjustments;
     // The games of the last upload, so they can be found on meinspiel.de again. The fingerprint of its packs tells whether an upload that stopped can go on.
     uploaded?: { at: string, games: UploadedGame[], fingerprint?: string };
+    homePrint?: HomePrint;
 }
 
 export const DefaultOrder: Order = {

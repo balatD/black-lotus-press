@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
+import { PDFDocument } from "pdf-lib";
 import { _electron as electron, type ElectronApplication, type Page } from "playwright";
 import { DeckData, DefaultOrder, DefaultProfile, type OrderCard, type ScryfallCard } from "../../src/model.js";
 import { buildPacks, cardFaces, packsFingerprint } from "../../src/pipeline/packs.js";
@@ -84,6 +85,19 @@ before(async () => {
     await fs.writeFile(path.join(xmlCards, 'cache.json'), JSON.stringify({ settings: settingsFingerprint(DefaultProfile) }));
     for (const file of [xmlFaces.front.base!, xmlFaces.front.file, xmlFaces.back.base!, xmlFaces.back.file]) {
         await sharp({ create: { width: 815, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toFile(path.join(xmlCards, file));
+    }
+    // 10 cards and a token leave 7 slots of the second page empty.
+    const homeOrder = { ...DefaultOrder, name: 'home deck', shop: 'home', cardBack: '', cards: [card('a', 10), { ...card('b', 1), id: 't', name: 'Treasure', board: 'tokens', isToken: true }] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'home deck.json'), JSON.stringify(homeOrder));
+    // A full page with its images processed, so it can be saved as a PDF.
+    const pdfOrder = { ...DefaultOrder, name: 'pdf deck', shop: 'home' as const, cardBack: '', cards: [card('a', 9)] };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'pdf deck.json'), JSON.stringify(pdfOrder));
+    const pdfFaces = cardFaces(pdfOrder.cards[0]!, pdfOrder)!;
+    const pdfCards = path.join(root, 'orders', 'pdf deck', 'cards');
+    await fs.mkdir(pdfCards, { recursive: true });
+    await fs.writeFile(path.join(pdfCards, 'cache.json'), JSON.stringify({ settings: settingsFingerprint(DefaultProfile) }));
+    for (const file of [pdfFaces.front.base!, pdfFaces.front.file, pdfFaces.back.base!, pdfFaces.back.file]) {
+        await sharp({ create: { width: 815, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toFile(path.join(pdfCards, file));
     }
     await fs.writeFile(path.join(root, 'config', 'profiles', 'default.json'), JSON.stringify(DefaultProfile));
     await fs.mkdir(path.join(root, 'config', 'images'), { recursive: true });
@@ -348,6 +362,77 @@ test('printerstudio.de orders come in its deck sizes, with the way to send them'
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');
     await window.getByRole('button', { name: /test/ }).waitFor();
+});
+
+test('home printer orders lay the fronts out on pages, ask for tokens to fill the last one, and save a PDF that opens', async () => {
+    const target = path.join(root, 'cards.pdf');
+    await app.evaluate(({ dialog, shell }, filePath) => {
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath })) as typeof dialog.showSaveDialog;
+        shell.openPath = (async (file: string) => {
+            Object.assign(globalThis, { openedPath: file });
+            return '';
+        }) as typeof shell.openPath;
+    }, target);
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('Home printer');
+
+    await window.getByRole('button', { name: /home deck/ }).click();
+    await window.getByText('11 cards fill 2 pages of A4.').waitFor();
+    await window.getByText(/7 slots of page 2 stay blank/).waitFor();
+    await window.getByRole('tab', { name: 'Print' }).click();
+    await window.getByText('Page 1 of 2').waitFor();
+    assert.equal(await window.locator('.home-slot').count(), 9);
+    assert.equal(await window.getByRole('button', { name: 'Save PDF' }).isDisabled(), true, 'the images are not processed');
+    await window.getByText(/7 slots on the last page stay empty/).waitFor();
+
+    await window.getByRole('button', { name: 'Fill with tokens' }).click();
+    await window.getByText(/on the last page/).waitFor({ state: 'detached' });
+    await window.getByLabel('Cards per page').selectOption({ label: '4 (2 × 2)' });
+    await window.getByText('Page 1 of 5').waitFor();
+    assert.equal(await window.locator('.home-slot').count(), 4);
+
+    await window.getByRole('button', { name: /pdf deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+    await window.getByRole('button', { name: 'Save PDF' }).click();
+    await window.getByText(`Saved as ${target}`).waitFor();
+    assert.equal(await app.evaluate(() => (globalThis as { openedPath?: string }).openedPath), target);
+    assert.equal((await PDFDocument.load(await fs.readFile(target))).getPageCount(), 1);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
+test('Print… hands the pages of a home printer order to the system print dialog at its paper size', async () => {
+    // The dialog cannot be driven, so printing renders what the printer would get into a PDF instead.
+    await app.evaluate(({ app: electronApp }) => {
+        electronApp.on('web-contents-created', (_event, contents) => {
+            contents.print = ((options, callback) => {
+                void contents.printToPDF({ preferCSSPageSize: true, margins: { top: 0, bottom: 0, left: 0, right: 0 } }).then(pdf => {
+                    Object.assign(globalThis, { printed: { options, pdf: pdf.toString('base64') } });
+                    callback?.(true, '');
+                });
+            }) as typeof contents.print;
+        });
+    });
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('Home printer');
+    await window.getByRole('button', { name: /pdf deck/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+
+    await window.getByRole('button', { name: 'Print…' }).click();
+
+    await window.getByText('Sent to the printer.').waitFor();
+    const printed = await app.evaluate(() => (globalThis as { printed?: { options: Electron.WebContentsPrintOptions, pdf: string } }).printed!);
+    assert.deepEqual(printed.options, { margins: { marginType: 'none' }, pageSize: 'A4', landscape: false });
+    const pdf = await PDFDocument.load(Buffer.from(printed.pdf, 'base64'));
+    assert.equal(pdf.getPageCount(), 1);
+    const { width, height } = pdf.getPage(0).getSize();
+    assert.ok(Math.abs(width - 595.28) < 1 && Math.abs(height - 841.89) < 1, `A4 is ${width} × ${height} pt`);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
 });
 
 test('an order moves to another shop and is copied back, and opens there each time', async () => {

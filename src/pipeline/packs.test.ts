@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
+import { DEFAULT_HOME_PRINT, type HomePrint, NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
 import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, fillFreeSlots, packPrice, packsFingerprint } from "./packs.js";
 
 const BACK = 'cardback-drive1-b100-c100.jpg';
@@ -187,4 +187,49 @@ test('cardFaces names print images after the combined adjustments and keeps the 
     assert.equal(faces.front.base, 'base-scryfall-dfc-front.jpg');
     assert.deepEqual(faces.front.adjustments, { brightness: 1.16, contrast: 1.2 });
     assert.equal(plain.back.file, 'cardback-drive1-b110-c100.jpg');
+});
+
+function homeOrder(cards: OrderCard[], homePrint: Partial<HomePrint> = {}) {
+    return { ...order(cards, 'home'), homePrint: { ...DEFAULT_HOME_PRINT, ...homePrint } };
+}
+
+const front = (id: string, face: 'front' | 'back' = 'front') => `scryfall-${id}-${face}-b100-c100.jpg`;
+
+test('buildPacks prints every card at home on pages of the grid, tokens included, and pads the last page with blanks', () => {
+    const { packs, droppedTokens } = buildPacks(homeOrder([...tokens(2), card('island', 10)]));
+
+    assert.deepEqual(packs.map(page => page.map(slot => slot.cardId ?? 'blank')), [
+        Array(9).fill('island'),
+        ['island', 'token1', 'token2', 'blank', 'blank', 'blank', 'blank', 'blank', 'blank']
+    ]);
+    assert.deepEqual(droppedTokens, []);
+    assert.deepEqual(buildPacks(homeOrder([card('island', 4)], { columns: 2, rows: 2 })).packs.map(page => page.length), [4]);
+});
+
+test('buildPacks prints both sides of a double-faced card at home as cards next to each other, moving up a card so they share a page', () => {
+    const { packs } = buildPacks(homeOrder([card('a', 8), card('dfc', 1, { printing: printing('dfc', true) }), card('b', 1)]));
+
+    assert.deepEqual(packs[0]!.map(slot => slot.front), [...Array(8).fill(front('a')), front('b')]);
+    assert.deepEqual(packs[1]!.slice(0, 3).map(slot => slot.front), [front('dfc'), front('dfc', 'back'), BLANK_FILE]);
+});
+
+test('buildPacks prints only the tokens or the cards of one deck at home when only those are picked', () => {
+    const cards = [card('island', 2), card('swamp', 1, { deck: 'other' }), ...tokens(1)];
+    const printed = (cardsPicked: HomePrint['cards']) => buildPacks(homeOrder(cards, { cards: cardsPicked })).packs.flat().flatMap(slot => slot.cardId ?? []);
+
+    assert.deepEqual(printed('tokens'), ['token1']);
+    assert.deepEqual(printed({ deck: 'other' }), ['swamp']);
+    assert.deepEqual(printed('all'), ['island', 'island', 'swamp', 'token1']);
+});
+
+test('fillFreeSlots fills the last page at home with the tokens that take one slot', () => {
+    const dfcToken = card('dfc-token', 1, { isToken: true, printing: printing('dfc-token', true) });
+    const filled = fillFreeSlots(homeOrder([card('island', 4), ...tokens(1), dfcToken]));
+
+    assert.deepEqual(filled.filter(c => c.isToken).map(c => c.quantity), [3, 1]);
+    assert.ok(buildPacks(homeOrder(filled)).packs.flat().every(slot => slot.cardId !== undefined));
+});
+
+test('packPrice is nothing for home printing', () => {
+    assert.equal(packPrice('home', 9), 0);
 });

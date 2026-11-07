@@ -1,9 +1,9 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import {
     AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
-    Maximize2, Package, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
+    ListPlus, Maximize2, Package, Printer, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
-import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
+import { DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
@@ -12,10 +12,13 @@ import {
     driveId,
     type Face,
     faceImageUris,
+    fillFreeSlots,
+    fillingTokens,
     mpcfillImage,
     packsFingerprint,
     type Slot
 } from "../../../../src/pipeline/packs.js";
+import { fittingGrids, IMAGE_BLEED_MM, PAPERS, sheetLayout, withFittingGrid } from "../../../../src/output/sheetLayout.js";
 import { adjustmentFilter, percent } from "../adjust.js";
 import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
 import { useStoredState } from "../useStoredState.js";
@@ -52,6 +55,8 @@ export function PrintTab({ order, update, onFlush }: Props) {
     const [packIndex, setPackIndex] = useState(0);
     const [side, setSide] = useState<'front' | 'back'>('front');
     const [savedXml, setSavedXml] = useState<string>();
+    const [homeResult, setHomeResult] = useState<string>();
+    const [homeBusy, setHomeBusy] = useState<'print' | 'save'>();
     // The error of every image that failed in a run of this tab, until it is made.
     const [failed, setFailed] = useState<Record<string, string>>({});
     // The hand-over to the shop, shown from the click on upload or send until it is closed.
@@ -138,8 +143,19 @@ export function PrintTab({ order, update, onFlush }: Props) {
         void run(() => api.sendToPrinterstudio(order));
     };
     const saveXml = () => run(() => api.saveMpcfillXml(order), file => file && setSavedXml(file));
+    const homePrint = order.homePrint ?? DEFAULT_HOME_PRINT;
+    const homeOutput = (kind: 'print' | 'save', work: () => Promise<string | undefined>) => {
+        setHomeBusy(kind);
+        void run(work, setHomeResult).finally(() => setHomeBusy(undefined));
+    };
+    const printPages = () => homeOutput('print', async () => await api.printHome(order) ? 'Sent to the printer.' : undefined);
+    const savePdf = () => homeOutput('save', async () => {
+        const file = await api.saveHomePdf(order);
+        return file && `Saved as ${file}`;
+    });
 
-    if (packs.length === 0) {
+    // At home the settings stay in reach when the cards picked there are none.
+    if (packs.length === 0 && (order.shop !== 'home' || homePrint.cards === 'all')) {
         return (
             <div className="empty">
                 <h2>Nothing to print yet</h2>
@@ -231,6 +247,24 @@ export function PrintTab({ order, update, onFlush }: Props) {
                         {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
                     </li>
                 )}
+                {order.shop === 'home' && (
+                    <li>
+                        <h2><Printer/>Print the cards</h2>
+                        <p className="muted">
+                            The fronts of the cards on {PAPERS[homePrint.paper].name} pages, laid out as set below. Print opens your system's print dialog, Save PDF saves the pages
+                            as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at 63 × 88 mm.
+                        </p>
+                        <div className="row">
+                            <button className={allProcessed ? 'primary' : ''} disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={printPages}>
+                                <Printer/>{homeBusy === 'print' ? 'Printing…' : 'Print…'}
+                            </button>
+                            <button disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={savePdf}>
+                                <FileDown/>{homeBusy === 'save' ? 'Saving the PDF…' : 'Save PDF'}
+                            </button>
+                        </div>
+                        {homeResult && <span className="status">{homeResult}</span>}
+                    </li>
+                )}
                 {order.shop === 'printerstudio' && (
                     <li>
                         <h2><CloudUpload/>Send to printerstudio.de</h2>
@@ -251,7 +285,9 @@ export function PrintTab({ order, update, onFlush }: Props) {
 
             {error && <p className="error" role="alert" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
 
-            <section className="xml-section">
+            {order.shop === 'home' && <HomeSheet order={order} update={update} pages={packs} cards={cards} status={status}/>}
+
+            {order.shop !== 'home' && <section className="xml-section">
                 <h2><FileCode/>MPC Autofill XML</h2>
                 <p className="muted">
                     The cards of this order as an order file of MPC Autofill: its images by their ID, the other cards as their processed images on this computer.
@@ -262,7 +298,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                     {!xmlReady && <span className="status">Process the images first: the cards without an MPC Autofill image go into the XML as their processed images.</span>}
                     {savedXml && <span className="status">Saved as {savedXml}</span>}
                 </div>
-            </section>
+            </section>}
 
             <section className="adjust-section">
                 <h2><Sun/>Brightness and contrast</h2>
@@ -279,7 +315,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                 </p>
             </section>
 
-            <section className="sheet-section">
+            {order.shop !== 'home' && <section className="sheet-section">
                 <div className="row">
                     <div className="tabs" role="tablist" aria-label={unit}>
                         {packs.map((_, index) => (
@@ -329,7 +365,134 @@ export function PrintTab({ order, update, onFlush }: Props) {
                 {droppedTokens.length > 0 && (
                     <p className="muted">Not in any {unit.toLowerCase()} because they would need {order.shop === 'meinspiel' ? 'another one' : 'a larger one'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
                 )}
-            </section>
+            </section>}
+        </div>
+    );
+}
+
+const GAPS = [0, 1, 2, 3, 5];
+const BLEEDS = [0, 0.5, 1, 1.5, 2, 3];
+
+// The settings of the PDF next to a page as it prints, drawn from the same layout as the PDF.
+function HomeSheet({ order, update, pages, cards, status }: {
+    order: Order, update(change: (order: Order) => Order): void, pages: Slot[][], cards: Map<string, OrderCard>, status: Status
+}) {
+    const [pageIndex, setPageIndex] = useState(0);
+    const settings = order.homePrint ?? DEFAULT_HOME_PRINT;
+    const page = Math.min(pageIndex, pages.length - 1);
+    const blank = pages.at(-1)?.filter(slot => slot.cardId === undefined).length ?? 0;
+    const tokens = fillingTokens(order);
+    const decks = order.decks.filter(deck => order.cards.some(card => card.deck === deck.url));
+    const grids = fittingGrids(settings);
+    const gridKey = (grid: Pick<HomePrint, 'landscape' | 'columns' | 'rows'>) => `${grid.columns}x${grid.rows}${grid.landscape ? '-landscape' : ''}`;
+    const set = (change: Partial<HomePrint>) => update(current => ({ ...current, homePrint: withFittingGrid({ ...(current.homePrint ?? DEFAULT_HOME_PRINT), ...change }) }));
+
+    return (
+        <section className="home-section">
+            <div className="home-settings">
+                <h2><Printer/>Print settings</h2>
+                <div className="field">
+                    <label htmlFor="home-paper">Paper</label>
+                    <select id="home-paper" value={settings.paper} onChange={e => set({ paper: e.target.value as HomePrint['paper'] })}>
+                        <option value="a4">A4, 210 × 297 mm</option>
+                        <option value="letter">Letter, 8.5 × 11 in</option>
+                    </select>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-grid">Cards per page</label>
+                    <select id="home-grid" value={gridKey(settings)} onChange={e => set(grids.find(grid => gridKey(grid) === e.target.value)!)}>
+                        {grids.map(grid => (
+                            <option key={gridKey(grid)} value={gridKey(grid)}>{grid.columns * grid.rows} ({grid.columns} × {grid.rows}{grid.landscape ? ', landscape' : ''})</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-cards">Cards</label>
+                    <select id="home-cards" value={typeof settings.cards === 'string' ? settings.cards : `deck:${settings.cards.deck}`}
+                            onChange={e => set({ cards: e.target.value.startsWith('deck:') ? { deck: e.target.value.slice('deck:'.length) } : e.target.value as 'all' | 'tokens' })}>
+                        <option value="all">All cards</option>
+                        <option value="tokens">Only the tokens</option>
+                        {decks.map(deck => <option key={deck.url} value={`deck:${deck.url}`}>Only {deck.name ?? deck.url}</option>)}
+                    </select>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-copies">Copies</label>
+                    <input id="home-copies" type="number" min={1} max={99} value={settings.copies} style={{ width: '7rem' }}
+                           onChange={e => set({ copies: Math.min(99, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}/>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-gap">Space between cards</label>
+                    <select id="home-gap" value={settings.gap} onChange={e => set({ gap: Number(e.target.value) })}>
+                        {GAPS.map(gap => <option key={gap} value={gap}>{gap === 0 ? 'None, the cards touch' : `${gap} mm`}</option>)}
+                    </select>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-bleed">Bleed</label>
+                    <select id="home-bleed" value={settings.bleed} onChange={e => set({ bleed: Number(e.target.value) })}>
+                        {BLEEDS.map(bleed => <option key={bleed} value={bleed}>{bleed === 0 ? 'None' : `${bleed} mm`}</option>)}
+                    </select>
+                    <p className="hint">More of the image around each card, so a cut a little off leaves no white edge. Each card then needs cuts of its own.</p>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-guides">Guides</label>
+                    <select id="home-guides" value={settings.guides} onChange={e => set({ guides: e.target.value as HomePrint['guides'] })}>
+                        <option value="crop-marks">Crop marks in the margins</option>
+                        <option value="cut-lines">Cut lines across the page</option>
+                        <option value="none">None</option>
+                    </select>
+                </div>
+            </div>
+            <div className="home-preview">
+                {pages.length === 0 ? <p className="status">None of the cards are picked to print. Choose other cards in the settings.</p> : <>
+                    <div className="row">
+                        <button className="quiet" aria-label="Previous page" disabled={page === 0} onClick={() => setPageIndex(page - 1)}><ChevronLeft/></button>
+                        <span className="status">Page {page + 1} of {pages.length}{settings.copies > 1 ? `, all printed ${settings.copies} times` : ''}</span>
+                        <button className="quiet" aria-label="Next page" disabled={page === pages.length - 1} onClick={() => setPageIndex(page + 1)}><ChevronRight/></button>
+                    </div>
+                    {blank > 0 && (
+                        <div className="row">
+                            <span className="warning">
+                                {count(blank, 'slot')} on the last page {blank === 1 ? 'stays' : 'stay'} empty. Fill {blank === 1 ? 'it' : 'them'} with tokens, so no paper goes to waste
+                                {tokens.length > 0 ? '.' : ': add tokens on the Cards tab with Find a token….'}
+                            </span>
+                            {tokens.length > 0 && <button onClick={() => update(current => ({ ...current, cards: fillFreeSlots(current) }))}><ListPlus/>Fill with tokens</button>}
+                        </div>
+                    )}
+                    <HomePage settings={settings} slots={pages[page]!} cards={cards} order={order} status={status}/>
+                </>}
+            </div>
+        </section>
+    );
+}
+
+function HomePage({ settings, slots, cards, order, status }: { settings: HomePrint, slots: Slot[], cards: Map<string, OrderCard>, order: Order, status: Status }) {
+    const layout = sheetLayout(settings);
+    const percent = (value: number, of: number) => `${value / of * 100}%`;
+    // The print images are larger than the slots by the bleed they have and the slots do not.
+    const overhang = IMAGE_BLEED_MM - settings.bleed;
+
+    return (
+        <div className="home-page" style={{ aspectRatio: `${layout.width} / ${layout.height}` }}>
+            {slots.map((slot, index) => {
+                const box = layout.slots[index]!;
+                const card = slot.cardId === undefined ? undefined : cards.get(slot.cardId);
+                const faces = card && cardFaces(card, order);
+                const face = faces && (faces.back.file === slot.front ? faces.back : faces.front);
+                const image = face && slotImage(face, order, status);
+                return (
+                    <div key={index} className={`home-slot${card ? '' : ' blank'}`} title={card?.name ?? 'Empty, room for a token'}
+                         style={{ left: percent(box.x, layout.width), top: percent(box.y, layout.height), width: percent(box.width, layout.width), height: percent(box.height, layout.height) }}>
+                        {image?.src && <img src={image.src} alt={card?.name} loading="lazy" style={{
+                            left: percent(-overhang, box.width), top: percent(-overhang, box.height),
+                            width: percent(box.width + 2 * overhang, box.width), height: percent(box.height + 2 * overhang, box.height),
+                            ...(image.filter ? { filter: image.filter } : {})
+                        }}/>}
+                    </div>
+                );
+            })}
+            <svg className="home-guides" viewBox={`0 0 ${layout.width} ${layout.height}`} aria-hidden="true">
+                {layout.guides.map((line, index) => <line key={index} {...line}/>)}
+            </svg>
         </div>
     );
 }

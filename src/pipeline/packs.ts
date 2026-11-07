@@ -1,4 +1,4 @@
-import { type Adjustments, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop } from "../model.js";
+import { type Adjustments, combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop } from "../model.js";
 
 export const CARDS_PER_PACK = 55;
 export const PACK_PRICE_EUR = 19.95;
@@ -17,7 +17,7 @@ export const PRINTERSTUDIO_DECKS: [size: number, eur: number][] = [
 ];
 
 // The shops that print decks of several sizes instead of meinspiel's packs.
-export type DeckShop = Exclude<Shop, 'meinspiel'>;
+export type DeckShop = Exclude<Shop, 'meinspiel' | 'home'>;
 
 const DECKS: Record<DeckShop, [size: number, eur: number][]> = { notmpc: NOTMPC_DECKS, printerstudio: PRINTERSTUDIO_DECKS };
 
@@ -44,7 +44,7 @@ export interface Face {
     adjustments?: Adjustments;
 }
 
-export type PackOrder = Pick<Order, 'cards' | 'cardBack' | 'adjustments' | 'shop'>;
+export type PackOrder = Pick<Order, 'cards' | 'cardBack' | 'adjustments' | 'shop' | 'homePrint'>;
 
 export interface DroppedToken {
     card: OrderCard;
@@ -116,6 +116,8 @@ export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adju
 }
 
 export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: DroppedToken[] } {
+    if (order.shop === 'home') return { packs: homePages(order), droppedTokens: [] };
+
     const slots: Slot[] = [];
     const tokens: { slot: Slot, card: OrderCard }[] = [];
 
@@ -164,10 +166,57 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
     return { packs, droppedTokens };
 }
 
+// At home the pages hold every card, tokens last, and blanks fill the last page for tokens to take.
+function homePages(order: PackOrder): Slot[][] {
+    const { columns, rows } = order.homePrint ?? DEFAULT_HOME_PRINT;
+    const perPage = columns * rows;
+    const cards: Slot[][] = [];
+    const tokens: Slot[][] = [];
+    for (const card of order.cards) {
+        const faces = cardFaces(card, order);
+        if (card.excluded || !faces || !isPickedForHome(card, order)) continue;
+        for (let i = 0; i < card.quantity; i++) (card.isToken ? tokens : cards).push(homeSlots(card, faces));
+    }
+
+    // The sides of a double-faced card share a page: a single card from further on takes the slot left at the end of one.
+    const rest = [...cards, ...tokens];
+    const slots: Slot[] = [];
+    while (rest.length > 0) {
+        const free = perPage - slots.length % perPage;
+        const next = Math.max(0, rest.findIndex(sides => sides.length <= free));
+        slots.push(...rest.splice(next, 1)[0]!);
+    }
+    while (slots.length % perPage !== 0) slots.push({ front: BLANK_FILE, back: cardBackFace(order).file });
+
+    const pages: Slot[][] = [];
+    for (let i = 0; i < slots.length; i += perPage) pages.push(slots.slice(i, i + perPage));
+    return pages;
+}
+
+// Fronts only: both sides of a double-faced card print as cards of their own.
+function homeSlots(card: OrderCard, faces: { front: Face, back: Face }): Slot[] {
+    const front = { front: faces.front.file, back: faces.back.file, cardId: card.id };
+    return faces.back.source.type === 'cardback' ? [front] : [front, { front: faces.back.file, back: faces.front.file, cardId: card.id }];
+}
+
+function isPickedForHome(card: OrderCard, order: PackOrder) {
+    const picked = order.homePrint?.cards ?? 'all';
+    if (order.shop !== 'home' || picked === 'all') return true;
+    return picked === 'tokens' ? card.isToken : card.deck === picked.deck;
+}
+
+// The tokens that print, whose copies fill blank slots; at home only those that take one slot.
+export function fillingTokens(order: PackOrder): OrderCard[] {
+    return order.cards.filter(card => {
+        const faces = card.isToken && !card.excluded ? cardFaces(card, order) : undefined;
+        return faces !== undefined && isPickedForHome(card, order) && (order.shop !== 'home' || homeSlots(card, faces).length === 1);
+    });
+}
+
 // Hands the blank slots out over the tokens that print, in turn, so the last pack has no blank card left.
 export function fillFreeSlots(order: PackOrder): OrderCard[] {
     const blank = buildPacks(order).packs.flat().filter(slot => slot.cardId === undefined).length;
-    const printed = order.cards.filter(card => card.isToken && !card.excluded && cardFaces(card, order));
+    const printed = fillingTokens(order);
     if (blank === 0 || printed.length === 0) return order.cards;
 
     return order.cards.map(card => {
@@ -191,5 +240,6 @@ export function shopDeck(shop: DeckShop, cards: number) {
 }
 
 export function packPrice(shop: Shop, cards: number) {
+    if (shop === 'home') return 0;
     return shop === 'meinspiel' ? PACK_PRICE_EUR : shopDeck(shop, cards)[1];
 }

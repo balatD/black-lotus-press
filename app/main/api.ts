@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { app, type BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
 import type { Browser, BrowserContext } from "playwright";
 import { copyOrder, deleteOrder, exportOrder, importOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "../../src/config/orderConfigManager.js";
 import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
@@ -9,7 +9,7 @@ import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
 import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js";
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
-import { deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
+import { DEFAULT_HOME_PRINT, deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
 import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
@@ -19,6 +19,7 @@ import { sendToPrinterstudio } from "../../src/clients/printerstudio.js";
 import { showShopWindow } from "../../src/clients/shopWindow.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
 import { mpcfillImages, mpcfillXml } from "../../src/output/mpcfillXml.js";
+import { homePrintHtml, writeHomePdf } from "../../src/output/homePrint.js";
 import { exists } from "../../src/utils/fs.js";
 import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
@@ -173,6 +174,37 @@ export function registerApi(window: BrowserWindow) {
             if (result.canceled || !result.filePath) return undefined;
             await fs.writeFile(result.filePath, mpcfillXml(order, names));
             return result.filePath;
+        },
+        async saveHomePdf(order) {
+            assertIdle(order.name);
+            const result = await dialog.showSaveDialog(window, {
+                defaultPath: path.join(orderDir(order), `${order.name}.pdf`),
+                filters: [{ name: 'PDF', extensions: ['pdf'] }]
+            });
+            if (result.canceled || !result.filePath) return undefined;
+            await writeHomePdf(order, result.filePath);
+            await shell.openPath(result.filePath);
+            return result.filePath;
+        },
+        // Electron cannot print a PDF file, so a hidden window prints the same pages as a web page.
+        async printHome(order) {
+            assertIdle(order.name);
+            const settings = order.homePrint ?? DEFAULT_HOME_PRINT;
+            const file = path.join(app.getPath('temp'), `black-lotus-press-${process.pid}.html`);
+            await fs.writeFile(file, await homePrintHtml(order));
+            const printWindow = new BrowserWindow({ show: false, webPreferences: { javascript: false } });
+            try {
+                await printWindow.loadFile(file);
+                return await new Promise<boolean>((resolve, reject) => printWindow.webContents.print({
+                    margins: { marginType: 'none' }, pageSize: settings.paper === 'a4' ? 'A4' : 'Letter', landscape: settings.landscape
+                }, (success, failureReason) => {
+                    if (success || failureReason === 'cancelled') resolve(success);
+                    else reject(new Error(`Printing failed: ${failureReason}`));
+                }));
+            } finally {
+                printWindow.destroy();
+                await fs.rm(file, { force: true });
+            }
         },
         async exportOrder(order, withImages) {
             assertIdle(order.name);

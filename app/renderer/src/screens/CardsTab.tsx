@@ -1,7 +1,8 @@
 import { type CSSProperties, type DragEvent, type RefObject, useState } from "react";
 import { CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
-import { combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
-import { buildPacks, cardFaces, CARDS_PER_PACK, faceImageUris, fillFreeSlots, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
+import { combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
+import { buildPacks, CARDS_PER_PACK, faceImageUris, fillFreeSlots, fillingTokens, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
+import { PAPERS } from "../../../../src/output/sheetLayout.js";
 import { printedValue } from "../../../../src/printings.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { boardName, count, describePrinting, formatEuro } from "../format.js";
@@ -263,7 +264,8 @@ function Summary({ order, update }: Props) {
     const price = packs.reduce((total, pack) => total + packPrice(order.shop, pack.length), 0);
     const { shop } = order;
     // The tokens that print, whose copies fill the blank slots first.
-    const tokens = order.cards.filter(card => card.isToken && !card.excluded && cardFaces(card, order));
+    const tokens = fillingTokens(order);
+    const homePrint = order.homePrint ?? DEFAULT_HOME_PRINT;
 
     function addCopy(id: string) {
         update(current => ({ ...current, cards: current.cards.map(card => card.id === id ? { ...card, quantity: card.quantity + 1 } : card) }));
@@ -279,18 +281,19 @@ function Summary({ order, update }: Props) {
 
     const packing = shop === 'meinspiel'
         ? `${count(packs.length, 'pack')} of ${CARDS_PER_PACK}`
+        : shop === 'home' ? `${count(packs.length, 'page')} of ${PAPERS[homePrint.paper].name}${homePrint.copies > 1 ? `, printed ${homePrint.copies} times` : ''}`
         : `${count(packs.length, 'deck')} of up to ${packs.map(pack => shopDeck(shop, pack.length)[0]).join(', ')}`;
 
     return (
         <div className="summary">
             <p className="headline">
-                {count(printed, 'card')} fill {packing}, about{' '}
+                {count(printed, 'card')} fill {packing}{shop === 'home' ? '.' : <>, about{' '}
                 {value > 0 && <><s title="Cardmarket value of the printed cards">{formatEuro(value)}</s>{' '}</>}
-                {formatEuro(price)} plus shipping.
+                {formatEuro(price)} plus shipping.</>}
             </p>
             {blank > 0 && (
                 <div className="free-slots">
-                    <p>{count(blank, 'slot')}{packs.length > 1 ? ` of pack ${packs.length}` : ''} {blank === 1 ? 'stays' : 'stay'} blank. Fill {blank === 1 ? 'it' : 'them'} with tokens:</p>
+                    <p>{count(blank, 'slot')}{packs.length > 1 ? ` of ${shop === 'home' ? 'page' : 'pack'} ${packs.length}` : ''} {blank === 1 ? 'stays' : 'stay'} blank. Fill {blank === 1 ? 'it' : 'them'} with tokens:</p>
                     <div className="row">
                         {tokens.map(token => (
                             <button key={token.id} className="token-copy" aria-label={`Add a copy of ${token.name}`} onClick={() => addCopy(token.id)}>
