@@ -4,16 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Black Lotus Press</title>
-    <meta name="description" content="A free desktop app that turns Moxfield decks into print-ready playtest cards at meinspiel.de, notmpc.eu or printerstudio.de: Scryfall scans or high-resolution MPC Autofill images, cleaned up and upscaled.">
+    <meta name="description" content="A free desktop app that turns Moxfield and Archidekt decks into print-ready playtest cards at meinspiel.de, notmpc.eu or printerstudio.de, or on your own printer: Scryfall scans or high-resolution MPC Autofill images, cleaned up and upscaled.">
     <meta property="og:title" content="Black Lotus Press">
-    <meta property="og:description" content="Your Moxfield deck, printed. Print-ready playtest cards from meinspiel.de, notmpc.eu or printerstudio.de, made from Scryfall scans or MPC Autofill images.">
+    <meta property="og:description" content="Your deck, printed. Print-ready playtest cards from meinspiel.de, notmpc.eu, printerstudio.de or your own printer, made from Scryfall scans or MPC Autofill images.">
     <meta property="og:image" content="https://balatd.github.io/black-lotus-press/img/social.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="img/icon-64.png">
     <link rel="preload" href="fonts/barlow-semi-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="press.css">
+    <link rel="preload" href="img/lotus.webp" as="image">
     <link rel="stylesheet" href="style.css">
+    <!-- Hides the hero card until hero.js has printed it. -->
+    <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -36,11 +38,10 @@
 <main id="main">
     <section class="hero">
         <div>
-            <h1><span>Your Moxfield deck,</span> <span>printed.</span></h1>
+            <h1><span>Your deck,</span> <span>printed.</span></h1>
             <p class="lead">
-                Black Lotus Press turns Moxfield decks into print-ready playtest cards and hands them to the print shop you choose:
-                meinspiel.de, notmpc.eu or printerstudio.de. It takes the exact printings from Scryfall or high-resolution images from MPC Autofill,
-                cleans them up, upscales them and makes them the way each shop wants them.
+                Paste a Moxfield or Archidekt link. Black Lotus Press takes the exact printings, cleans up the scans, upscales them up to 1200 dpi
+                and sends the cards to meinspiel.de or printerstudio.de, or lays them out for your own printer.
             </p>
             <div class="downloads" id="downloads">
                 <a class="button" data-os="mac" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-mac-arm64.dmg">
@@ -66,22 +67,20 @@
             </div>
         </div>
 
-        <figure class="hero-figure iso">
-            <div class="iso-plate">
-                <div class="iso-plate-corners" aria-hidden="true">
-                    <span class="iso-plate-corner" data-corner="fig">Fig. 1</span>
-                    <span class="iso-plate-corner" data-corner="title">BLP-55 card printer</span>
-                    <span class="iso-plate-corner" data-corner="hint">Click to print again</span>
-                    <span class="iso-plate-corner" data-corner="readout"></span>
-                </div>
-                <div class="hero-press"></div>
-            </div>
+        <figure class="hero-card">
+            <button type="button" class="press-card proof" aria-label="Print the card again">
+                <span class="card-tilt">
+                    <img class="card-face" src="img/lotus.webp" width="745" height="1040" alt="">
+                    <span class="foil" aria-hidden="true"></span>
+                </span>
+            </button>
+            <figcaption>Black Lotus, printed in cyan, magenta, yellow and black. Click it to print it again.</figcaption>
         </figure>
     </section>
 
     <div class="strip">
         <ul>
-            <li style="--ink: var(--ink-c)"><strong>Three print shops</strong><span>meinspiel.de's packs of 55, or decks of 18 to 612 cards at notmpc.eu and printerstudio.de</span></li>
+            <li style="--ink: var(--ink-c)"><strong>Three shops or at home</strong><span>meinspiel.de's packs of 55, decks of 18 to 612 cards at notmpc.eu and printerstudio.de, or A4 and Letter pages for your own printer</span></li>
             <li style="--ink: var(--ink-m)"><strong>69 × 94 mm</strong><span>63 × 88 mm cards with 3 mm bleed, corners and borders cleaned up</span></li>
             <li style="--ink: var(--ink-y)"><strong>sRGB</strong><span>A lossless PNG per card side for meinspiel.de, 10 % brighter because print is darker</span></li>
             <li style="--ink: var(--paper)"><strong>Up to 1200 dpi</strong><span>MPC Autofill images, or Scryfall scans upscaled on your graphics card with Upscayl</span></li>
@@ -106,12 +105,12 @@
                 <div class="step-text">
                     <h3>Import your decks</h3>
                     <p>
-                        Paste a Moxfield link and pick the boards you want: main board, sideboard, tokens, attractions and the rest.
+                        Paste a Moxfield or Archidekt link and pick the boards you want: main board, sideboard, tokens, attractions and the rest.
                         The app takes the exact printings from the deck and looks them up on Scryfall.
                     </p>
                     <ul>
                         <li>Several decks in one order, each imported on its own.</li>
-                        <li>Foils from Moxfield can be swapped for non-foil printings right after the import.</li>
+                        <li>Foils from Moxfield and Archidekt can be swapped for non-foil printings right after the import.</li>
                         <li>Update a deck later without losing your edits.</li>
                     </ul>
                 </div>
@@ -145,6 +144,7 @@
                         <li>Upscaling with live GPU load and temperature.</li>
                         <li>Process a single card or the whole order again.</li>
                         <li>For meinspiel.de, a lossless image per card side in its own resolution, at least that of the profile.</li>
+                        <li>For your own printer, every page as it prints, with its grid, bleed and cut guides.</li>
                     </ul>
                 </div>
                 <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab of a meinspiel.de order: steps to process the images, build the PDFs and upload them, the brightness sliders and the press sheet of the first pack."></figure>
@@ -160,6 +160,7 @@
                         <li>meinspiel.de: every pack becomes a game in your account. You log in yourself, the app never sees your password.</li>
                         <li>printerstudio.de: you log in, and their designer is filled up to the preview and saved in your account, one deck each; you confirm the copyright and put the decks into the cart.</li>
                         <li>notmpc.eu: their designer opens with every card in its slot, no account needed; not available at the moment.</li>
+                        <li>Your own printer: the card fronts on A4 or Letter pages through your system's print dialog, or saved as a PDF, with crop marks or cut lines.</li>
                         <li>Or save the order as an MPC Autofill XML for its desktop tool, which orders at MakePlayingCards.</li>
                     </ul>
                 </div>
@@ -169,7 +170,7 @@
     </section>
 
     <section class="section" aria-labelledby="shops">
-        <h2 id="shops">Three print shops, one app</h2>
+        <h2 id="shops">Three print shops and your printer</h2>
         <p class="intro">After the start screen you choose where to print, and every order belongs to that shop until you move or copy it to another one. The app knows each shop's deck sizes and prices, and makes the images in the size and colours it asks for.</p>
 
         <ul class="shop-grid">
@@ -203,6 +204,16 @@
                     <dt>Commander deck</dt><dd>1 deck of 108, about 31,30 €</dd>
                 </dl>
             </li>
+            <li style="--ink: var(--paper)">
+                <h3>Home printer</h3>
+                <p>The card fronts on A4 or Letter pages, printed right away for a first test or a handful of tokens.</p>
+                <dl>
+                    <dt>Cards per page</dt><dd>Up to 9; tokens fill the empty slots of the last page</dd>
+                    <dt>Files</dt><dd>Pages with crop marks or cut lines, also as a PDF</dd>
+                    <dt>Hand-over</dt><dd>Your system's print dialog</dd>
+                    <dt>Commander deck</dt><dd>About 12 pages, your paper and ink</dd>
+                </dl>
+            </li>
         </ul>
         <p class="more">Prices for one deck without shipping, as of this release; the shops have the current ones. <a href="docs.html#shops">How the shops compare</a></p>
     </section>
@@ -214,8 +225,8 @@
             <li style="--ink: var(--ink-m)"><div><strong>Sharper with MPC Autofill</strong><span>Images from MPC Autofill, usually at 800 to 1200 dpi, recognised against the Scryfall scans of every printing so custom art stays apart.</span></div></li>
             <li style="--ink: var(--ink-y)"><div><strong>Your copyright line</strong><span>Keep the original, blur it, add "Proxy – not for sale", or write your own text in its place.</span></div></li>
             <li style="--ink: var(--paper)"><div><strong>Any card back</strong><span>All card backs of MPC Autofill in one gallery, searchable by name or creator, with their resolution. Double-faced cards get their real back.</span></div></li>
-            <li style="--ink: var(--ink-c)"><div><strong>Tokens as filler</strong><span>Tokens fill the free slots of the last pack or deck and never cost you an extra pack or a larger deck.</span></div></li>
-            <li style="--ink: var(--ink-m)"><div><strong>The format of each shop</strong><span>A lossless PNG per card side for meinspiel.de, sRGB images for notmpc.eu, and MPC's 2.72 × 3.70 inches for printerstudio.de, the size its designer asks for.</span></div></li>
+            <li style="--ink: var(--ink-c)"><div><strong>Tokens as filler</strong><span>Tokens fill the free slots of the last pack, deck or page and never cost you an extra pack or a larger deck.</span></div></li>
+            <li style="--ink: var(--ink-m)"><div><strong>The format of each shop</strong><span>A lossless PNG per card side for meinspiel.de, sRGB images for notmpc.eu, MPC's 2.72 × 3.70 inches for printerstudio.de, the size its designer asks for, and real-size cards on A4 or Letter at home.</span></div></li>
             <li style="--ink: var(--ink-y)"><div><strong>Seven upscaling models</strong><span>Upscayl installs with one click. Pick the model that suits your cards; the lite model is seven times faster.</span></div></li>
             <li style="--ink: var(--paper)"><div><strong>Runs in the background</strong><span>Imports, processing and uploads run as tasks you can follow and cancel, while you keep editing.</span></div></li>
         </ul>
@@ -225,16 +236,16 @@
         <h2 id="questions">Questions</h2>
         <div class="faq">
             <details>
-                <summary>Is Black Lotus Press affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Scryfall or Wizards of the Coast?</summary>
+                <summary>Is Black Lotus Press affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall or Wizards of the Coast?</summary>
                 <div><p>No. It is a free fan project. It uses their public websites the way you would in a browser.</p></div>
             </details>
             <details>
                 <summary>Which print shop should I choose?</summary>
-                <div><p>meinspiel.de suits decks of 55 or 110 cards and prints from an image per card side. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs. You need an account at both. notmpc.eu, which needs none, is not available at the moment. The Cards tab shows what an order costs at its shop.</p></div>
+                <div><p>meinspiel.de suits decks of 55 or 110 cards and prints from an image per card side. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs. You need an account at both. notmpc.eu, which needs none, is not available at the moment. To try a deck first, print it on your own printer. The Cards tab shows what an order costs at its shop.</p></div>
             </details>
             <details>
                 <summary>What does printing cost?</summary>
-                <div><p>A 100-card Commander deck costs about 39,90 € at meinspiel.de as two packs of 55, about 29,97 € at notmpc.eu as one deck of 108, and about 31,30 € at printerstudio.de as one deck of 108 on Standard stock, plus shipping. Check the shops for the current prices.</p></div>
+                <div><p>A 100-card Commander deck costs about 39,90 € at meinspiel.de as two packs of 55, about 29,97 € at notmpc.eu as one deck of 108, and about 31,30 € at printerstudio.de as one deck of 108 on Standard stock, plus shipping. Check the shops for the current prices. At home it takes about 12 pages of A4 or Letter.</p></div>
             </details>
             <details>
                 <summary>Can I sell the cards I print?</summary>
@@ -266,7 +277,7 @@
         </div>
         <div>
             <h2>Built on</h2>
-            <p>Card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a>, upscaling by <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>.</p>
+            <p>Card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a> and <a href="https://archidekt.com">Archidekt</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a>, upscaling by <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>.</p>
         </div>
         <div>
             <h2>Help</h2>
@@ -277,7 +288,7 @@
     <p class="legal">
         Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards.
         Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
-        Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Scryfall or MPC Autofill.
+        Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall or MPC Autofill.
     </p>
 </footer>
 
@@ -290,6 +301,7 @@
         mine.classList.add('primary');
         mine.parentElement.prepend(mine);
     }
+    if (os && os !== 'mac') document.querySelector('.mac-note').hidden = true;
 
     // Copy buttons next to commands.
     for (const button of document.querySelectorAll('[data-copy]')) {
@@ -311,45 +323,8 @@
         }, { threshold: 0.4 }).observe(tour);
     }
 </script>
-<script type="module">
-    import { PRESS, PRESS_SVG, runPress } from './press.js';
-
-    // The printer from the app's start screen prints the last card once it is in view, and again on a click.
-    const figure = document.querySelector('.hero-figure');
-    const stage = figure.querySelector('.hero-press');
-    const readout = figure.querySelector('[data-corner="readout"]');
-    const INKS = { Y: 'yellow', M: 'magenta', C: 'cyan', K: 'black', O: 'overlay' };
-    let stop = () => {};
-    let watch = 0;
-
-    function print(at) {
-        stop();
-        cancelAnimationFrame(watch);
-        stage.innerHTML = PRESS_SVG;
-        const svg = stage.querySelector('svg');
-        stop = runPress(svg, PRESS, { at });
-        const read = () => {
-            const count = svg.querySelector('[data-press="count"]').textContent;
-            const ink = svg.querySelector('.press-ink[data-on]')?.dataset.ink;
-            const done = svg.classList.contains('hero');
-            readout.textContent = done ? `${count} · gem mint 10` : ink ? `${count} · ${INKS[ink]}` : count;
-            if (!done && at === undefined) watch = requestAnimationFrame(read);
-        };
-        read();
-    }
-
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        print(1.5);
-        figure.querySelector('[data-corner="hint"]').textContent = '';
-    } else {
-        print(0);
-        new IntersectionObserver((entries, observer) => {
-            if (!entries[0].isIntersecting) return;
-            observer.disconnect();
-            print();
-        }, { threshold: 0.4 }).observe(figure);
-        figure.addEventListener('click', () => print());
-    }
-</script>
+<!-- Without hero.js the card shows as it is. -->
+<script type="module" src="hero.js" onerror="document.querySelector('.hero-card').classList.add('printed')"></script>
+<script nomodule>document.querySelector('.hero-card').classList.add('printed');</script>
 </body>
 </html>
