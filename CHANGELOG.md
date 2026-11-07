@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.4.0
+
+Cards printed at home on A4 or Letter pages, Archidekt decks imported like Moxfield decks, and meinspiel.de orders uploaded as a lossless image per card side instead of PDFs.
 
 - Print at home: the new *Home printer* shop takes an order through the same steps as the others and ends with *Print…*, which lays the card fronts out on A4 or Letter pages and opens the system's print dialog, or *Save PDF*, which saves the same pages as a PDF and opens it. The Print tab sets the cards per page (as many as fit the paper, also landscape), the copies, all cards or only the tokens or one deck, the space between the cards, the bleed and crop marks or cut lines, with a live preview of every page. Both sides of a double-faced card print as cards of their own, next to each other on one page. Empty slots on the last page are offered to the order's tokens, on the Cards tab and the Print tab, so no paper goes to waste.
 - Archidekt decks can be added to an order like Moxfield decks, by their link, and updated the same way. Archidekt has categories instead of boards: the commander and companion always come along, a card in the *Sideboard* category goes to the sideboard, one in a category left out of the deck, such as the maybeboard, to *Considering*, and the rest to the main board, each card by its first category. The tokens are the ones Scryfall knows the cards make, as for Moxfield decks. No browser window opens for Archidekt.
