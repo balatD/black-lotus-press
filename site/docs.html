@@ -87,7 +87,7 @@
             <h2>First start</h2>
             <p>The app opens with an empty order list on the left. Before the first order, look at <em>Processing profiles</em> at the bottom of that list. A profile holds the settings every order takes over:</p>
             <ul>
-                <li><strong>Orders folder:</strong> where the card images and PDFs of each order go. By default <code>Documents/Black Lotus Press/orders</code>.</li>
+                <li><strong>Orders folder:</strong> where the card images of each order go. By default <code>Documents/Black Lotus Press/orders</code>.</li>
                 <li><strong>Browser:</strong> Google Chrome or Microsoft Edge.</li>
                 <li><strong>Resolution:</strong> 300 dpi is what meinspiel.de and printerstudio.de ask for. 600 dpi with upscaling looks sharper; see <a href="#upscaling">Upscaling</a>.</li>
                 <li><strong>Copyright line:</strong> what happens to the copyright line on the cards; see <a href="#profiles">Processing profiles</a>.</li>
@@ -105,7 +105,7 @@
                     <tbody>
                         <tr><th>Deck sizes</th><td>Exactly 55 cards</td><td>18 to 612 cards</td><td>18 to 612 cards, with 54 instead of 55</td></tr>
                         <tr><th>A Commander deck</th><td>2 packs, about 39,90 €</td><td>1 deck of 108, about 29,97 €</td><td>1 deck of 108, about 31,30 €</td></tr>
-                        <tr><th>The app makes</th><td>Two CMYK PDFs per pack</td><td>sRGB images</td><td>sRGB images at 2.72 × 3.70 inches</td></tr>
+                        <tr><th>The app makes</th><td>An sRGB image per card side</td><td>sRGB images</td><td>sRGB images at 2.72 × 3.70 inches</td></tr>
                         <tr><th>Hand-over</th><td>Uploaded to your account</td><td>Their designer, every card in its slot</td><td>Their designer, filled up to the preview and saved in your account</td></tr>
                         <tr><th>Account</th><td>Needed; you log in yourself</td><td>Not needed</td><td>Needed; you log in yourself</td></tr>
                         <tr><th>Options</th><td>The box, chosen on meinspiel.de</td><td>Chosen in their designer</td><td>Standard (glatt) stock, set by the app</td></tr>
@@ -119,7 +119,7 @@
             <h3 id="move">Move or copy an order</h3>
             <p><em>Move or copy</em> in the <em>⋯</em> menu at the top of an order takes it to another shop, with its decks, cards, the images you picked and your edits. Choose the shop, then:</p>
             <ul>
-                <li><strong>Move</strong> keeps the order's name. Its images are made again in the new shop's format, CMYK or RGB and its size; that only takes seconds, because the downloaded and upscaled images are kept.</li>
+                <li><strong>Move</strong> keeps the order's name. Its images are made again in the new shop's size; that only takes seconds, because the downloaded and upscaled images are kept.</li>
                 <li><strong>Copy</strong> leaves the order where it is and makes a copy at the other shop under a new name. The downloaded and upscaled images are copied along, so nothing is downloaded or upscaled again. The links to meinspiel.de games stay with the original.</li>
             </ul>
             <p>Afterwards the app switches to the other shop and opens the order there. Packs become decks or the other way round, so check the <em>Cards</em> tab for what the order costs now. While a task of the order is running, wait for it or cancel it first.</p>
@@ -128,7 +128,7 @@
         <section id="decks">
             <h2>Orders and decks</h2>
             <p>An order is one print job: one or more decks, a card back, and the settings of a profile. Its tabs follow the job: <em>Setup</em>, <em>Cards</em>, <em>Print</em>.</p>
-            <p><em>Rename</em> in the <em>⋯</em> menu at the top of an order gives it another name. Its images, PDFs and the links to its meinspiel.de games come along.</p>
+            <p><em>Rename</em> in the <em>⋯</em> menu at the top of an order gives it another name. Its images and the links to its meinspiel.de games come along.</p>
             <p>Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: <kbd>Cmd</kbd> + <kbd>1</kbd>, <kbd>2</kbd> and <kbd>3</kbd> switch between the tabs, <kbd>Cmd</kbd> + <kbd>F</kbd> finds a card on the <em>Cards</em> tab, and <kbd>Cmd</kbd> + <kbd>N</kbd> starts a new order.</p>
 
             <h3>Add a deck</h3>
@@ -191,7 +191,7 @@
 
             <h3>MPC Autofill for the whole order</h3>
             <figure class="proof"><img src="img/mpcfill.webp" width="1440" height="900" loading="lazy" alt="The Cards tab as a list: every card marked MPC Autofill, the button Use the sharpest MPC Autofill images, and the summary of a deck of 108 cards for about 31,30 €."></figure>
-            <p><em>Use the sharpest MPC Autofill images</em> on the <em>Cards</em> tab gives every printed card the MPC Autofill image of the highest resolution that shows its printing. Cards with an own or MPC Autofill image keep it, and cards without a matching image keep their Scryfall scan. It works for every shop: for meinspiel.de the images are converted to CMYK like the scans. Large decks take a few minutes; when Scryfall asks the app to slow down, it waits half a minute and carries on.</p>
+            <p><em>Use the sharpest MPC Autofill images</em> on the <em>Cards</em> tab gives every printed card the MPC Autofill image of the highest resolution that shows its printing. Cards with an own or MPC Autofill image keep it, and cards without a matching image keep their Scryfall scan. It works for every shop. Large decks take a few minutes; when Scryfall asks the app to slow down, it waits half a minute and carries on.</p>
             <p>Afterwards a list shows the cards MPC Autofill has no image of the printing for. <em>Choose image…</em> opens the card editor on its MPC Autofill tab, where an image of another printing gives the card that printing. The list stays at hand on the <em>Cards</em> tab.</p>
 
             <h3>Own images and bleed</h3>
@@ -208,24 +208,24 @@
         <section id="print">
             <h2>Print and send</h2>
             <figure class="proof"><img src="img/decks.webp" width="1440" height="900" loading="lazy" alt="The Print tab of a printerstudio.de order: all images ready, the step to log in and send them to printerstudio.de, the step to save an MPC Autofill XML, and the press sheet of a deck of 108 cards."></figure>
-            <p>The <em>Print</em> tab first processes the card images, then hands them to the order's shop: as PDFs uploaded to <a href="#meinspiel">meinspiel.de</a>, or as images in the designer of <a href="#notmpc">notmpc.eu</a> or <a href="#printerstudio">printerstudio.de</a>. Below the steps, the press sheet shows every pack or deck, fronts and backs, the way it will be printed.</p>
+            <p>The <em>Print</em> tab first processes the card images, then hands them to the order's shop: as images uploaded to <a href="#meinspiel">meinspiel.de</a>, or as images in the designer of <a href="#notmpc">notmpc.eu</a> or <a href="#printerstudio">printerstudio.de</a>. Below the steps, the press sheet shows every pack or deck, fronts and backs, the way it will be printed.</p>
             <p>For meinspiel.de and printerstudio.de, the shop opens in a browser window without tabs and address bar, exactly where the app's window is, so it reads as part of the app. A bar from Black Lotus Press sits over the shop's pages, with a panel at the top right: it lists every step of the hand-over with what it is doing right now, a progress bar for the uploads, what is done and what is left to you. <em>Hide</em> folds the panel away, for example when it covers a button of the shop, and <em>Show</em> brings it back. While you need to log in, it darkens the page around the login form and points at it. The app shows the same steps in front of the <em>Print</em> tab, with <em>Show the browser window</em> to bring the shop back to the front, and <em>Cancel</em>.</p>
 
             <h3>Process the card images</h3>
-            <p>Downloads the scans and MPC Autofill images, cleans up the scans, adds the bleed, upscales the scans if the profile says so, and makes the print images in the shop's format: CMYK for meinspiel.de, sRGB for notmpc.eu and printerstudio.de; see <a href="#format">Print formats</a>. Images that are already done are skipped, so only new or changed cards take time. While upscaling, the step shows the GPU load and temperature on Apple Silicon Macs and with NVIDIA graphics cards. An image that fails is outlined in magenta on the press sheet, with the reason in its tooltip and in its large view; <em>Retry the failed images</em> downloads and processes only those again.</p>
+            <p>Downloads the scans and MPC Autofill images, cleans up the scans, adds the bleed, upscales the scans if the profile says so, and makes the print images in sRGB and the shop's size; see <a href="#format">Print formats</a>. Images that are already done are skipped, so only new or changed cards take time. While upscaling, the step shows the GPU load and temperature on Apple Silicon Macs and with NVIDIA graphics cards. An image that fails is outlined in magenta on the press sheet, with the reason in its tooltip and in its large view; <em>Retry the failed images</em> downloads and processes only those again.</p>
             <figure class="proof"><img src="img/card.webp" width="1440" height="900" loading="lazy" alt="A card of the press sheet opened large, front and card back, each with a button to process it again."></figure>
             <p>Click a card on the press sheet to see it large with its back. <em>Process again</em> makes that image anew from the download on; <em>Process all again</em> does it for the whole order. Use it when a card came out wrong, for example after a download error. Processing gives the same result for the same input, so a card that is wrong for another reason stays wrong; please <a href="https://github.com/balatD/black-lotus-press/issues">report it</a>.</p>
 
-            <h3 id="meinspiel">meinspiel.de: PDFs and upload</h3>
+            <h3 id="meinspiel">meinspiel.de: upload</h3>
             <figure class="proof"><img src="img/print.webp" width="1440" height="900" loading="lazy" alt="The Print tab of a meinspiel.de order with its three steps and the press sheet of the first pack."></figure>
-            <p><em>Build PDFs</em> writes two PDFs per pack into the order's folder; while card images are missing, the button reads <em>Process images and build PDFs</em> and processes them first: <code>pack-01-fronts.pdf</code> and <code>pack-01-backs.pdf</code>, 55 pages each. The list below the button shows each pack's size; both PDFs of a pack must stay below meinspiel.de's 200 MB.</p>
+            <p>meinspiel.de gets every card side as a lossless PNG in its own resolution, at least that of the profile: images below it are upscaled, MPC Autofill and own images above it go up as they are. There is no limit on the size of a pack. While card images are missing, the button reads <em>Process images and upload</em> and processes them first.</p>
             <ol>
-                <li>Click <em>Upload</em>. A browser window opens meinspiel.de's login page and accepts the cookie banner.</li>
+                <li>Click <em>Upload</em> and confirm that you followed meinspiel.de's design guidelines. A browser window opens meinspiel.de's login page and accepts the cookie banner.</li>
                 <li>Log in, or create an account. The app waits up to 15 minutes and never sees your password.</li>
-                <li>Pack by pack, the app creates a game, uploads its two PDFs, showing how many megabytes are up, and waits while meinspiel.de processes them; the steps show each of these with meinspiel.de's own status. Every pack becomes a game in your account, named after the order, for example <code>my-order - Deck 1/2</code>. Then the browser closes, and the app lists the games with links that open in your usual browser.</li>
+                <li>Pack by pack, the app creates a game and uploads an image for every card side, showing which image and how many megabytes are up. Every image goes up once; meinspiel.de copies it to the other cards that show it, such as the card back. The larger the images, the longer this takes: at 1200 dpi a pack can take a good while. Meanwhile the window is covered, with the progress in its middle, so no click on meinspiel.de's page gets in the way; closing it asks first, as that stops the upload. Every pack becomes a game in your account, named after the order, for example <code>my-order - Deck 1/2</code>. Then the browser closes, and the app lists the games with links that open in your usual browser.</li>
                 <li>Open a game, choose the box, click <em>Speichern / Bestellen</em> and check out on meinspiel.de. The app never orders or pays anything.</li>
             </ol>
-            <p>When the upload stops at a pack, for example because meinspiel.de fails on it, the games made until then stay in the step. <em>Continue with pack 3</em>, or whichever pack is next, uploads only the rest, as long as the cards print the same; <em>Upload all again</em> starts over. The links to the games also stay in the step. Should meinspiel.de not save a game in your account, the browser stays open with that game; click <em>Speichern</em> there. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele". You can always upload the PDFs by hand instead: they are ordinary files in the order's folder.</p>
+            <p>When the upload stops at a pack, for example because meinspiel.de fails on it, the games made until then stay in the step. <em>Continue with pack 3</em>, or whichever pack is next, uploads only the rest, as long as the cards print the same; <em>Upload all again</em> starts over. A pack that stopped half-way stays in your account as a game with empty cards; delete it there. The links to the games also stay in the step. Should meinspiel.de not save a game in your account, the browser stays open with that game; click <em>Speichern</em> there. Your saved games are also in your <a href="https://www.meinspiel.de/mein-konto">meinspiel.de account</a> under "Gestaltete Spiele".</p>
 
             <h3 id="notmpc">notmpc.eu: their designer</h3>
             <p class="note">notmpc.eu is not available at the moment, because sending orders to it does not work. Its orders are kept as they are and come back when it is available again.</p>
@@ -251,7 +251,7 @@
             <p>The file points to the images by their place on this computer, so it is not meant to be shared, unless every card has an MPC Autofill image.</p>
 
             <h3>Tasks</h3>
-            <p>Imports, processing, PDFs and uploads run as tasks in the background. They are listed under <em>Running</em> at the bottom of the order list, with their progress and a button to cancel them, or to close the shop's browser after an upload. One task runs at a time. When one ends while the app is in the background, a notification of your system says so; clicking it brings the app back.</p>
+            <p>Imports, processing and uploads run as tasks in the background. They are listed under <em>Running</em> at the bottom of the order list, with their progress and a button to cancel them, or to close the shop's browser after an upload. One task runs at a time. When one ends while the app is in the background, a notification of your system says so; clicking it brings the app back.</p>
         </section>
 
         <section id="profiles">
@@ -295,8 +295,8 @@
                     <tr><td><code>high-fidelity-4x</code></td><td>13.7</td><td>Closest to the original scan.</td></tr>
                 </tbody>
             </table>
-            <p>Every model is clearly sharper than plain resizing; the differences between them only show up close. For meinspiel.de, a 600 dpi pack is 160 to 200 MB, right at its limit of 200 MB; the <em>Print</em> tab warns when a pack is too big.</p>
-            <p>MPC Autofill images are never upscaled: they are made for print, usually at 800 to 1200 dpi, and are only scaled to the resolution of the profile.</p>
+            <p>Every model is clearly sharper than plain resizing; the differences between them only show up close. Higher resolutions make larger images, which take longer to upload: for meinspiel.de, a card image has about 4 MB at 600 dpi and four times as much at 1200 dpi.</p>
+            <p>MPC Autofill images are made for print, usually at 800 to 1200 dpi, and keep their resolution: meinspiel.de gets them as they are, the other shops in the size their designer asks for. Only MPC Autofill images below the profile's resolution are upscaled.</p>
         </section>
 
         <section id="format">
@@ -306,8 +306,7 @@
             <h3>meinspiel.de</h3>
             <ul>
                 <li>meinspiel.de prints decks of exactly <strong>55 cards</strong>. Larger orders are split into several packs, and the last pack is filled with tokens, then with blank cards. A 100-card Commander deck needs two packs.</li>
-                <li>Page <em>n</em> of the backs PDF is the back of page <em>n</em> of the fronts PDF.</li>
-                <li>The images are CMYK with the <strong>ISO Coated v2 300 %</strong> profile that meinspiel.de asks for; the PDFs carry it as their output intent. They are not PDF/X-4, because meinspiel.de's processing fails on PDFs with the XMP metadata PDF/X-4 needs.</li>
+                <li>Every card side is a lossless <strong>sRGB PNG</strong> in its own resolution, at least that of the profile, which meinspiel.de turns into its printer's colours itself.</li>
                 <li>A pack costs about <strong>19,95 €</strong> plus shipping, as of this release.</li>
             </ul>
 
@@ -331,7 +330,7 @@
             <table>
                 <thead><tr><th>What</th><th>Where</th></tr></thead>
                 <tbody>
-                    <tr><td>Card images and PDFs</td><td>The orders folder of the profile, by default <code>Documents/Black Lotus Press/orders/&lt;order&gt;</code>: the print images in <code>cards/</code>, and for meinspiel.de the PDFs in <code>meinspiel/</code>.</td></tr>
+                    <tr><td>Card images</td><td>The orders folder of the profile, by default <code>Documents/Black Lotus Press/orders/&lt;order&gt;</code>: the print images in <code>cards/</code>.</td></tr>
                     <tr><td>Orders, profiles, own images, Upscayl</td><td>macOS: <code>~/Library/Application Support/black-lotus-press/data</code><br>Windows: <code>%APPDATA%\black-lotus-press\data</code><br>Linux: <code>~/.config/black-lotus-press/data</code></td></tr>
                 </tbody>
             </table>
@@ -340,7 +339,7 @@
 
         <section id="cli">
             <h2>Command-line tool</h2>
-            <p>Each release also has a command-line edition, <code>Black-Lotus-Press-cli-&lt;system&gt;.zip</code>, with its own Node.js inside. Unzip it and run <code>black-lotus-press</code> (Windows: <code>black-lotus-press.cmd</code>) in a terminal. It walks you through profiles and orders with menus and does the same processing, PDFs and upload to meinspiel.de as the app, without the editing and previews. Orders for notmpc.eu and printerstudio.de can only be printed from the app. It keeps its data next to where you start it.</p>
+            <p>Each release also has a command-line edition, <code>Black-Lotus-Press-cli-&lt;system&gt;.zip</code>, with its own Node.js inside. Unzip it and run <code>black-lotus-press</code> (Windows: <code>black-lotus-press.cmd</code>) in a terminal. It walks you through profiles and orders with menus and does the same processing and upload to meinspiel.de as the app, without the editing and previews. Orders for notmpc.eu and printerstudio.de can only be printed from the app. It keeps its data next to where you start it.</p>
         </section>
 
         <section id="faq">
@@ -356,7 +355,7 @@
                 </details>
                 <details>
                     <summary>Which print shop should I choose?</summary>
-                    <div><p>meinspiel.de prints packs of exactly 55 cards from CMYK PDFs and needs an account. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs and costs less; you need an account there as well. notmpc.eu, which prints decks like that without an account, is not available at the moment. <a href="#shops">Print shops</a> compares them.</p></div>
+                    <div><p>meinspiel.de prints packs of exactly 55 cards from an image per card side and needs an account. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs and costs less; you need an account there as well. notmpc.eu, which prints decks like that without an account, is not available at the moment. <a href="#shops">Print shops</a> compares them.</p></div>
                 </details>
                 <details>
                     <summary>Can I move an order to another shop?</summary>
@@ -383,10 +382,6 @@
                     <div><p>Printed cards look darker than the same image on a screen. 10 % more brightness compensates for that in most cases. Change it on the <em>Print</em> tab for the order, or per card.</p></div>
                 </details>
                 <details>
-                    <summary>Why does meinspiel.de's preview look washed out?</summary>
-                    <div><p>The images are in the printer's CMYK colours. meinspiel.de's on-screen preview shows CMYK files paler than they print; the print uses the CMYK values.</p></div>
-                </details>
-                <details>
                     <summary>Why do some packs have blank cards?</summary>
                     <div><p>meinspiel.de only prints decks of 55 cards. The last pack is filled with your tokens first, then with blank cards; the <em>Cards</em> tab offers to fill those with more tokens. notmpc.eu and printerstudio.de print decks with fewer cards than their size, so their decks have no blank cards.</p></div>
                 </details>
@@ -400,7 +395,7 @@
                 </details>
                 <details>
                     <summary>Can I print at a shop the app does not know?</summary>
-                    <div><p>The PDFs of meinspiel.de orders are ordinary print PDFs: 69 × 94 mm pages with 3 mm bleed in CMYK. The images of notmpc.eu and printerstudio.de orders are ordinary sRGB JPEGs in the order's <code>cards/</code> folder. Whether another print shop takes them depends on its requirements. For MakePlayingCards and PrinterStudio in other countries, save an <a href="#xml">MPC Autofill XML</a> and order it with MPC Autofill's desktop tool.</p></div>
+                    <div><p>The print images of every order are ordinary sRGB JPEGs with 3 mm bleed in the order's <code>cards/</code> folder. Whether another print shop takes them depends on its requirements. For MakePlayingCards and PrinterStudio in other countries, save an <a href="#xml">MPC Autofill XML</a> and order it with MPC Autofill's desktop tool.</p></div>
                 </details>
                 <details>
                     <summary>Why does macOS say the app is damaged?</summary>
@@ -420,9 +415,6 @@
             <p>Black Lotus Press is not signed with an Apple certificate, which costs a yearly fee. macOS blocks such apps when they come from the internet, with a message that the app "is damaged" or that Apple "could not verify" it. Move the app into Applications and run once in Terminal:</p>
             <div class="command"><code>xattr -cr "/Applications/Black Lotus Press.app"</code><button type="button" class="copy" data-copy='xattr -cr "/Applications/Black Lotus Press.app"'>Copy</button></div>
             <p>Do it again after every update. When macOS only says it "could not verify" the app, <em>System Settings → Privacy &amp; Security → Open Anyway</em> works as well.</p>
-
-            <h3>The upload to meinspiel.de fails with "pcntl_waitpid failed"</h3>
-            <p>That message comes from meinspiel.de's server, which sometimes fails to process larger PDFs. The packs uploaded before stay in your account, and <em>Continue with pack …</em> goes on with the rest. Try again later, set the profile to 300 dpi to make the files smaller, or upload the PDFs by hand on meinspiel.de. If it keeps happening, please <a href="https://github.com/balatD/black-lotus-press/issues">open an issue</a>.</p>
 
             <h3>notmpc.eu takes no more uploads</h3>
             <p>After many uploads in a row, notmpc.eu asks to wait a few minutes. The app waits a minute at a time and tries again; when notmpc.eu still refuses after a quarter of an hour, the task stops with notmpc.eu's message. Send the order again later.</p>

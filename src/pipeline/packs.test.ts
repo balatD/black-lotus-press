@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NO_ADJUSTMENTS, type OrderCard, type ScryfallCard, type Shop } from "../model.js";
-import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, estimatePackBytes, fillFreeSlots, packPrice, packsFingerprint } from "./packs.js";
+import { BLANK_FILE, buildPacks, cardFaces, CARDS_PER_PACK, fillFreeSlots, packPrice, packsFingerprint } from "./packs.js";
 
 const BACK = 'cardback-drive1-b100-c100.jpg';
 
@@ -163,8 +163,8 @@ test('cardFaces prefers own images over MPC Autofill images over Scryfall', () =
     const faces = (options: Partial<OrderCard>) => cardFaces(card('dfc', 1, { printing: dfc, ...options }), order([]))!;
     const files = (options: Partial<OrderCard>) => [faces(options).front.file, faces(options).back.file];
 
-    assert.deepEqual(files({ mpcfill: { front: 'drive-f', back: 'drive-b' } }), ['mpcfill-drive-f-b100-c100.jpg', 'mpcfill-drive-b-b100-c100.jpg']);
-    assert.deepEqual(files({ mpcfill: { back: 'drive-b' } }), ['scryfall-dfc-front-b100-c100.jpg', 'mpcfill-drive-b-b100-c100.jpg']);
+    assert.deepEqual(files({ mpcfill: { front: 'drive-f', back: 'drive-b' } }), ['mpcfill-full-drive-f-b100-c100.jpg', 'mpcfill-full-drive-b-b100-c100.jpg']);
+    assert.deepEqual(files({ mpcfill: { back: 'drive-b' } }), ['scryfall-dfc-front-b100-c100.jpg', 'mpcfill-full-drive-b-b100-c100.jpg']);
     assert.deepEqual(files({ mpcfill: { front: 'drive-f' }, customImage: { front: 'abc.png' } }), ['custom-abc-b100-c100.jpg', 'scryfall-dfc-back-b100-c100.jpg']);
     assert.deepEqual(faces({ mpcfill: { front: 'drive-f' } }).front.source, { type: 'mpcfill', id: 'drive-f' });
 });
@@ -187,11 +187,4 @@ test('cardFaces names print images after the combined adjustments and keeps the 
     assert.equal(faces.front.base, 'base-scryfall-dfc-front.jpg');
     assert.deepEqual(faces.front.adjustments, { brightness: 1.16, contrast: 1.2 });
     assert.equal(plain.back.file, 'cardback-drive1-b110-c100.jpg');
-});
-
-test('estimatePackBytes counts every distinct front and back once', () => {
-    const { packs } = buildPacks(order([card('island', 54), card('dfc', 1, { printing: printing('dfc', true) })]));
-    const sizes = { 'scryfall-island-front-b100-c100.jpg': 100, 'scryfall-dfc-front-b100-c100.jpg': 10, 'scryfall-dfc-back-b100-c100.jpg': 1, [BACK]: 1000 };
-
-    assert.equal(estimatePackBytes(packs[0]!, sizes), 1111);
 });

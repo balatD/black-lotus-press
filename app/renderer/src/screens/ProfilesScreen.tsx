@@ -112,7 +112,7 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
                         <input id="output" className="grow" value={draft.outputDirectory} onChange={e => setDraft({ ...draft, outputDirectory: e.target.value })}/>
                         <button onClick={() => void chooseOutput()}><FolderOpen/>Choose…</button>
                     </div>
-                    <p className="hint">Each order gets a folder here with its card images and PDFs.</p>
+                    <p className="hint">Each order gets a folder here with its card images.</p>
                 </div>
                 <div className="field">
                     <label htmlFor="browser">Browser</label>
@@ -133,7 +133,7 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
                                onChange={e => setPost({ dpi: Number(e.target.value) })}/>
                         <span className="muted">dpi</span>
                     </div>
-                    <p className="hint">meinspiel.de asks for 300 dpi. 600 dpi with Upscayl looks sharper; above that a pack gets too big for the 200 MB upload limit.</p>
+                    <p className="hint">The least every card gets: images below it are upscaled, MPC Autofill and own images above it keep theirs for meinspiel.de. meinspiel.de asks for 300 dpi; 600 or 1200 dpi with Upscayl looks sharper, and the larger images take longer to upload.</p>
                 </div>
                 <div className="field">
                     <label htmlFor="copyright">Copyright line</label>

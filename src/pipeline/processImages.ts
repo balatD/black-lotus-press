@@ -11,7 +11,7 @@ import { downloadDriveImage } from "../clients/googleDrive.js";
 import { postProcessImage } from "./postProcessing.js";
 import { upscaleImage } from "./upscayl.js";
 import { prepareCustomImage } from "./customImage.js";
-import { createBlankPrintJpeg, pageSizeInPixels, PREVIEW_DIR, printSizeInPixels, toPrintJpeg } from "../output/printImage.js";
+import { createBlankPrintJpeg, PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PREVIEW_DIR, printSizeInPixels, toPrintJpeg, toPrintPng, whitePage } from "../output/printImage.js";
 import { exists, renameWithRetry } from "../utils/fs.js";
 
 // Bump whenever a code change alters the processed images, so existing caches get rebuilt.
@@ -46,12 +46,10 @@ export function faceJobs(order: Order): Map<string, Face> {
     return jobs;
 }
 
-export async function processImages(order: Order, iccProfile: string, onProgress?: OnProgress, signal?: AbortSignal) {
+export async function processImages(order: Order, onProgress?: OnProgress, signal?: AbortSignal) {
     const dir = cardsDir(order);
     const tmpDir = path.join(dir, '.tmp');
     const size = printSizeInPixels(order.shop, order.profile.postProcessing.dpi);
-    // notmpc.eu and printerstudio.de print RGB images; meinspiel.de wants CMYK in its own profile.
-    const colour = order.shop === 'meinspiel' ? iccProfile : 'srgb';
     await prepareCache(dir, settingsFingerprint(order.profile));
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.mkdir(tmpDir, { recursive: true });
@@ -87,9 +85,9 @@ export async function processImages(order: Order, iccProfile: string, onProgress
             const tmpFile = path.join(tmpDir, face.file);
             if (face.base && face.adjustments) {
                 await ensureBase(face, face.base);
-                await toPrintJpeg(path.join(dir, face.base), tmpFile, size, colour, face.adjustments);
+                await toPrintJpeg(path.join(dir, face.base), tmpFile, size, face.adjustments);
             } else {
-                await createBlankPrintJpeg(tmpFile, size, colour);
+                await createBlankPrintJpeg(tmpFile, size);
             }
             signal?.throwIfAborted();
 
@@ -114,6 +112,22 @@ export async function processImages(order: Order, iccProfile: string, onProgress
     }
 
     await removeUnusedPrintImages(dir, new Set(jobs.map(face => face.file)));
+}
+
+// The print image of a face as a lossless PNG for meinspiel.de, made from the base image like the JPEG on disk.
+// The profile's resolution is the least: a base image with more, like most MPC Autofill images, keeps its own.
+export async function writePrintPng(order: Order, face: Face, outputPath: string) {
+    const minimum = order.profile.postProcessing.dpi;
+    if (!face.base || !face.adjustments) {
+        const size = printSizeInPixels(order.shop, minimum);
+        await toPrintPng(await whitePage(size), outputPath, size, { brightness: 1, contrast: 1 });
+        return;
+    }
+
+    const base = path.join(cardsDir(order), face.base);
+    const { width, height } = await sharp(base).metadata();
+    const own = Math.min(width / PAGE_WIDTH_MM, height / PAGE_HEIGHT_MM) * 25.4;
+    await toPrintPng(base, outputPath, printSizeInPixels(order.shop, Math.max(minimum, own)), face.adjustments);
 }
 
 // Deletes the base images of these faces and every print image made from them, so the next run makes them anew.
@@ -187,7 +201,7 @@ async function cachedSettings(dir: string): Promise<string | undefined> {
 async function prepareCache(dir: string, settings: string) {
     if (await cachedSettings(dir) === settings) return;
 
-    // Images made with other settings must not end up in the PDFs.
+    // Images made with other settings must not end up in print.
     await fs.rm(dir, { recursive: true, force: true });
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, 'cache.json'), JSON.stringify({ settings }));
@@ -215,8 +229,9 @@ async function renderBase(source: FaceSource, base: string, dir: string, tmpDir:
 
 async function baseImage(source: FaceSource, tmpFile: string, profile: ProcessingProfile, signal?: AbortSignal): Promise<Buffer> {
     switch (source.type) {
+        // MPC Autofill images and card backs keep their resolution; only those below the profile's are upscaled.
         case 'cardback':
-            return await downloadDriveImage(source.driveId);
+            return await upscale(await downloadDriveImage(source.driveId), tmpFile, profile, signal);
         case 'scryfall': {
             const url = faceImageUris(source.printing, source.face)?.png;
             if (!url) throw new Error('Scryfall has no image for this face');
@@ -228,9 +243,8 @@ async function baseImage(source: FaceSource, tmpFile: string, profile: Processin
             const prepared = await prepareCustomImage(await fs.readFile(customImagePath(source.image)), profile.postProcessing);
             return await upscale(prepared, tmpFile, profile, signal);
         }
-        // Already made for print, so never upscaled; only images without bleed get one.
         case 'mpcfill':
-            return await prepareCustomImage(await downloadDriveImage(source.id, pageSizeInPixels(profile.postProcessing.dpi).height), profile.postProcessing);
+            return await upscale(await prepareCustomImage(await downloadDriveImage(source.id), profile.postProcessing), tmpFile, profile, signal);
         case 'blank':
             throw new Error('Blank cards have no base image');
     }

@@ -20,6 +20,9 @@ export interface ShopWindow {
     step(index: number, state: HandoverStep['state'], detail?: string, progress?: HandoverStep['progress']): void;
     // Marks the running step as failed and returns the error to pass on, which names a window the user closed as such.
     fail(error: unknown): unknown;
+    // Covers the page while the app works in it; see Handover.blocking.
+    block(): Promise<void>;
+    unblock(): void;
 }
 
 // The shop's window of the running hand-over, which the app can bring to the front.
@@ -59,8 +62,11 @@ export async function openShopWindow(channel: PlaywrightChannel, bounds: WindowB
         onProgress?.({ type: 'handover', handover: state });
     };
     await context.exposeFunction('__blackLotusPress', () => state);
+    await context.exposeFunction('__blackLotusPressClose', () => context.close());
     await context.addInitScript(OVERLAY);
     update(same => same);
+    // Answers every dialog, as one left open would hold the page. Closing the covered window is held off; the page says why instead.
+    context.on('dialog', dialog => void (dialog.type() === 'beforeunload' && !state.blocking ? dialog.accept() : dialog.dismiss()).catch(() => {}));
 
     const step = (index: number, stepState: HandoverStep['state'], detail?: string, progress?: HandoverStep['progress']) => update(handover => ({
         ...handover,
@@ -71,9 +77,10 @@ export async function openShopWindow(channel: PlaywrightChannel, bounds: WindowB
             ...(progress === undefined ? {} : { progress })
         })
     }));
+    const page = context.pages()[0] ?? await context.newPage();
     return {
         context,
-        page: context.pages()[0] ?? await context.newPage(),
+        page,
         handover: () => state,
         update,
         step,
@@ -82,6 +89,14 @@ export async function openShopWindow(channel: PlaywrightChannel, bounds: WindowB
             const index = state.steps.findIndex(running => running.state === 'active');
             if (index >= 0) step(index, 'failed', reason instanceof Error ? reason.message : String(reason));
             return signal?.aborted ? error : reason;
+        },
+        async block() {
+            update(handover => ({ ...handover, blocking: true }));
+            // Chrome lets a page ask before its window closes only once it was clicked; this click lands on the cover.
+            await page.locator('#black-lotus-press').locator('.cover').click({ position: { x: 8, y: 60 } });
+        },
+        unblock() {
+            update(handover => ({ ...handover, blocking: false }));
         }
     };
 }
@@ -156,10 +171,33 @@ const OVERLAY = `(() => {
             .meter { height: 6px; margin-top: 8px; border-radius: 3px; background: #3c3c3c; overflow: hidden; }
             .meter i { display: block; height: 100%; background: #19a7e0; transition: width 0.3s; }
             .next { margin: 0; padding: 12px 16px; border-top: 1px solid #4b4b4b; border-left: 4px solid #19a7e0; background: #333333; font-weight: 600; }
+            .cover { position: fixed; inset: 0; background: rgb(0 0 0 / 0.55); pointer-events: auto; cursor: wait; }
+            .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px)); padding: 20px;
+                border: 1px solid #4b4b4b; border-radius: 6px; background: #2b2b2b; color: #e9e9e7; font: 15px/1.4 system-ui, sans-serif;
+                box-shadow: 0 12px 32px rgb(0 0 0 / 0.45); pointer-events: auto; }
+            .dialog .meter { height: 8px; margin: 14px 0 12px; }
+            .hint { margin: 0; color: #a5a5a2; font-size: 14px; }
+            .warn { margin-top: 14px; padding: 12px; border-left: 4px solid #e8c21c; background: #333333; }
+            .warn p { margin: 0 0 10px; }
+            .buttons { display: flex; gap: 8px; }
+            .button { padding: 5px 12px; border: 1px solid #4b4b4b; border-radius: 4px; background: none; color: #e9e9e7; font: inherit; font-size: 14px; cursor: pointer; }
+            .button:hover { border-color: #a5a5a2; }
+            .button.danger { border-color: #e0388a; color: #e0388a; }
             @media (max-width: 900px) { .title { display: none; } }
         </style>
         <div class="spot" hidden></div>
         <div class="callout" hidden></div>
+        <div class="cover" hidden></div>
+        <section class="dialog" role="dialog" aria-modal="true" hidden>
+            <span class="label dialog-title"></span>
+            <span class="detail dialog-step"></span>
+            <div class="meter"><i></i></div>
+            <p class="hint">Keep this window open until the upload is done.</p>
+            <div class="warn" hidden>
+                <p>Closing the window stops the upload, and the pack on its way stays incomplete in your account.</p>
+                <div class="buttons"><button class="button stay" type="button">Keep uploading</button><button class="button danger close" type="button">Stop and close</button></div>
+            </div>
+        </section>
         <section class="panel">
             <header><span><span class="heading">Progress</span> <span class="summary"></span></span><button class="fold" type="button"></button></header>
             <ol class="steps"></ol>
@@ -176,6 +214,21 @@ const OVERLAY = `(() => {
         const remembered = key => { try { return sessionStorage.getItem(key); } catch { return null; } };
         let folded = remembered('black-lotus-press-folded') === 'yes';
         let state;
+        // Set when the user tries to close the covered window, which is held off.
+        let warned = false;
+
+        $('.stay').addEventListener('click', () => {
+            warned = false;
+            render();
+        });
+        $('.close').addEventListener('click', () => void window.__blackLotusPressClose());
+        addEventListener('beforeunload', event => {
+            if (!state?.blocking) return;
+            event.preventDefault();
+            event.returnValue = '';
+            warned = true;
+            render();
+        });
 
         $('.fold').addEventListener('click', () => {
             folded = !folded;
@@ -219,6 +272,16 @@ const OVERLAY = `(() => {
             const next = !now && finished === state.steps.length ? state.next : undefined;
             $('.next').textContent = next ?? '';
             $('.next').hidden = folded || !next;
+
+            const blocking = state.blocking === true;
+            if (!blocking) warned = false;
+            $('.cover').hidden = $('.dialog').hidden = !blocking;
+            $('.panel').hidden = blocking;
+            $('.dialog-title').textContent = now ? now.label : state.title;
+            $('.dialog-step').textContent = now?.detail ?? '';
+            const progress = now?.progress ?? { done: finished, total: state.steps.length };
+            $('.dialog .meter i').style.width = Math.min(100, 100 * progress.done / Math.max(progress.total, 1)) + '%';
+            $('.warn').hidden = !warned;
         };
 
         const place = () => {

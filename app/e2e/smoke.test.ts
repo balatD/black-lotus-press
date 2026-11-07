@@ -91,13 +91,6 @@ before(async () => {
         await sharp({ create: { width: 630, height: 880, channels: 3, background: '#3366aa' } }).png().toFile(path.join(root, 'config', 'images', `${id}.png`));
     }
 
-    // Processing works offline with the colour profile of the project folder, where it exists.
-    const icc = path.resolve('config/icc/ISOcoated_v2_300_eci.icc');
-    if (await fs.stat(icc).catch(() => undefined)) {
-        await fs.mkdir(path.join(root, 'config', 'icc'), { recursive: true });
-        await fs.copyFile(icc, path.join(root, 'config', 'icc', path.basename(icc)));
-    }
-
     // The front of card a counts as processed, so the sheet has processed and unprocessed slots.
     const front = cardFaces(order.cards[0]!, order)!.front;
     const cards = path.join(root, 'orders', 'test', 'cards');
@@ -518,13 +511,21 @@ test('the cards tab shows only the cards of one kind, together with the name sea
     assert.ok(await window.getByRole('button', { name: 'Move Card a' }).isEnabled());
 });
 
-test('one click processes the missing images and builds the PDFs', async () => {
+test('meinspiel.de gets the card images in one step that asks first, and nothing starts when the answer is no', async () => {
     await window.getByRole('button', { name: /one click deck/ }).click();
     await window.getByRole('tab', { name: 'Print' }).click();
+    assert.equal(await window.getByRole('heading', { name: 'Build the PDFs' }).count(), 0);
 
-    await window.getByRole('button', { name: 'Process images and build PDFs' }).click();
-    await window.getByText(/^Pack 1:/).waitFor({ timeout: 120000 });
-    await window.getByRole('button', { name: 'Build PDFs', exact: true }).waitFor();
+    let asked = '';
+    window.once('dialog', dialog => {
+        asked = dialog.message();
+        void dialog.dismiss();
+    });
+    await window.getByRole('button', { name: 'Process images and upload' }).click();
+    assert.match(asked, /^Upload the card images to meinspiel\.de\?/);
+
+    assert.deepEqual(await window.evaluate(() => (window as unknown as { api: { listTasks(): Promise<unknown[]> } }).api.listTasks()), []);
+    await window.getByRole('button', { name: 'Process images and upload' }).waitFor();
 });
 
 test('keyboard shortcuts switch the tabs, find a card and start a new order, but not behind a dialog', async () => {
@@ -559,10 +560,11 @@ test('a task that ends while the app is in the background shows a notification',
     await window.getByRole('button', { name: /one click deck/ }).click();
     await window.getByRole('tab', { name: 'Print' }).click();
 
-    await window.getByRole('button', { name: 'Build PDFs', exact: true }).click();
+    await window.getByRole('button', { name: 'Process images', exact: true }).click();
     const shown = () => app.evaluate(() => (globalThis as unknown as { shownNotifications: unknown[] }).shownNotifications);
     for (let attempt = 0; attempt < 60 && (await shown()).length === 0; attempt++) await window.waitForTimeout(500);
-    assert.deepEqual(await shown(), [{ title: 'Writing the PDFs of one click deck', body: 'Done.' }]);
+    assert.deepEqual(await shown(), [{ title: 'Processing the images of one click deck', body: 'Done.' }]);
+    await window.getByRole('button', { name: 'Upload', exact: true }).waitFor();
 
     await app.evaluate(({ BrowserWindow }) => void delete (BrowserWindow.getAllWindows()[0] as { isFocused?: unknown }).isFocused);
 });

@@ -9,7 +9,7 @@ export async function runMainMenu(): Promise<void> {
     try {
         console.clear();
         console.log(ui.title('Welcome to ' + teen('Black Lotus Press') + '!'));
-        console.log('This tool converts your Moxfield decks into print-ready PDFs for meinspiel.de using post-processed original print scans.\n');
+        console.log('This tool turns your Moxfield decks into print-ready card images for meinspiel.de using post-processed original print scans.\n');
 
         const profiles = await loadProcessingProfiles();
 

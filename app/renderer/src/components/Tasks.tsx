@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AppWindow, CircleStop, CloudUpload, Download, FileText, Images, type LucideIcon, WandSparkles, X } from "lucide-react";
+import { AppWindow, CircleStop, CloudUpload, Download, Images, type LucideIcon, WandSparkles, X } from "lucide-react";
 import type { Task } from "../../../shared/api.js";
 import { api } from "../api.js";
 import { useProgress } from "../useProgress.js";
@@ -9,7 +9,6 @@ import { ProgressBar } from "./ProgressBar.js";
 const ICONS: Record<Task['kind'], LucideIcon> = {
     import: Download,
     process: WandSparkles,
-    pdfs: FileText,
     upload: CloudUpload,
     upscayl: Download,
     mpcfill: Images,

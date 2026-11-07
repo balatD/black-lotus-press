@@ -4,7 +4,7 @@ import { ArrowRightLeft, Check, Ellipsis, GalleryVerticalEnd, type LucideIcon, P
 import type { Order, ProcessingProfile, Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab } from "./CardsTab.js";
-import { type BuiltPdfs, PrintTab } from "./PrintTab.js";
+import { PrintTab } from "./PrintTab.js";
 import { ShopTransfer } from "../components/ShopTransfer.js";
 import { OrderExport } from "../components/OrderExport.js";
 import { useShortcut } from "../useShortcut.js";
@@ -31,8 +31,6 @@ const TAB_ICONS: Record<Tab, LucideIcon> = { Setup: Settings2, Cards: GalleryVer
 
 export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDelete, onMove, onCopy, onRename }: Props) {
     const [tab, setTab] = useState<Tab>(order.cards.length > 0 ? 'Cards' : 'Setup');
-    // Kept here, so the built PDFs survive switching tabs.
-    const [pdfs, setPdfs] = useState<BuiltPdfs>();
     const [transferring, setTransferring] = useState(false);
     const [exporting, setExporting] = useState(false);
     // The new name while it is being typed.
@@ -79,7 +77,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
     }
 
     function confirmDelete() {
-        if (window.confirm(`Delete the order "${order.name}"? The processed images and PDFs stay in the orders folder.`)) onDelete();
+        if (window.confirm(`Delete the order "${order.name}"? The processed images stay in the orders folder.`)) onDelete();
     }
 
     return (
@@ -111,7 +109,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
             <div className="screen-body">
                 {tab === 'Setup' && <SetupTab order={order} profiles={profiles} update={update}/>}
                 {tab === 'Cards' && <CardsTab order={order} update={update} search={search}/>}
-                {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush} built={pdfs} onBuilt={setPdfs}/>}
+                {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush}/>}
             </div>
             {transferring && <ShopTransfer order={order} orders={orders} onMove={onMove} onCopy={onCopy} onClose={() => setTransferring(false)}/>}
             {exporting && <OrderExport order={order} onClose={() => setExporting(false)}/>}

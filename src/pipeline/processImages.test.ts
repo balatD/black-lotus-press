@@ -6,8 +6,10 @@ import path from "node:path";
 import sharp from "sharp";
 import { DefaultOrder, DefaultProfile, type Order, type OrderCard, type ScryfallCard } from "../model.js";
 import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
-import { forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages } from "./processImages.js";
+import { faceJobs, forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages, writePrintPng } from "./processImages.js";
 import { moveOrder, saveOrder } from "../config/orderConfigManager.js";
+import { BLANK_FILE } from "./packs.js";
+import { printSizeInPixels } from "../output/printImage.js";
 
 const scan = await sharp({ create: { width: 745, height: 1040, channels: 4, background: { r: 90, g: 60, b: 40, alpha: 1 } } }).png().toBuffer();
 const mpcImage = await sharp({ create: { width: 816, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toBuffer();
@@ -19,7 +21,7 @@ beforeEach(async () => {
     mock.method(globalThis, 'fetch', async (url: string) => {
         fetched.push(url);
         if (url.includes('/missing.png')) return new Response('not found', { status: 404 });
-        if (url.includes('googleusercontent.com')) return new Response(new Uint8Array(mpcImage), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        if (url.includes('googleusercontent.com') || url.includes('drive.google.com')) return new Response(new Uint8Array(mpcImage), { status: 200, headers: { 'content-type': 'image/jpeg' } });
         return new Response(new Uint8Array(scan), { status: 200, headers: { 'content-type': 'image/png' } });
     });
 });
@@ -54,19 +56,19 @@ test('processImages names files after the printing and adds blanks and the card 
     const target = order([card('a', 2), card('b', 1)]);
     const ready: string[] = [];
 
-    await processImages(target, 'cmyk', event => event.type === 'face-ready' && ready.push(event.file));
+    await processImages(target, event => event.type === 'face-ready' && ready.push(event.file));
 
     const expected = ['blank.jpg', 'cardback-drive1-b110-c100.jpg', 'scryfall-a-front-b110-c100.jpg', 'scryfall-b-front-b110-c100.jpg'];
     const bases = ['base-cardback-drive1.jpg', 'base-scryfall-a-front.jpg', 'base-scryfall-b-front.jpg'];
     assert.deepEqual(await processedFiles(target), expected);
     assert.deepEqual(ready.sort(), [...bases, ...expected].sort());
-    assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'cmyk');
+    assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
 });
 
 test('processImages makes sRGB print images for notmpc', async () => {
     const target = { ...order([card('a', 1)]), shop: 'notmpc' as const };
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
     assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
 });
@@ -74,7 +76,7 @@ test('processImages makes sRGB print images for notmpc', async () => {
 test('processImages makes sRGB print images of at least 816 × 1110 pixels for printerstudio', async () => {
     const target = { ...order([card('a', 1)], 300), shop: 'printerstudio' as const };
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
     for (const file of ['scryfall-a-front-b110-c100.jpg', 'cardback-drive1-b110-c100.jpg']) {
         const image = await sharp(path.join(cardsDir(target), file)).metadata();
@@ -85,63 +87,63 @@ test('processImages makes sRGB print images of at least 816 × 1110 pixels for p
 test('after a move to printerstudio, processImages makes the print images anew from the base images without downloading', async () => {
     const target = order([card('a', 1)], 300);
     await saveOrder(target);
-    await processImages(target, 'cmyk');
+    await processImages(target);
     const downloads = fetched.length;
 
     await moveOrder(target, 'printerstudio');
-    await processImages({ ...target, shop: 'printerstudio' }, 'cmyk');
+    await processImages({ ...target, shop: 'printerstudio' });
 
     assert.equal(fetched.length, downloads);
     const image = await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata();
     assert.deepEqual([image.width, image.space], [816, 'srgb']);
 });
 
-test('processImages downloads MPC Autofill images at the height of the print and keeps their bleed', async () => {
-    const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 300);
+test('processImages keeps MPC Autofill images in their own resolution above that of the profile, with their bleed', async () => {
+    const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 150);
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
-    assert.ok(fetched.includes('https://lh3.googleusercontent.com/d/drive-a=h1110-l100'));
-    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
+    assert.ok(fetched.includes('https://drive.google.com/uc?export=download&id=drive-a'));
+    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-full-drive-a.jpg')).metadata();
     assert.deepEqual([base.width, base.height], [816, 1110]);
 });
 
-test('processImages never upscales MPC Autofill images and keeps the bleed they have', async () => {
+test('processImages upscales MPC Autofill images and card backs below the resolution of the profile', async () => {
     const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 600);
     target.profile = { ...target.profile, upscaling: { ...target.profile.upscaling, enabled: true, binaryFile: 'no-upscayl-here' } };
+    const failed: string[] = [];
 
-    await processImages(target, 'cmyk');
+    await assert.rejects(processImages(target, event => event.type === 'face-failed' && failed.push(event.file)), /Upscayl is not installed/);
 
-    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
-    assert.deepEqual([base.width, base.height], [816, 1110]);
+    assert.deepEqual(failed.sort(), ['cardback-drive1-b110-c100.jpg', 'mpcfill-full-drive-a-b110-c100.jpg']);
 });
 
 test('processImages gives MPC Autofill images without bleed a mirrored one', async () => {
     mock.method(globalThis, 'fetch', async () => new Response(new Uint8Array(await sharp({ create: { width: 750, height: 1048, channels: 3, background: '#3366aa' } }).jpeg().toBuffer()), { status: 200, headers: { 'content-type': 'image/jpeg' } }));
     const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 300);
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
-    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-drive-a.jpg')).metadata();
+    const base = await sharp(path.join(cardsDir(target), 'base-mpcfill-full-drive-a.jpg')).metadata();
     assert.deepEqual([base.width, base.height], [822, 1120]);
 });
 
 test('processImages skips images that already exist', async () => {
     const target = order([card('a', 1)]);
-    await processImages(target, 'cmyk');
+    await processImages(target);
     fetched = [];
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
     assert.deepEqual(fetched, []);
 });
 
 test('processImages rebuilds the cache when the settings change', async () => {
-    await processImages(order([card('a', 1)]), 'cmyk');
+    await processImages(order([card('a', 1)]));
     fetched = [];
 
     const changed = order([card('a', 1)], 160);
-    await processImages(changed, 'cmyk');
+    await processImages(changed);
 
     assert.ok(fetched.some(url => url.endsWith('/a.png')));
     assert.equal((await sharp(path.join(cardsDir(changed), 'scryfall-a-front-b110-c100.jpg')).metadata()).width, 435);
@@ -150,7 +152,7 @@ test('processImages rebuilds the cache when the settings change', async () => {
 test('processImages leaves out excluded cards and dropped tokens', async () => {
     const target = order([card('island', 55), card('excluded', 1, { excluded: true }), card('treasure', 1, { isToken: true })]);
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
     assert.deepEqual(fetched.filter(url => url.includes('scryfall')), ['https://cards.scryfall.io/png/front/a/b/island.png']);
 });
@@ -159,7 +161,7 @@ test('processImages keeps going when one image fails and names the card', async 
     const target = order([card('a', 1), card('missing', 1)]);
     const failed: string[] = [];
 
-    await assert.rejects(processImages(target, 'cmyk', event => event.type === 'face-failed' && failed.push(event.file)), /Card missing \(TST 1, front\)/);
+    await assert.rejects(processImages(target, event => event.type === 'face-failed' && failed.push(event.file)), /Card missing \(TST 1, front\)/);
 
     assert.deepEqual(failed, ['scryfall-missing-front-b110-c100.jpg']);
     assert.ok((await processedFiles(target)).includes('scryfall-a-front-b110-c100.jpg'));
@@ -170,7 +172,7 @@ test('processImages stops when cancelled and writes no images', async () => {
     const controller = new AbortController();
     controller.abort();
 
-    await assert.rejects(processImages(target, 'cmyk', undefined, controller.signal), { name: 'AbortError' });
+    await assert.rejects(processImages(target, undefined, controller.signal), { name: 'AbortError' });
 
     assert.deepEqual(await processedFiles(target), []);
 });
@@ -180,7 +182,7 @@ test('processImages uses the own image instead of the Scryfall scan', async () =
     await sharp({ create: { width: 630, height: 880, channels: 3, background: '#3366aa' } }).png().toFile(customImagePath('own.png'));
     const target = order([card('a', 1, { customImage: { front: 'own.png' } })]);
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
 
     assert.ok((await processedFiles(target)).includes('custom-own-b110-c100.jpg'));
     assert.deepEqual(fetched.filter(url => url.includes('scryfall')), []);
@@ -190,7 +192,7 @@ test('imageStatus lists the processed images and their sizes for the current set
     const target = order([card('a', 1)]);
     assert.deepEqual(await imageStatus(target), { version: '', files: {} });
 
-    await processImages(target, 'cmyk');
+    await processImages(target);
     const status = await imageStatus(target);
 
     assert.deepEqual(Object.keys(status.files).sort(),
@@ -200,8 +202,45 @@ test('imageStatus lists the processed images and their sizes for the current set
     assert.deepEqual(await imageStatus(order([card('a', 1)], 160)), { version: '', files: {} });
 });
 
+test('writePrintPng makes the PNG of a face from its base image in the resolution of the base, and a white one for a blank card', async () => {
+    const target = order([card('a', 1), card('m', 1, { mpcfill: { front: 'drive-m' } })]);
+    await processImages(target);
+    const faces = faceJobs(target);
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-png-'));
+
+    await writePrintPng(target, faces.get('scryfall-a-front-b110-c100.jpg')!, path.join(dir, 'front.png'));
+    await writePrintPng(target, faces.get('mpcfill-full-drive-m-b110-c100.jpg')!, path.join(dir, 'mpcfill.png'));
+    await writePrintPng(target, faces.get(BLANK_FILE)!, path.join(dir, 'blank.png'));
+
+    const metadata = async (file: string) => {
+        const image = await sharp(path.join(dir, file)).metadata();
+        return [image.format, image.width, image.height, image.space, image.channels];
+    };
+    const minimum = printSizeInPixels(target.shop, 150);
+    // The MPC Autofill image has 816 × 1110 pixels, about 300 dpi, twice the profile's 150 dpi.
+    assert.deepEqual(await metadata('mpcfill.png'), ['png', 815, 1110, 'srgb', 3]);
+    assert.deepEqual(await metadata('blank.png'), ['png', minimum.width, minimum.height, 'srgb', 3]);
+    const front = await sharp(path.join(dir, 'front.png')).metadata();
+    assert.ok(front.width > minimum.width, `the scan has more than 150 dpi, got ${front.width} pixels`);
+    const means = async (file: string) => (await sharp(file).stats()).channels.map(channel => channel.mean);
+    const [png, jpeg] = [await means(path.join(dir, 'front.png')), await means(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg'))];
+    png.forEach((mean, index) => assert.ok(Math.abs(mean - jpeg[index]!) < 2, `channel ${index}: PNG ${mean}, JPEG ${jpeg[index]}`));
+    assert.ok((await sharp(path.join(dir, 'blank.png')).stats()).channels.every(channel => channel.min >= 254));
+});
+
+test('writePrintPng makes a base image below the resolution of the profile as large as the profile asks', async () => {
+    const target = order([card('m', 1, { mpcfill: { front: 'drive-m' } })], 600);
+    await processImages(target);
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-png-'));
+
+    await writePrintPng(target, faceJobs(target).get('mpcfill-full-drive-m-b110-c100.jpg')!, path.join(dir, 'mpcfill.png'));
+
+    const image = await sharp(path.join(dir, 'mpcfill.png')).metadata();
+    assert.deepEqual([image.width, image.height], [1630, 2220]);
+});
+
 test('usedBaseImages names the base images the packs use with the cache file, and none made with other settings', async () => {
-    await processImages(order([card('a', 1), card('b', 1)]), 'cmyk');
+    await processImages(order([card('a', 1), card('b', 1)]));
 
     assert.deepEqual((await usedBaseImages(order([card('a', 1)]))).sort(), ['base-cardback-drive1.jpg', 'base-scryfall-a-front.jpg', 'cache.json']);
     assert.deepEqual(await usedBaseImages(order([card('a', 1)], 160)), []);
@@ -209,11 +248,11 @@ test('usedBaseImages names the base images the packs use with the cache file, an
 
 test('processImages renders new adjustments from the stored base images and removes the old print images', async () => {
     const target = order([card('a', 1)]);
-    await processImages(target, 'cmyk');
+    await processImages(target);
     fetched = [];
 
     const brighter = { ...target, adjustments: { brightness: 1.25, contrast: 1.1 } };
-    await processImages(brighter, 'cmyk');
+    await processImages(brighter);
 
     assert.deepEqual(fetched, []);
     assert.deepEqual(await processedFiles(brighter), ['blank.jpg', 'cardback-drive1-b125-c110.jpg', 'scryfall-a-front-b125-c110.jpg']);
@@ -223,7 +262,7 @@ test('processImages shares one base image between cards with different adjustmen
     const plain = card('a', 1);
     const adjusted = { ...card('a', 1), id: 'a2', adjustments: { brightness: 0.9, contrast: 1 } };
 
-    await processImages(order([plain, adjusted]), 'cmyk');
+    await processImages(order([plain, adjusted]));
 
     assert.equal(fetched.filter(url => url.includes('scryfall')).length, 1);
     assert.ok((await processedFiles(order([]))).includes('scryfall-a-front-b99-c100.jpg'));
@@ -240,9 +279,9 @@ test('settingsFingerprint only depends on the own copyright text when it is prin
 
 test('forgetImages drops one face with its base and all its print images, so the next run makes only that face again', async () => {
     const target = order([card('a', 1), card('b', 1, { adjustments: { brightness: 1.3, contrast: 1 } }), card('c', 1)]);
-    await processImages(target, 'cmyk');
+    await processImages(target);
     const withB = order([...target.cards, { ...card('b', 1), id: 'b2' }]);
-    await processImages(withB, 'cmyk');
+    await processImages(withB);
     const before = await fs.readdir(cardsDir(target));
     fetched = [];
 
@@ -250,6 +289,6 @@ test('forgetImages drops one face with its base and all its print images, so the
 
     const after = await fs.readdir(cardsDir(target));
     assert.deepEqual(before.filter(file => !after.includes(file)).sort(), ['base-scryfall-b-front.jpg', 'scryfall-b-front-b110-c100.jpg', 'scryfall-b-front-b143-c100.jpg']);
-    await processImages(withB, 'cmyk');
+    await processImages(withB);
     assert.deepEqual(fetched.map(url => url.replace(/^.*\//, '')), ['b.png']);
 });

@@ -10,10 +10,6 @@ export function count(amount: number, singular: string, plural = `${singular}s`)
     return `${amount} ${amount === 1 ? singular : plural}`;
 }
 
-export function formatMegabytes(bytes: number) {
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 const currencies = new Map<string, Intl.NumberFormat>();
 
 export function formatPrice(amount: number, currency: string) {

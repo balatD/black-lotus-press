@@ -1,12 +1,11 @@
-import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PackFiles, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, UploadedGame } from "../../src/model.js";
-import type { DroppedToken } from "../../src/pipeline/packs.js";
+import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, UploadedGame } from "../../src/model.js";
 import type { MpcfillCard } from "../../src/clients/mpcfill.js";
 import type { Recognition } from "../../src/mpcfill/recognise.js";
 
 // A job of the main process, or the shop's browser that stays open after an upload.
 export interface Task {
     id: number;
-    kind: 'import' | 'process' | 'pdfs' | 'upload' | 'upscayl' | 'mpcfill' | 'browser';
+    kind: 'import' | 'process' | 'upload' | 'upscayl' | 'mpcfill' | 'browser';
     title: string;
     order?: string;
     deck?: string;
@@ -36,7 +35,7 @@ export interface Api {
     moveOrder(order: Order, shop: Shop): Promise<void>;
     // A copy under a new name, with the processed downloads, so nothing is upscaled again.
     copyOrder(order: Order, shop: Shop, name: string): Promise<void>;
-    // With its images, PDFs and the games of the last upload.
+    // With its images and the games of the last upload.
     renameOrder(order: Order, name: string): Promise<void>;
     // Every card back of MPC Autofill, in its order.
     listCardbacks(): Promise<MpcfillCard[]>;
@@ -54,10 +53,9 @@ export interface Api {
     processImages(order: Order): Promise<void>;
     // Makes these faces anew from the download on, then processes what is missing.
     reprocessImages(order: Order, files: string[]): Promise<void>;
-    buildPdfs(order: Order): Promise<{ packs: PackFiles[], droppedTokens: DroppedToken[] }>;
-    // The browser stays open after the upload so the user can order; it stays a task until closed.
+    // A game per pack, with an image per card side. The browser stays open after the upload while a game is not saved; it stays a task until closed.
     // Goes on after the games of the packs done before. A pack that fails returns the games made until then, with the error.
-    uploadPacks(orderName: string, packs: PackFiles[], done: UploadedGame[], channel: PlaywrightChannel): Promise<{ games: UploadedGame[], error?: string }>;
+    uploadPacks(order: Order, done: UploadedGame[]): Promise<{ games: UploadedGame[], error?: string }>;
     // Uploads the print images and fills a notmpc.eu designer per deck; the browser stays open like after uploadPacks.
     sendToNotmpc(order: Order): Promise<void>;
     // Fills a printerstudio.de designer per deck up to its preview; the browser stays open like after uploadPacks.
@@ -93,7 +91,7 @@ export interface Api {
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'exportOrder', 'importOrder', 'openOrderFolder',
-    'importDeck', 'processImages', 'reprocessImages', 'buildPdfs', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
+    'importDeck', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
     'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 

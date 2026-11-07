@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- meinspiel.de gets a lossless PNG of every card side in its own resolution, at least that of the profile, instead of two PDFs per pack, so the 200 MB limit for the PDFs of a pack is gone and orders at 1200 dpi print as well. Every image goes up once; meinspiel.de copies it to the other cards that show it, such as the card back. *Process images and upload* goes from the cards to the games in one click.
+- While the app uploads to meinspiel.de, its window is covered, with the progress in the middle, so no click on meinspiel.de's page gets in the way. Closing the window asks first, as that stops the upload.
+- The resolution of the profile is the least a card gets. MPC Autofill images are no longer scaled down to it, and MPC Autofill images and card backs below it are upscaled like the scans. Orders processed before download their MPC Autofill images once more; the upscaled scans stay.
+- The print images of meinspiel.de orders are sRGB like those of the other shops; meinspiel.de turns them into its printer's colours itself. Orders processed before keep their CMYK print images until they are made again, which makes no difference to the upload: its images are made from the processed scans.
+
 ## 2.3.0
 
 Orders shared with friends as a file, with or without their processed images, and the actions of an order gathered in one menu.

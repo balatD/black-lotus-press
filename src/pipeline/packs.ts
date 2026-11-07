@@ -1,7 +1,6 @@
 import { type Adjustments, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop } from "../model.js";
 
 export const CARDS_PER_PACK = 55;
-export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 export const PACK_PRICE_EUR = 19.95;
 export const BLANK_FILE = 'blank.jpg';
 
@@ -37,7 +36,7 @@ export type FaceSource =
     | { type: 'blank' };
 
 export interface Face {
-    // The print image: the base image with the adjustments applied, in CMYK.
+    // The print image: the base image with the adjustments applied.
     file: string;
     source: FaceSource;
     // Download, post-processing and upscaling, shared by every adjustment of the same image. Blank cards have none.
@@ -99,7 +98,8 @@ export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adju
     const adjustments = combineAdjustments(order.adjustments, card.adjustments);
     const scryfall = (face: 'front' | 'back') => adjustedFace(`scryfall-${printing!.id}-${face}`, { type: 'scryfall', printing: printing!, face }, adjustments);
     const custom = (image: string) => adjustedFace(`custom-${image.replace(/\.[^.]+$/, '')}`, { type: 'custom', image }, adjustments);
-    const mpcfill = (id: string) => adjustedFace(`mpcfill-${id}`, { type: 'mpcfill', id }, adjustments);
+    // "full" since they keep their own resolution: images of older versions, scaled down to the profile's, are made anew.
+    const mpcfill = (id: string) => adjustedFace(`mpcfill-full-${id}`, { type: 'mpcfill', id }, adjustments);
 
     const front = card.customImage
         ? custom(card.customImage.front)
@@ -177,7 +177,7 @@ export function fillFreeSlots(order: PackOrder): OrderCard[] {
     });
 }
 
-// What the packs print with the images made under these settings, in short. The PDFs themselves differ with every build.
+// What the packs print with the images made under these settings, in short.
 export function packsFingerprint(packs: Slot[][], imagesVersion: string) {
     // FNV-1a
     let hash = 0x811c9dc5;
@@ -192,11 +192,4 @@ export function shopDeck(shop: DeckShop, cards: number) {
 
 export function packPrice(shop: Shop, cards: number) {
     return shop === 'meinspiel' ? PACK_PRICE_EUR : shopDeck(shop, cards)[1];
-}
-
-// Each PDF embeds every distinct image once, so only unique files count.
-export function estimatePackBytes(pack: Slot[], sizes: Record<string, number>) {
-    const fronts = new Set(pack.map(slot => slot.front));
-    const backs = new Set(pack.map(slot => slot.back));
-    return [...fronts, ...backs].reduce((total, file) => total + (sizes[file] ?? 0), 0);
 }

@@ -204,12 +204,6 @@ export const DefaultOrder: Order = {
     adjustments: DEFAULT_ADJUSTMENTS
 };
 
-export interface PackFiles {
-    fronts: string,
-    backs: string,
-    bytes: number
-}
-
 export interface UploadedGame {
     id: number,
     name: string,
@@ -237,6 +231,8 @@ export interface Handover {
     next?: string;
     // Pages to go on with, such as the games made, which open in the usual browser.
     links?: { label: string, url: string }[];
+    // While the app works in the shop's page: it is covered, so no click gets in the way, and closing the window asks first.
+    blocking?: boolean;
 }
 
 export type ProgressEvent =

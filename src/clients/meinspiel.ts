@@ -1,20 +1,19 @@
-import { type APIRequestContext, type BrowserContext, errors, type Page } from "playwright";
+import { type BrowserContext, errors, type Page } from "playwright";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
+import os from "node:os";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
-import type { HandoverStep, OnProgress, PackFiles, PlaywrightChannel, UploadedGame } from "../model.js";
+import type { HandoverStep, OnProgress, Order, UploadedGame } from "../model.js";
+import { buildPacks, type Face, type Slot } from "../pipeline/packs.js";
+import { faceJobs, usedBaseImages, writePrintPng } from "../pipeline/processImages.js";
 import { openShopWindow, type ShopWindow, stepProgress, type WindowBounds } from "./shopWindow.js";
 
 const BASE_URL = 'https://www.meinspiel.de';
-// "Individuelle Spielkarten (PDF) - 55 Karten - 63*88mm"
-const TEMPLATE_ID = 10098;
-const PAGE_ID = 'individuelle_karten';
-const POLL_INTERVAL_MS = 3000;
-export const MANUAL_UPLOAD_URL = `${BASE_URL}/konfigurator/game?tid=${TEMPLATE_ID}&item_id=${PAGE_ID}`;
+// "Individuelle Spielkarten - 55 Karten - 63*88mm" with an image per card side, which keeps its full resolution.
+const TEMPLATE_ID = 17;
 const PROCESSING_TIMEOUT_MS = 15 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 15 * 60 * 1000;
 const COOKIE_BANNER_TIMEOUT_MS = 15 * 1000;
@@ -63,55 +62,101 @@ export async function waitForLogin(session: MeinspielSession): Promise<string> {
     }
 }
 
+// The game as meinspiel.de creates it: ids like "p223341110", fronts under p1000 and backs under p150, in the order of the cards.
+interface CreatedGame {
+    id: number;
+    userId: number;
+    cards: { byIndex: Record<string, string[]>, byId: Record<string, { mainLayerId: string }> };
+}
+
+export type CardRequest =
+    | { type: 'upload', card: number, layer: number, file: string }
+    | { type: 'copyToNext', card: number, count: number }
+    | { type: 'copyFrom', card: number, from: number };
+
+const SIDES = [['p1000', 'front', 'fronts'], ['p150', 'back', 'backs']] as const;
+const idOf = (key: string) => Number(key.slice(1));
+
+// Every image goes up once; meinspiel.de copies it to the other cards that show it, without taking another of the game's 110 image slots.
+export function packRequests(game: CreatedGame, pack: Slot[]): CardRequest[] {
+    const requests: CardRequest[] = [];
+    for (const [key, side, label] of SIDES) {
+        const cards = game.cards.byIndex[key] ?? [];
+        if (cards.length !== pack.length) throw new Error(`meinspiel.de made a game with ${cards.length} ${label} for ${pack.length} cards.`);
+
+        const first = new Map<string, string>();
+        for (let index = 0; index < pack.length;) {
+            const file = pack[index]![side];
+            let run = 1;
+            while (pack[index + run]?.[side] === file) run++;
+
+            const card = cards[index]!;
+            const source = first.get(file);
+            if (source === undefined) {
+                first.set(file, card);
+                requests.push({ type: 'upload', card: idOf(card), layer: idOf(game.cards.byId[card]!.mainLayerId), file });
+            } else {
+                requests.push({ type: 'copyFrom', card: idOf(card), from: idOf(source) });
+            }
+            if (run > 1) requests.push({ type: 'copyToNext', card: idOf(card), count: run - 1 });
+            index += run;
+        }
+    }
+    return requests;
+}
+
 // Uses the configurator's own API through the logged-in browser. Games created while logged in are saved to the account.
-export async function uploadPack(session: MeinspielSession, pack: PackFiles, name: string,
+// The images are made as PNGs one at a time in a folder of their own, as a pack of them at 1200 dpi takes gigabytes.
+export async function uploadPack(session: MeinspielSession, order: Order, faces: Map<string, Face>, pack: Slot[], name: string,
                                  onStatus: (message: string, progress?: HandoverStep['progress']) => void, signal?: AbortSignal) {
     const request = session.page.request;
 
     onStatus(`Creating the game "${name}"`);
-    const gameResponse = await request.post(`${BASE_URL}/api/games`, {
-        data: { templateId: TEMPLATE_ID, name, pageId: PAGE_ID }
-    });
+    const gameResponse = await request.post(`${BASE_URL}/api/games`, { data: { templateId: TEMPLATE_ID, name } });
     if (!gameResponse.ok()) {
         throw new Error(`Creating the game failed (${gameResponse.status()}): ${await gameResponse.text()}`);
     }
-    const gameId: number = (await gameResponse.json()).id;
+    const game: CreatedGame = await gameResponse.json();
+    const requests = packRequests(game, pack);
 
     const megabytes = (bytes: number) => Math.round(bytes / 1e6);
-    let shown = -1;
-    const cookies = await session.context.cookies(BASE_URL);
-    const browser = { cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; '), userAgent: await session.page.evaluate('navigator.userAgent') as string };
-    const uploadResponse = await postMultipart(`${BASE_URL}/api/games/${gameId}/pdf/async`, browser,
-        [['pdf_front_sides', pack.fronts], ['pdf_back_sides', pack.backs]], (sent, total) => {
-            if (megabytes(sent) === shown) return;
-            shown = megabytes(sent);
-            onStatus(`Uploading its two PDFs: ${shown} of ${megabytes(total)} MB`, { done: sent, total });
-        }, signal);
-    if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
-        throw new Error(`Uploading the PDFs failed (${uploadResponse.status}): ${uploadResponse.body}`);
-    }
-    const taskId: number = JSON.parse(uploadResponse.body).id;
+    const total = requests.filter(card => card.type === 'upload').length;
+    const userAgent = await session.page.evaluate('navigator.userAgent') as string;
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'black-lotus-press-'));
+    try {
+        let done = 0;
+        for (const card of requests) {
+            signal?.throwIfAborted();
+            if (card.type !== 'upload') {
+                const copy = card.type === 'copyToNext' ? `copyToNext=${card.count}` : `copyFrom=${card.from}`;
+                const response = await request.post(`${BASE_URL}/api/games/${game.id}/cards/${card.card}?&${copy}`, { data: {} });
+                if (!response.ok()) throw new Error(`Copying an image to card ${card.card} failed (${response.status()}): ${await response.text()}`);
+                continue;
+            }
 
-    const game = await waitForProcessing(request, gameId, taskId, onStatus);
-    return { id: gameId, saved: game.userId !== 0 };
-}
-
-async function waitForProcessing(request: APIRequestContext, gameId: number, taskId: number, onStatus: (message: string) => void) {
-    const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        await delay(POLL_INTERVAL_MS);
-
-        // 409 means still processing, 200 returns the finished game.
-        const status = await request.get(`${BASE_URL}/api/games/${gameId}/pdf/async/${taskId}`);
-        if (status.status() === 200) return await status.json();
-        if (status.status() !== 409) {
-            throw new Error(`meinspiel.de rejected the PDFs (${status.status()}): ${await status.text()}`);
+            onStatus(`Making image ${done + 1} of ${total}`, { done, total });
+            const file = path.join(dir, `${path.parse(card.file).name}.png`);
+            await writePrintPng(order, faces.get(card.file)!, file);
+            let shown = -1;
+            const cookies = await session.context.cookies(BASE_URL);
+            const browser = { cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; '), userAgent };
+            const response = await postMultipart(`${BASE_URL}/api/games/${game.id}/cards/${card.card}/layers/${card.layer}/image`, browser,
+                [['imagefile[]', file]], (sent, size) => {
+                    if (megabytes(sent) === shown) return;
+                    shown = megabytes(sent);
+                    onStatus(`Uploading image ${done + 1} of ${total}: ${shown} of ${megabytes(size)} MB`, { done, total });
+                }, signal);
+            if (response.status < 200 || response.status >= 300) {
+                throw new Error(`Uploading image ${done + 1} failed (${response.status}): ${response.body}`);
+            }
+            await fs.rm(file);
+            done++;
         }
-
-        onStatus(`meinspiel.de processes the PDFs: ${(await status.json()).statusMessage}`);
+    } finally {
+        await fs.rm(dir, { recursive: true, force: true });
     }
 
-    throw new Error(`meinspiel.de did not finish processing the PDFs within ${PROCESSING_TIMEOUT_MS / 60000} minutes.`);
+    return { id: game.id, saved: game.userId !== 0 };
 }
 
 function gameUrl(gameId: number) {
@@ -126,15 +171,15 @@ export async function showGames(session: MeinspielSession, gameIds: number[]) {
     await session.page.close();
 }
 
-// Playwright's requests tell nothing until they are done, so the PDFs go up through Node with the window's cookies,
+// Playwright's requests tell nothing until they are done, so the images go up through Node with the window's cookies,
 // counting the bytes as they leave.
 export async function postMultipart(url: string, browser: { cookie: string, userAgent: string }, files: [field: string, file: string][],
                                     onSent: (bytes: number, total: number) => void, signal?: AbortSignal): Promise<{ status: number, body: string }> {
     const boundary = `BlackLotusPress${randomUUID()}`;
     const parts = await Promise.all(files.map(async ([field, file]) => ({
-        head: Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="${path.basename(file)}"\r\nContent-Type: application/pdf\r\n\r\n`),
+        head: Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="${path.basename(file)}"\r\nContent-Type: image/png\r\n\r\n`),
         file,
-        size: (await stat(file)).size
+        size: (await fs.stat(file)).size
     })));
     const end = Buffer.from('\r\n');
     const tail = Buffer.from(`--${boundary}--\r\n`);
@@ -165,8 +210,13 @@ export async function postMultipart(url: string, browser: { cookie: string, user
         // Waits while the connection is full, or until it is gone.
         const send = (chunk: Buffer) => new Promise<void>(done => {
             if (request.write(chunk)) return done();
-            request.once('drain', done);
-            request.once('close', done);
+            const resume = () => {
+                request.off('drain', resume);
+                request.off('close', resume);
+                done();
+            };
+            request.on('drain', resume);
+            request.on('close', resume);
         }).then(() => onSent(sent += chunk.length, total));
         void (async () => {
             for (const part of parts) {
@@ -202,14 +252,15 @@ export async function finishUpload(window: Pick<ShopWindow, 'update'>, session: 
 type Step = (index: number, state: HandoverStep['state'], detail?: string, progress?: HandoverStep['progress']) => void;
 
 // Goes on after the packs done before. A pack that fails ends it, and the games made until then come back with the error.
-export async function uploadMissingPacks(session: MeinspielSession, orderName: string, packs: PackFiles[], done: UploadedGame[], step: Step,
+export async function uploadMissingPacks(session: MeinspielSession, order: Order, packs: Slot[][], done: UploadedGame[], step: Step,
                                          signal?: AbortSignal): Promise<{ games: UploadedGame[], error?: unknown }> {
     const games = [...done];
+    const faces = faceJobs(order);
     for (const [index, pack] of packs.entries()) {
         if (index < done.length) continue;
-        const name = `${orderName} - Deck ${index + 1}/${packs.length}`;
+        const name = `${order.name} - Deck ${index + 1}/${packs.length}`;
         try {
-            const game = await uploadPack(session, pack, name, (message, progress) => step(index + 1, 'active', message, progress), signal);
+            const game = await uploadPack(session, order, faces, pack, name, (message, progress) => step(index + 1, 'active', message, progress), signal);
             games.push({ ...game, name, url: gameUrl(game.id) });
             step(index + 1, game.saved ? 'done' : 'warning',
                 game.saved ? `Saved in your account as "${name}"` : `"${name}" is not saved in your account; click Speichern in its window`);
@@ -222,15 +273,21 @@ export async function uploadMissingPacks(session: MeinspielSession, orderName: s
 
 // Each step of the upload is a step of the hand-over, which the app and the bar over meinspiel.de's pages show.
 // The games of the packs uploaded before are passed in as done; a failed pack returns the games made until then.
-export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], done: UploadedGame[], channel: PlaywrightChannel, bounds: WindowBounds | undefined,
-                                        onProgress?: OnProgress, signal?: AbortSignal) {
+// Refuses before the browser opens when an image is missing, as no game can be made without it.
+export async function uploadToMeinspiel(order: Order, done: UploadedGame[], bounds: WindowBounds | undefined, onProgress?: OnProgress, signal?: AbortSignal) {
+    const { packs } = buildPacks(order);
+    const ready = new Set(await usedBaseImages(order));
+    const missing = new Set([...faceJobs(order).values()].flatMap(face => face.base && !ready.has(face.base) ? [face.base] : []));
+    if (missing.size > 0) throw new Error(`${missing.size} card image(s) are not processed yet. Process the images first.`);
+
+    const orderName = order.name;
     const steps: HandoverStep[] = [
         { label: 'Log in', state: 'active', detail: 'In this window, or create an account; Black Lotus Press never sees your password.' },
         ...packs.map((_, index): HandoverStep => index < done.length
             ? { label: `Pack ${index + 1} of ${packs.length}`, state: 'done', detail: `Uploaded before as "${done[index]!.name}"` }
             : { label: `Pack ${index + 1} of ${packs.length}`, state: 'pending' })
     ];
-    const window = await openShopWindow(channel, bounds, {
+    const window = await openShopWindow(order.profile.playwrightChannel, bounds, {
         order: orderName, title: `${orderName} to meinspiel.de`, steps,
         highlight: ['form[action$="/login"]'], callout: 'Log in here, or create an account. Black Lotus Press carries on by itself.'
     }, onProgress, signal);
@@ -245,7 +302,9 @@ export async function uploadToMeinspiel(orderName: string, packs: PackFiles[], d
         window.update(handover => ({ ...handover, highlight: [], callout: '' }));
         step(0, 'done', `Logged in as ${user}`);
 
-        const { games, error } = await uploadMissingPacks(session, orderName, packs, done, step, signal);
+        await window.block();
+        const { games, error } = await uploadMissingPacks(session, order, packs, done, step, signal);
+        window.unblock();
         if (error === undefined) return { session: await finishUpload(window, session, games), games };
 
         const reason = window.fail(error);

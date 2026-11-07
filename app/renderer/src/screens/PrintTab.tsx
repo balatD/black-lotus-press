@@ -1,19 +1,17 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import {
-    AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FileText, FolderOpen, Gauge, Image as ImageIcon,
+    AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
     Maximize2, Package, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
-import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, type PackFiles, packsToSkip, type UploadedGame } from "../../../../src/model.js";
+import { DEFAULT_ADJUSTMENTS, type GpuStats, type Handover, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
     cardBackFace,
     cardFaces,
     driveId,
-    estimatePackBytes,
     type Face,
     faceImageUris,
-    MAX_UPLOAD_BYTES,
     mpcfillImage,
     packsFingerprint,
     type Slot
@@ -22,7 +20,7 @@ import { adjustmentFilter, percent } from "../adjust.js";
 import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
 import { useStoredState } from "../useStoredState.js";
 import { api, errorMessage, wasStopped } from "../api.js";
-import { count, describeProcessing, formatMegabytes } from "../format.js";
+import { count, describeProcessing } from "../format.js";
 import { ColorBar, RegistrationMark } from "../components/Decor.js";
 import { useProgress } from "../useProgress.js";
 import { ProgressBar } from "../components/ProgressBar.js";
@@ -31,18 +29,10 @@ import { useGpuStats } from "../useGpuStats.js";
 import { SHOPS } from "../shops.js";
 import { HandoverOverlay } from "../components/HandoverOverlay.js";
 
-export interface BuiltPdfs {
-    // The packs and image settings the PDFs were built from.
-    key: string;
-    packs: PackFiles[];
-}
-
 interface Props {
     order: Order;
     update(change: (order: Order) => Order): void;
     onFlush(): Promise<void>;
-    built: BuiltPdfs | undefined;
-    onBuilt(built: BuiltPdfs): void;
 }
 
 type Status = { version: string, files: Record<string, number> };
@@ -53,7 +43,7 @@ const ZOOM_MIN = 70;
 const ZOOM_MAX = 320;
 const ZOOM_STEP = 30;
 
-export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
+export function PrintTab({ order, update, onFlush }: Props) {
     const [status, setStatus] = useState<Status>({ version: '', files: {} });
     // 0 fits the sheet to the window.
     const [zoom, setZoom] = useStoredState('print-zoom', 0);
@@ -97,9 +87,6 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
     const processed = [...needed].filter(file => status.files[file] !== undefined).length;
     const allProcessed = needed.size > 0 && processed === needed.size;
     const failedFiles = [...needed].filter(file => failed[file] !== undefined);
-    const pdfKey = JSON.stringify([status.version, packs]);
-    const pdfs = built?.key === pdfKey ? built.packs : undefined;
-    const tooBig = pdfs?.some(pack => pack.bytes > MAX_UPLOAD_BYTES) ?? false;
     // The XML has MPC Autofill images by their id and only needs the processed images of the other cards.
     const xmlReady = packs.flat().every(slot => {
         const card = slot.cardId === undefined ? undefined : cards.get(slot.cardId);
@@ -124,25 +111,24 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
         if (!window.confirm(`Process all images of ${order.name} again? Every card is downloaded, post-processed and upscaled anew, which can take a while.`)) return;
         void reprocess([...needed]);
     };
-    // Missing images are processed first, so one click goes from the cards to the PDFs.
-    const buildPdfs = () => run(async () => {
-        if (!allProcessed) await api.processImages(order);
-        const result = await api.buildPdfs(order);
-        // Processing can change the version of the images, so the key is taken afterwards.
-        return { key: JSON.stringify([(await api.imageStatus(order)).version, packs]), packs: result.packs };
-    }, onBuilt);
     const handOver = () => {
         setHandover(undefined);
         setShowHandover(true);
     };
     const fingerprint = packsFingerprint(packs, status.version);
     const skip = packsToSkip(order.uploaded, packs.length, fingerprint);
+    // Missing images are processed first, so one click goes from the cards to the games; asked before, as processing can take long.
     // The games made before a pack failed are kept as well, so the next upload can go on after them.
     const upload = (done: UploadedGame[]) => {
-        if (!pdfs || !window.confirm('Upload the PDFs to meinspiel.de? This confirms that you followed their design and PDF guidelines.')) return;
-        handOver();
-        void run(() => api.uploadPacks(order.name, pdfs, done, order.profile.playwrightChannel), result => {
-            if (result.games.length > 0) update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games: result.games, fingerprint } }));
+        if (!window.confirm('Upload the card images to meinspiel.de? This confirms that you followed their design guidelines.')) return;
+        void run(async () => {
+            if (!allProcessed) await api.processImages(order);
+            // Processing can change the version of the images, so the fingerprint is taken afterwards.
+            const uploaded = packsFingerprint(packs, (await api.imageStatus(order)).version);
+            handOver();
+            return { ...await api.uploadPacks(order, done), fingerprint: uploaded };
+        }, result => {
+            if (result.games.length > 0) update(current => ({ ...current, uploaded: { at: new Date().toISOString(), games: result.games, fingerprint: result.fingerprint } }));
             if (result.error) setError(result.error);
         });
     };
@@ -191,39 +177,25 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                     {job?.kind === 'process' && <ProgressBar progress={progress} label="Processing card images"/>}
                     {gpu && <GpuStatus stats={gpu}/>}
                 </li>
-                {order.shop === 'meinspiel' && <>
-                <li>
-                    <h2><FileText/>Build the PDFs</h2>
-                    <p className="muted">Two PDFs per pack: all fronts and all backs, 55 pages each.</p>
-                    <div className="row">
-                        <button className={pdfs ? '' : 'primary'} disabled={running !== undefined || needed.size === 0} onClick={() => void buildPdfs()}>
-                            <FileText/>{allProcessed ? 'Build PDFs' : 'Process images and build PDFs'}
-                        </button>
-                        <button className="quiet" onClick={() => void api.openOrderFolder(order)}><FolderOpen/>Open order folder</button>
-                    </div>
-                    {job?.kind === 'pdfs' && <ProgressBar progress={progress} label="Writing the PDFs"/>}
-                    {pdfs && (
-                        <ul className="files">
-                            {pdfs.map((files, index) => (
-                                <li key={files.fronts} className={files.bytes > MAX_UPLOAD_BYTES ? 'error' : ''}>
-                                    Pack {index + 1}: {formatMegabytes(files.bytes)}{files.bytes > MAX_UPLOAD_BYTES ? ', over the 200 MB upload limit. Lower the resolution in the profile.' : ''}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </li>
+                {order.shop === 'meinspiel' && (
                 <li>
                     <h2><CloudUpload/>Upload to meinspiel.de</h2>
-                    <p className="muted">A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account, then the browser closes and the app lists the games; you choose the box and order on meinspiel.de yourself.</p>
+                    <p className="muted">
+                        A browser window opens over the app: log in there, and it shows every step. Every pack becomes a game in your account, with an image of
+                        full resolution for every card side; at 1200 dpi that can take a while. Then the browser closes and the app lists the games; you choose the box and order on meinspiel.de yourself.
+                    </p>
                     <div className="row">
                         {skip > 0 ? <>
-                            <button className="primary" disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload(order.uploaded!.games)}><CloudUpload/>Continue with pack {skip + 1}</button>
-                            <button disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload([])}><RotateCw/>Upload all again</button>
+                            <button className="primary" disabled={running !== undefined} onClick={() => upload(order.uploaded!.games)}><CloudUpload/>Continue with pack {skip + 1}</button>
+                            <button disabled={running !== undefined} onClick={() => upload([])}><RotateCw/>Upload all again</button>
                         </> : (
-                            <button className={pdfs && !tooBig && !order.uploaded ? 'primary' : ''} disabled={running !== undefined || !pdfs || tooBig} onClick={() => upload([])}><CloudUpload/>Upload</button>
+                            <button className={order.uploaded ? '' : 'primary'} disabled={running !== undefined || needed.size === 0} onClick={() => upload([])}>
+                                <CloudUpload/>{allProcessed ? 'Upload' : 'Process images and upload'}
+                            </button>
                         )}
                         {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
                         {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
+                        <button className="quiet" onClick={() => void api.openOrderFolder(order)}><FolderOpen/>Open order folder</button>
                     </div>
                     {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
                     {order.uploaded && (
@@ -243,7 +215,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         </>
                     )}
                 </li>
-                </>}
+                )}
                 {order.shop === 'notmpc' && (
                     <li>
                         <h2><CloudUpload/>Send to notmpc.eu</h2>
@@ -319,7 +291,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         <button role="tab" aria-selected={side === 'back'} onClick={() => setSide('back')}><RectangleVertical/>Backs</button>
                     </div>
                     <span className="status grow" style={{ textAlign: 'right' }}>
-                        {describePack(pack)}{allProcessed ? `, about ${formatMegabytes(estimatePackBytes(pack, status.files))}` : ''}. Approximate print preview, click a card to see it large.
+                        {describePack(pack)}. Approximate print preview, click a card to see it large.
                     </span>
                     <div className="zoom">
                         <button className="quiet" aria-pressed={zoom === 0} onClick={() => setZoom(0)}><Maximize2/>Fit</button>
@@ -345,7 +317,7 @@ export function PrintTab({ order, update, onFlush, built, onBuilt }: Props) {
                         <span>{side === 'front' ? 'Fronts' : 'Backs'}</span>
                         <span>69 × 94 mm with 3 mm bleed</span>
                         <span>{order.profile.postProcessing.dpi} dpi</span>
-                        <span>{order.shop === 'meinspiel' ? 'ISO Coated v2 300% (ECI)' : 'sRGB'}</span>
+                        <span>sRGB</span>
                     </p>
                 </div>
                 </div>
@@ -456,8 +428,7 @@ function slotFace(side: 'front' | 'back', card: OrderCard | undefined, order: Or
     return side === 'front' ? BLANK_FACE : cardBackFace(order);
 }
 
-// The base image with a CSS filter even when processed: the CMYK print images, read back without
-// meinspiel's ICC profile, look too dark and hide the brightness.
+// The base image with a CSS filter even when processed, so a change of brightness shows before the images are made anew.
 function slotImage(face: Face, order: Order, status: Status): { src?: string | undefined, filter?: string, done: boolean } {
     // With the size, so an image made anew under the same name is not taken from the browser's cache.
     const preview = (file: string) => `preview://order/${encodeURIComponent(order.name)}/${encodeURIComponent(file)}?v=${status.version}-${status.files[file] ?? 0}`;

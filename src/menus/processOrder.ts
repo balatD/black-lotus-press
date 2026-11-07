@@ -1,24 +1,20 @@
 import { Listr } from "listr2";
 import inquirer from "inquirer";
 import chalk from "chalk";
-import path from "node:path";
-import { readFile } from "node:fs/promises";
 import { saveOrder } from "../config/orderConfigManager.js";
-import { orderDir } from "../config/paths.js";
-import { type OnProgress, type Order, type PackFiles, replaceDeckCards } from "../model.js";
+import { cardsDir } from "../config/paths.js";
+import { type OnProgress, type Order, replaceDeckCards } from "../model.js";
 import { importDeck } from "../pipeline/importDecks.js";
 import { processImages } from "../pipeline/processImages.js";
-import { MAX_UPLOAD_BYTES } from "../pipeline/packs.js";
-import { buildPdfs } from "../output/meinspielPdf.js";
-import { ensureIccProfile } from "../output/iccProfile.js";
-import { MANUAL_UPLOAD_URL, type MeinspielSession, uploadToMeinspiel } from "../clients/meinspiel.js";
+import { buildPacks } from "../pipeline/packs.js";
+import { type MeinspielSession, uploadToMeinspiel } from "../clients/meinspiel.js";
 import { ui } from "../ui/theme.js";
 import { confirmDialog } from "../utils/dialog.js";
 
 export async function processOrder(order: Order) {
     console.clear();
     console.log(ui.title(`Processing Order: ${order.name}`));
-    console.log('Downloading and post-processing your card images before upscaling and creating the print PDFs for meinspiel.de.\n');
+    console.log('Downloading and post-processing your card images, upscaling them and uploading them to meinspiel.de.\n');
 
     try {
         await importMissingDecks(order);
@@ -26,23 +22,18 @@ export async function processOrder(order: Order) {
             throw new Error('Order processing cancelled by user');
         }
 
-        const iccProfile = await ensureIccProfile();
-        await runTask('Processing card images', onProgress => processImages(order, iccProfile, onProgress));
-        const { packs, droppedTokens } = await runTask('Creating meinspiel.de PDFs', async onProgress => buildPdfs(order, await readFile(iccProfile), onProgress));
+        await runTask('Processing card images', onProgress => processImages(order, onProgress));
+        const { packs, droppedTokens } = buildPacks(order);
 
         if (droppedTokens.length > 0) {
             const names = droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name);
             console.log(ui.attention(`Token(s) left out because they would need an extra pack: ${names.join(', ')}`));
         }
 
-        packs.filter(pack => pack.bytes > MAX_UPLOAD_BYTES).forEach(pack => {
-            console.log(ui.attention(`${pack.fronts} and its backs exceed the 200 MB upload limit of meinspiel.de. Lower the DPI in your processing profile.`));
-        });
+        console.log('\n' + ui.success(`Order processing complete. ${packs.length} pack(s) of 55 cards, images at ${cardsDir(order)}`));
 
-        console.log('\n' + ui.success(`Order processing complete. ${packs.length} pack(s) of 55 cards, PDFs at ${path.join(orderDir(order), 'meinspiel')}`));
-
-        if (packs.length > 0 && await confirmDialog(`Upload ${packs.length} pack(s) to meinspiel.de now? This confirms you followed their design and PDF guidelines.`, true)) {
-            await upload(order, packs);
+        if (packs.length > 0 && await confirmDialog(`Upload ${packs.length} pack(s) to meinspiel.de now? This confirms you followed their design guidelines.`, true)) {
+            await upload(order);
         }
     } catch (err) {
         console.error('\n' + ui.error('An error occurred:'), err);
@@ -88,11 +79,11 @@ async function confirmWarnings(order: Order) {
     return true;
 }
 
-async function upload(order: Order, packs: PackFiles[]) {
+async function upload(order: Order) {
     let session: MeinspielSession | undefined;
 
     try {
-        const result = await runTask('Uploading to meinspiel.de', onProgress => uploadToMeinspiel(order.name, packs, [], order.profile.playwrightChannel, undefined, onProgress));
+        const result = await runTask('Uploading to meinspiel.de', onProgress => uploadToMeinspiel(order, [], undefined, onProgress));
         session = result.session;
         if (result.error) throw result.error;
 
@@ -106,7 +97,6 @@ async function upload(order: Order, packs: PackFiles[]) {
         if (session) await inquirer.prompt([{ type: 'input', name: 'done', message: 'Press Enter to close the browser.' }]);
     } catch (err) {
         console.error('\n' + ui.error('Upload failed:'), err);
-        console.log(ui.information(`You can upload the PDFs from ${path.dirname(packs[0]!.fronts)} manually at ${MANUAL_UPLOAD_URL}`));
     } finally {
         await session?.context.close();
     }

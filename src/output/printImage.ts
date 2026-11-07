@@ -25,23 +25,33 @@ export function printSizeInPixels(shop: Shop, dpi: number): PixelSize {
     return shop === 'printerstudio' ? { width: Math.round(2.72 * dpi), height: Math.round(3.7 * dpi) } : pageSizeInPixels(dpi);
 }
 
-export async function toPrintJpeg(input: string | Buffer, outputPath: string, { width, height }: PixelSize, iccProfile: string, adjustments: Adjustments) {
+// Shared by both formats, so the PNG uploaded to meinspiel.de shows the card exactly like the JPEG on disk.
+function printImage(input: string | Buffer, { width, height }: PixelSize, adjustments: Adjustments) {
     const { brightness, contrast } = adjustments;
 
-    // The profile is not attached: it would add ~1.8 MB per image, the PDF carries it once as output intent.
     // Brightness, then contrast around middle grey: the same formula as the CSS filters of the app's preview.
-    await sharp(input)
+    return sharp(input)
         .flatten({ background: '#ffffff' })
         .resize(width, height, { fit: 'cover' })
         .linear(brightness * contrast, 128 * (1 - contrast))
-        .withIccProfile(iccProfile, { attach: false })
-        .jpeg({ quality: 95 })
-        .toFile(outputPath);
+        .withIccProfile('srgb', { attach: false });
 }
 
-export async function createBlankPrintJpeg(outputPath: string, size: PixelSize, iccProfile: string) {
-    const white = await sharp({ create: { ...size, channels: 3, background: '#ffffff' } }).png().toBuffer();
-    await toPrintJpeg(white, outputPath, size, iccProfile, { brightness: 1, contrast: 1 });
+export async function toPrintJpeg(input: string | Buffer, outputPath: string, size: PixelSize, adjustments: Adjustments) {
+    await printImage(input, size, adjustments).jpeg({ quality: 95 }).toFile(outputPath);
+}
+
+// Lossless: a quality option would make sharp reduce the colours to a palette.
+export async function toPrintPng(input: string | Buffer, outputPath: string, size: PixelSize, adjustments: Adjustments) {
+    await printImage(input, size, adjustments).png().toFile(outputPath);
+}
+
+export async function whitePage(size: PixelSize) {
+    return await sharp({ create: { ...size, channels: 3, background: '#ffffff' } }).png().toBuffer();
+}
+
+export async function createBlankPrintJpeg(outputPath: string, size: PixelSize) {
+    await toPrintJpeg(await whitePage(size), outputPath, size, { brightness: 1, contrast: 1 });
 }
 
 // Small sRGB copy for screens. CMYK images are converted with the default CMYK profile, so the colours are approximate.

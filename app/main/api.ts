@@ -13,15 +13,13 @@ import { DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
 import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
-import { MANUAL_UPLOAD_URL, uploadToMeinspiel } from "../../src/clients/meinspiel.js";
+import { uploadToMeinspiel } from "../../src/clients/meinspiel.js";
 import { sendToNotmpc } from "../../src/clients/notmpc.js";
 import { sendToPrinterstudio } from "../../src/clients/printerstudio.js";
 import { showShopWindow } from "../../src/clients/shopWindow.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
-import { buildPdfs } from "../../src/output/meinspielPdf.js";
 import { mpcfillImages, mpcfillXml } from "../../src/output/mpcfillXml.js";
 import { exists } from "../../src/utils/fs.js";
-import { ensureIccProfile } from "../../src/output/iccProfile.js";
 import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
 import { API_METHODS, type Api, type Task } from "../shared/api.js";
@@ -202,30 +200,21 @@ export function registerApi(window: BrowserWindow) {
             (onProgress, signal) => importDeck(deck, channel, onProgress, signal)),
         processImages: order => runJob(
             { kind: 'process', title: `Processing the images of ${order.name}`, order: order.name, stoppable: true },
-            async (onProgress, signal) => processImages(order, await ensureIccProfile(), onProgress, signal)),
+            (onProgress, signal) => processImages(order, onProgress, signal)),
         reprocessImages: (order, files) => runJob(
             { kind: 'process', title: `Processing images of ${order.name} again`, order: order.name, stoppable: true },
             async (onProgress, signal) => {
                 await forgetImages(order, files);
-                await processImages(order, await ensureIccProfile(), onProgress, signal);
+                await processImages(order, onProgress, signal);
             }),
-        buildPdfs: order => runJob(
-            { kind: 'pdfs', title: `Writing the PDFs of ${order.name}`, order: order.name, stoppable: false },
-            async onProgress => buildPdfs(order, await fs.readFile(await ensureIccProfile()), onProgress)),
-        uploadPacks: (orderName, packs, done, channel) => runJob(
-            { kind: 'upload', title: `Uploading ${orderName} to meinspiel.de`, order: orderName, stoppable: true },
+        uploadPacks: (order, done) => runJob(
+            { kind: 'upload', title: `Uploading ${order.name} to meinspiel.de`, order: order.name, stoppable: true },
             async (onProgress, signal) => {
                 await closeUploadBrowser();
-                const byHand = (error: unknown) => `${error instanceof Error ? error.message : String(error)} You can upload the PDFs by hand at ${MANUAL_UPLOAD_URL}`;
-                try {
-                    const { session, games, error } = await uploadToMeinspiel(orderName, packs, done, channel, window.getBounds(), onProgress, signal);
-                    if (session) keepBrowser(session.context, `meinspiel.de with the games of ${orderName}`, orderName);
-                    // Cancelling keeps the games made until then, without an error to show.
-                    return error === undefined || signal.aborted ? { games } : { games, error: byHand(error) };
-                } catch (error) {
-                    if (signal.aborted) throw error;
-                    throw new Error(byHand(error));
-                }
+                const { session, games, error } = await uploadToMeinspiel(order, done, window.getBounds(), onProgress, signal);
+                if (session) keepBrowser(session.context, `meinspiel.de with the games of ${order.name}`, order.name);
+                // Cancelling keeps the games made until then, without an error to show.
+                return error === undefined || signal.aborted ? { games } : { games, error: error instanceof Error ? error.message : String(error) };
             }, result => result.error ?? 'Done.'),
         sendToNotmpc: order => runJob(
             { kind: 'upload', title: `Sending ${order.name} to notmpc.eu`, order: order.name, stoppable: true },
