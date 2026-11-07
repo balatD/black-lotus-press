@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.4.1
+
+Cards printed at home can be moved on the page, for printers that pull the paper in early or late.
 
 - Home printing can move the cards on the page, down or up and right or left in millimetres, for printers that pull the paper in early or late and cut off a row of cards. The preview, *Print…* and *Save PDF* all follow it, and the cards always stay on the paper.
 
