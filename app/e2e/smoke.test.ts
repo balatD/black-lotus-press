@@ -391,6 +391,17 @@ test('home printer orders lay the fronts out on pages, ask for tokens to fill th
     await window.getByText('Page 1 of 5').waitFor();
     assert.equal(await window.locator('.home-slot').count(), 4);
 
+    const down = window.getByLabel('Move the cards down');
+    const slotTop = async () => Number((await window.locator('.home-slot').first().getAttribute('style'))?.match(/top: ?([\d.]+)%/)?.[1]);
+    const moved = await slotTop() + 4 / 297 * 100;
+    await down.fill('4');
+    for (let attempt = 0; attempt < 20 && Math.abs(await slotTop() - moved) > 0.01; attempt++) await window.waitForTimeout(100);
+    assert.ok(Math.abs(await slotTop() - moved) <= 0.01, 'the cards moved down by 4 mm');
+    // 2 × 2 cards leave 60.5 mm above and below them on A4.
+    await down.fill('400');
+    for (let attempt = 0; attempt < 20 && await down.inputValue() !== '60.5'; attempt++) await window.waitForTimeout(100);
+    assert.equal(await down.inputValue(), '60.5');
+
     await window.getByRole('button', { name: /pdf deck/ }).click();
     await window.getByRole('tab', { name: 'Print' }).click();
     await window.getByRole('button', { name: 'Save PDF' }).click();

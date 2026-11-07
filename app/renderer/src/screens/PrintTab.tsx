@@ -373,6 +373,23 @@ export function PrintTab({ order, update, onFlush }: Props) {
 const GAPS = [0, 1, 2, 3, 5];
 const BLEEDS = [0, 0.5, 1, 1.5, 2, 3];
 
+// A text field, so that a minus sign or a comma on its own can be typed; the value changes once it is a number.
+function Millimetres({ id, value, onChange }: { id: string, value: number, onChange(value: number): void }) {
+    const [draft, setDraft] = useState(String(value));
+    // Takes the value when it changed elsewhere or was limited, and keeps what is typed otherwise, such as "4.".
+    useEffect(() => setDraft(draft => Number(draft.replace(',', '.')) === value ? draft : String(value)), [value]);
+    return (
+        <div className="row">
+            <input id={id} inputMode="decimal" value={draft} style={{ width: '7rem' }} onBlur={() => setDraft(String(value))} onChange={e => {
+                setDraft(e.target.value);
+                const number = Number(e.target.value.replace(',', '.'));
+                if (e.target.value.trim() !== '' && Number.isFinite(number)) onChange(number);
+            }}/>
+            <span>mm</span>
+        </div>
+    );
+}
+
 // The settings of the PDF next to a page as it prints, drawn from the same layout as the PDF.
 function HomeSheet({ order, update, pages, cards, status }: {
     order: Order, update(change: (order: Order) => Order): void, pages: Slot[][], cards: Map<string, OrderCard>, status: Status
@@ -440,6 +457,15 @@ function HomeSheet({ order, update, pages, cards, status }: {
                         <option value="cut-lines">Cut lines across the page</option>
                         <option value="none">None</option>
                     </select>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-offset-y">Move the cards down</label>
+                    <Millimetres id="home-offset-y" value={settings.offsetY ?? 0} onChange={offsetY => set({ offsetY })}/>
+                </div>
+                <div className="field">
+                    <label htmlFor="home-offset-x">Move the cards right</label>
+                    <Millimetres id="home-offset-x" value={settings.offsetX ?? 0} onChange={offsetX => set({ offsetX })}/>
+                    <p className="hint">For a printer that pulls the paper in early or late: when the top row comes out cut off, move the cards down by as much as is missing. Negative numbers move them up or left.</p>
                 </div>
             </div>
             <div className="home-preview">

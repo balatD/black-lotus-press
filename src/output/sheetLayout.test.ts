@@ -32,6 +32,13 @@ test('sheetLayout puts crop marks in the margins at both ends of every cut, wher
     assert.ok(layout.guides.every(line => !insideGrid(line.x1, line.y1) && !insideGrid(line.x2, line.y2)));
 });
 
+test('sheetLayout moves the cards and their guides by the offset', () => {
+    const layout = sheetLayout({ ...DEFAULT_HOME_PRINT, offsetX: -2, offsetY: 4 });
+
+    assert.deepEqual(layout.slots[0], { x: 8.5, y: 20.5, width: 63, height: 88 });
+    assert.deepEqual(layout.guides[0], { x1: 8.5, y1: 15.5, x2: 8.5, y2: 19.5 });
+});
+
 test('fittingGrids lists the grids that fit the paper inside its margins, most cards first', () => {
     const a4 = fittingGrids({ paper: 'a4', gap: 0, bleed: 0 });
     assert.deepEqual(a4[0], { landscape: false, columns: 3, rows: 3 });
@@ -45,4 +52,13 @@ test('fittingGrids lists the grids that fit the paper inside its margins, most c
 test('withFittingGrid keeps a grid that fits and takes the one with the most cards otherwise', () => {
     assert.deepEqual(withFittingGrid({ ...DEFAULT_HOME_PRINT, columns: 2, rows: 2 }), { ...DEFAULT_HOME_PRINT, columns: 2, rows: 2 });
     assert.deepEqual(withFittingGrid({ ...DEFAULT_HOME_PRINT, paper: 'letter', bleed: 1 }), { ...DEFAULT_HOME_PRINT, paper: 'letter', bleed: 1, landscape: true, columns: 4, rows: 2 });
+});
+
+test('withFittingGrid keeps the offset small enough for the cards to stay on the paper', () => {
+    const moved = withFittingGrid({ ...DEFAULT_HOME_PRINT, offsetX: -20, offsetY: 6 });
+    assert.deepEqual([moved.offsetX, moved.offsetY], [-10.5, 6]);
+
+    // 3 × 3 on Letter leaves 7.7 mm above and below the cards.
+    const letter = withFittingGrid({ ...DEFAULT_HOME_PRINT, offsetY: 12, paper: 'letter' });
+    assert.equal(Math.round(letter.offsetY! * 100) / 100, 7.7);
 });

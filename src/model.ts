@@ -195,6 +195,9 @@ export interface HomePrint {
     guides: 'none' | 'crop-marks' | 'cut-lines';
     // The PDF repeats all its pages this many times.
     copies: number;
+    // Moves the cards right and down, for printers that pull the paper in early or late; orders saved before have none.
+    offsetX?: number;
+    offsetY?: number;
     cards: 'all' | 'tokens' | { deck: string };
 }
 

@@ -45,12 +45,12 @@ function fits(grid: Grid) {
     return size.width <= page.width - 2 * MARGIN_MM && size.height <= page.height - 2 * MARGIN_MM;
 }
 
-export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides'>): SheetLayout {
+export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides' | 'offsetX' | 'offsetY'>): SheetLayout {
     const { columns, rows, gap, bleed } = settings;
     const page = pageSize(settings);
     const grid = gridSize(settings);
-    const left = (page.width - grid.width) / 2;
-    const top = (page.height - grid.height) / 2;
+    const left = (page.width - grid.width) / 2 + (settings.offsetX ?? 0);
+    const top = (page.height - grid.height) / 2 + (settings.offsetY ?? 0);
     const width = CARD_WIDTH_MM + 2 * bleed;
     const height = CARD_HEIGHT_MM + 2 * bleed;
 
@@ -96,6 +96,12 @@ export function fittingGrids(settings: Pick<HomePrint, 'paper' | 'gap' | 'bleed'
     return grids.sort((a, b) => b.columns * b.rows - a.columns * a.rows);
 }
 
+// Also keeps the offset small enough for the cards to stay on the paper.
 export function withFittingGrid(settings: HomePrint): HomePrint {
-    return fits(settings) ? settings : { ...settings, ...fittingGrids(settings)[0]! };
+    const fitting = fits(settings) ? settings : { ...settings, ...fittingGrids(settings)[0]! };
+    if (fitting.offsetX === undefined && fitting.offsetY === undefined) return fitting;
+    const page = pageSize(fitting);
+    const grid = gridSize(fitting);
+    const within = (offset: number | undefined, room: number) => Math.min(room, Math.max(-room, offset ?? 0));
+    return { ...fitting, offsetX: within(fitting.offsetX, (page.width - grid.width) / 2), offsetY: within(fitting.offsetY, (page.height - grid.height) / 2) };
 }

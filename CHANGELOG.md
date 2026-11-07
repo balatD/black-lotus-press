@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Home printing can move the cards on the page, down or up and right or left in millimetres, for printers that pull the paper in early or late and cut off a row of cards. The preview, *Print…* and *Save PDF* all follow it, and the cards always stay on the paper.
+
 ## 2.4.0
 
 Cards printed at home on A4 or Letter pages, Archidekt decks imported like Moxfield decks, and meinspiel.de orders uploaded as a lossless image per card side instead of PDFs.
