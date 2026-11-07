@@ -9,7 +9,7 @@ import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
 import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js";
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
-import { DefaultProfile, type OnProgress } from "../../src/model.js";
+import { deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
 import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
@@ -196,7 +196,7 @@ export function registerApi(window: BrowserWindow) {
         },
 
         importDeck: (deck, channel) => runJob(
-            { kind: 'import', title: `Loading ${deck.name ?? 'a deck'} from Moxfield`, deck: deck.url, stoppable: true },
+            { kind: 'import', title: `Loading ${deck.name ?? 'a deck'} from ${deckSite(deck.url)}`, deck: deck.url, stoppable: true },
             (onProgress, signal) => importDeck(deck, channel, onProgress, signal)),
         processImages: order => runJob(
             { kind: 'process', title: `Processing the images of ${order.name}`, order: order.name, stoppable: true },

@@ -4,7 +4,7 @@ import {
     type DeckConfig,
     DeckData,
     DefaultOrder,
-    isMoxfieldDeckUrl,
+    isDeckUrl,
     isValidOrderName,
     type Order,
     type ProcessingProfile,
@@ -187,7 +187,7 @@ async function runUpdateOrder(order: Order) {
         {
             type: 'number',
             name: 'deckCount',
-            message: 'How many Moxfield decks?',
+            message: 'How many decks?',
             default: Math.max(1, order.decks.length)
         }
     ]);
@@ -214,9 +214,9 @@ async function runUpdateOrder(order: Order) {
             {
                 type: 'input',
                 name: 'url',
-                message: 'Moxfield deck URL:',
+                message: 'Moxfield or Archidekt deck URL:',
                 default: previousDeckConfig?.url,
-                validate: validateMoxfieldUrl,
+                validate: validateDeckUrl,
             },
             {
                 type: 'checkbox',
@@ -262,6 +262,6 @@ export function validateAnySelected(answers: any[]) {
     return 'Select at least one item.';
 }
 
-function validateMoxfieldUrl(value: string) {
-    return isMoxfieldDeckUrl(value) ? true : 'Please enter a valid Moxfield deck URL.';
+function validateDeckUrl(value: string) {
+    return isDeckUrl(value) ? true : 'Please enter a valid Moxfield or Archidekt deck URL.';
 }

@@ -164,7 +164,7 @@ export function App() {
                     <div className="empty">
                         <RegistrationMark size={72} className="empty-mark"/>
                         <h1>Pick an order on the left</h1>
-                        <p>Or create a new one to turn Moxfield decks into print files for {shop && SHOPS[shop].name}.</p>
+                        <p>Or create a new one to turn Moxfield and Archidekt decks into print files for {shop && SHOPS[shop].name}.</p>
                     </div>
                 )}
             </main>

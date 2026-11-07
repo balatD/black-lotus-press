@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircleStop, Download, Images, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
-import { type DeckConfig, DeckData, isMoxfieldDeckUrl, type Order, type OrderCard, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
+import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
 import type { Task } from "../../../shared/api.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { useProgress } from "../useProgress.js";
@@ -29,6 +29,7 @@ const BOARDS: [DeckData, string][] = [
 ];
 
 const NEW_DECK_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens];
+const ARCHIDEKT_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens, DeckData.Considering];
 
 export function SetupTab({ order, profiles, update }: Props) {
     const onChange = (changed: Order) => update(() => changed);
@@ -95,7 +96,7 @@ export function SetupTab({ order, profiles, update }: Props) {
 
             <section>
                 <h2><Layers/>Decks</h2>
-                <p className="muted">Update brings the deck's changes from Moxfield and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.</p>
+                <p className="muted">Update brings the deck's changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.</p>
                 {order.decks.map((deck, index) => (
                     <DeckRow
                         key={deck.url}
@@ -178,7 +179,9 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
     const [result, setResult] = useState<string>();
     const importing = running?.kind === 'import' && running.deck === deck.url ? running : undefined;
     const progress = useProgress(importing !== undefined);
-    const valid = isMoxfieldDeckUrl(url);
+    const valid = isDeckUrl(url);
+    const site = deckSite(deck.url);
+    const archidekt = isArchidektDeckUrl(deck.url);
 
     async function load(apply: (name: string, cards: OrderCard[]) => void) {
         setError(undefined);
@@ -200,8 +203,8 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
         void load((name, cards) => {
             const { added, removed, changed } = onUpdated(name, cards);
             setResult(added + removed + changed === 0
-                ? 'Already up to date with Moxfield.'
-                : `Updated from Moxfield: ${count(added, 'card')} added, ${count(removed, 'card')} removed, ${count(changed, 'card')} changed. Your edits were kept.`);
+                ? `Already up to date with ${site}.`
+                : `Updated from ${site}: ${count(added, 'card')} added, ${count(removed, 'card')} removed, ${count(changed, 'card')} changed. Your edits were kept.`);
         });
     }
 
@@ -229,13 +232,13 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
                     ? <button className="quiet" onClick={() => void api.stopTask(importing.id)}><CircleStop/>Cancel</button>
                     : <button className="quiet danger" onClick={remove}><Trash/>Remove</button>}
             </div>
-            {importing && <ProgressBar progress={progress} label="Loading the deck from Moxfield in a browser window"/>}
+            {importing && <ProgressBar progress={progress} label={archidekt ? 'Loading the deck from Archidekt' : 'Loading the deck from Moxfield in a browser window'}/>}
             {error && <span className="status error">{error}</span>}
             {result && <span className="status">{result}</span>}
             <input value={url} aria-invalid={!valid} spellCheck={false}
                    onChange={e => setUrl(e.target.value)} onBlur={commitUrl} onKeyDown={e => e.key === 'Enter' && commitUrl()}/>
             <div className="boards">
-                {BOARDS.map(([board, label]) => (
+                {BOARDS.filter(([board]) => !archidekt || ARCHIDEKT_BOARDS.includes(board)).map(([board, label]) => (
                     <label key={board}>
                         <input type="checkbox" checked={deck.data.includes(board)} onChange={() => toggle(board)}/>
                         <span>{label}</span>
@@ -249,7 +252,7 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
 function NewDeck({ existing, onAdd }: { existing: DeckConfig[], onAdd(url: string): void }) {
     const [url, setUrl] = useState('');
     const duplicate = existing.some(deck => deck.url === url);
-    const valid = isMoxfieldDeckUrl(url) && !duplicate;
+    const valid = isDeckUrl(url) && !duplicate;
 
     function add() {
         if (!valid) return;
@@ -259,7 +262,7 @@ function NewDeck({ existing, onAdd }: { existing: DeckConfig[], onAdd(url: strin
 
     return (
         <div className="row">
-            <input className="grow" placeholder="https://moxfield.com/decks/…" value={url} spellCheck={false}
+            <input className="grow" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value={url} spellCheck={false}
                    aria-invalid={url !== '' && !valid} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}/>
             <button disabled={!valid} onClick={add}><Plus/>Add deck</button>
             {duplicate && <span className="status error">This deck is already in the order.</span>}

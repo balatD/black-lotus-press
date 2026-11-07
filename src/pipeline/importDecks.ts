@@ -1,9 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { type ArchidektCard, type ArchidektCategory, type ArchidektDeck, getArchidektDeck } from "../clients/archidekt.js";
 import { getMoxfieldDetails, type MoxfieldBoard, type MoxfieldCardDetails, type MoxfieldDeck } from "../clients/moxfield.js";
 import { findScryfallCards } from "../clients/scryfall.js";
-import { type DeckConfig, DeckData, type OnProgress, type OrderCard, type PlaywrightChannel } from "../model.js";
+import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, type OnProgress, type OrderCard, type PlaywrightChannel } from "../model.js";
 
-export function toOrderCards(deck: DeckConfig, moxfield: MoxfieldDeck): { card: OrderCard, source: MoxfieldCardDetails }[] {
+type CardSource = Pick<MoxfieldCardDetails, 'id' | 'name' | 'set' | 'scryfall_id' | 'isToken'>;
+type DeckEntry = { board: string, quantity: number, source: CardSource, foil: boolean };
+type ImportedCard = { card: OrderCard, source: CardSource };
+
+export function toOrderCards(deck: DeckConfig, moxfield: MoxfieldDeck): ImportedCard[] {
     const boards = ['commanders', 'companions', ...deck.data, 'signatureSpells'];
 
     const entries = boards.flatMap(board => {
@@ -17,24 +22,74 @@ export function toOrderCards(deck: DeckConfig, moxfield: MoxfieldDeck): { card: 
         moxfield.tokens.filter(token => token.isToken).forEach(token => entries.push({ board: 'tokens', quantity: 1, source: token, foil: false }));
     }
 
-    return entries.map(({ board, quantity, source, foil }) => ({
+    return entries.map(entry => toImportedCard(deck, entry));
+}
+
+// Archidekt has categories instead of boards: the first category of a card decides its board.
+export function archidektToOrderCards(deck: DeckConfig, archidekt: ArchidektDeck): ImportedCard[] {
+    const categories = new Map(archidekt.categories.map(category => [category.name, category]));
+    const entries = archidekt.cards.map(card => {
+        const isToken = card.card.oracleCard.types.includes('Token');
+        return {
+            board: archidektBoard(card, categories.get(card.categories[0] ?? ''), isToken),
+            quantity: card.quantity,
+            source: { id: String(card.id), name: card.card.oracleCard.name, set: card.card.edition.editioncode, scryfall_id: card.card.uid, isToken },
+            foil: card.modifier !== 'Normal'
+        };
+    });
+
+    return ['commanders', 'companions', ...deck.data]
+        .flatMap(board => entries.filter(entry => entry.board === board))
+        .map(entry => toImportedCard(deck, entry));
+}
+
+function archidektBoard(card: ArchidektCard, category: ArchidektCategory | undefined, isToken: boolean): string {
+    if (category?.isPremier) return 'commanders';
+    if (card.companion) return 'companions';
+    if (category?.includedInDeck === false) return DeckData.Considering;
+    if (isToken) return DeckData.Tokens;
+    if (category?.name === 'Sideboard') return DeckData.SideBoard;
+    return DeckData.MainBoard;
+}
+
+function toImportedCard(deck: DeckConfig, { board, quantity, source, foil }: DeckEntry): ImportedCard {
+    return {
         card: {
             id: randomUUID(), deck: deck.url, board, name: source.name, quantity, isToken: source.isToken, excluded: false,
             ...(foil ? { foil } : {}),
             imported: { moxfieldId: source.id, quantity }
         },
         source
-    }));
+    };
 }
 
 export async function importDeck(deck: DeckConfig, channel: PlaywrightChannel, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ name: string, cards: OrderCard[] }> {
-    onProgress?.({ type: 'progress', done: 0, total: 0, message: 'Loading the deck from Moxfield' });
-    const moxfield = await getMoxfieldDetails(deck, channel, signal);
-    const entries = toOrderCards(deck, moxfield);
+    onProgress?.({ type: 'progress', done: 0, total: 0, message: `Loading the deck from ${deckSite(deck.url)}` });
+    if (!isArchidektDeckUrl(deck.url)) {
+        const moxfield = await getMoxfieldDetails(deck, channel, signal);
+        const { cards } = await withPrintings(toOrderCards(deck, moxfield), onProgress, signal);
+        return { name: moxfield.name, cards };
+    }
 
+    const archidekt = await getArchidektDeck(deck.url, signal);
+    const entries = archidektToOrderCards(deck, archidekt);
+    const { cards, tokens } = await withPrintings(entries, onProgress, signal);
+    if (!deck.data.includes(DeckData.Tokens)) return { name: archidekt.name, cards };
+
+    // Moxfield lists the tokens a deck makes; for Archidekt they come from Scryfall.
+    const inDeck = new Set(entries.map(({ source }) => source.scryfall_id));
+    const related = tokens.filter(token => !inDeck.has(token.id)).map(token => toImportedCard(deck, {
+        board: DeckData.Tokens, quantity: 1, foil: false,
+        source: { id: token.id, name: token.name, set: '', scryfall_id: token.id, isToken: true }
+    }));
+    const { cards: relatedCards } = await withPrintings(related, onProgress, signal);
+    return { name: archidekt.name, cards: [...cards, ...relatedCards] };
+}
+
+async function withPrintings(entries: ImportedCard[], onProgress?: OnProgress, signal?: AbortSignal) {
     const sources = [...new Map(entries.map(({ source }) => [source.id, source])).values()];
     let done = 0;
-    const printings = await findScryfallCards(sources, source => {
+    const { printings, tokens } = await findScryfallCards(sources, source => {
         // Lookups already under way still finish after a cancel, but must not report into the next job.
         if (!signal?.aborted) onProgress?.({ type: 'progress', done: ++done, total: sources.length, message: `Looking up ${source.name} on Scryfall` });
     });
@@ -44,6 +99,5 @@ export async function importDeck(deck: DeckConfig, channel: PlaywrightChannel, o
         const printing = printings.get(source.id);
         return printing ? { ...card, printing, imported: { ...card.imported!, printingId: printing.id } } : card;
     });
-
-    return { name: moxfield.name, cards };
+    return { cards, tokens };
 }

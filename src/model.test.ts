@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePrinting, chooseMpcfillImage, DeckData, DefaultOrder, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
+import { changePrinting, chooseMpcfillImage, DeckData, deckSite, DefaultOrder, isArchidektDeckUrl, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
 
 function card(id: string, deck: string): OrderCard {
     return { id, deck, board: 'mainboard', name: id, quantity: 1, isToken: false, excluded: false };
@@ -33,6 +33,19 @@ test('isMoxfieldDeckUrl accepts deck links with and without protocol', () => {
     assert.ok(isMoxfieldDeckUrl('moxfield.com/decks/L8IJ1yboeU6dqoNqE-78Tw'));
     assert.ok(!isMoxfieldDeckUrl('https://archidekt.com/decks/123'));
     assert.ok(!isMoxfieldDeckUrl('not a url'));
+});
+
+test('isArchidektDeckUrl accepts deck links with and without protocol or www', () => {
+    assert.ok(isArchidektDeckUrl('https://archidekt.com/decks/17558445/sauron_nazgul_discard'));
+    assert.ok(isArchidektDeckUrl('archidekt.com/decks/17558445'));
+    assert.ok(isArchidektDeckUrl('https://www.archidekt.com/decks/17558445/sauron'));
+    assert.ok(!isArchidektDeckUrl('https://archidekt.com/decks/sauron'));
+    assert.ok(!isArchidektDeckUrl('https://moxfield.com/decks/17558445'));
+});
+
+test('deckSite names the site a deck is imported from', () => {
+    assert.equal(deckSite('https://moxfield.com/decks/L8IJ1yboeU6dqoNqE-78Tw'), 'Moxfield');
+    assert.equal(deckSite('https://archidekt.com/decks/17558445'), 'Archidekt');
 });
 
 test('isValidOrderName rejects names that are unsafe as file names', () => {

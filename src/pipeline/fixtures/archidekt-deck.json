@@ -1,0 +1,213 @@
+{
+  "id": 17558445,
+  "name": "Sauron Nazgûl Discard",
+  "categories": [
+    {
+      "name": "Ramp",
+      "isPremier": false,
+      "includedInDeck": true
+    },
+    {
+      "name": "Land",
+      "isPremier": false,
+      "includedInDeck": true
+    },
+    {
+      "name": "Sideboard",
+      "isPremier": false,
+      "includedInDeck": true
+    },
+    {
+      "name": "Maybeboard",
+      "isPremier": false,
+      "includedInDeck": false
+    },
+    {
+      "name": "Commander",
+      "isPremier": true,
+      "includedInDeck": true
+    },
+    {
+      "name": "Bracket 3",
+      "isPremier": false,
+      "includedInDeck": false
+    },
+    {
+      "name": "Companion More",
+      "isPremier": false,
+      "includedInDeck": true
+    }
+  ],
+  "cards": [
+    {
+      "id": 2614369071,
+      "categories": [
+        "Commander"
+      ],
+      "companion": false,
+      "modifier": "Foil",
+      "quantity": 1,
+      "card": {
+        "uid": "034e0929-b2c7-4b5f-94f2-8eaf4fb1a2a1",
+        "edition": {
+          "editioncode": "ltr"
+        },
+        "oracleCard": {
+          "name": "Sauron, the Dark Lord",
+          "types": [
+            "Creature"
+          ]
+        }
+      }
+    },
+    {
+      "id": 2614369001,
+      "categories": [
+        "Ramp"
+      ],
+      "companion": false,
+      "modifier": "Normal",
+      "quantity": 1,
+      "card": {
+        "uid": "bb9d1f0a-b206-4f35-bc0f-6c055c8231f4",
+        "edition": {
+          "editioncode": "cmd"
+        },
+        "oracleCard": {
+          "name": "Dimir Signet",
+          "types": [
+            "Artifact"
+          ]
+        }
+      }
+    },
+    {
+      "id": 2614369052,
+      "categories": [
+        "Land"
+      ],
+      "companion": false,
+      "modifier": "Normal",
+      "quantity": 5,
+      "card": {
+        "uid": "d0a801ba-ebf7-4b9e-98c2-db50448845b7",
+        "edition": {
+          "editioncode": "woe"
+        },
+        "oracleCard": {
+          "name": "Swamp",
+          "types": [
+            "Land"
+          ]
+        }
+      }
+    },
+    {
+      "id": 3600460069,
+      "categories": [
+        "Land"
+      ],
+      "companion": false,
+      "modifier": "Foil",
+      "quantity": 1,
+      "card": {
+        "uid": "eb5038af-06b0-401e-8dea-a1a8483788ae",
+        "edition": {
+          "editioncode": "ltr"
+        },
+        "oracleCard": {
+          "name": "Barad-dûr",
+          "types": [
+            "Land"
+          ]
+        }
+      }
+    },
+    {
+      "id": 1250785144,
+      "categories": [
+        "Commander"
+      ],
+      "companion": false,
+      "modifier": "Etched",
+      "quantity": 1,
+      "card": {
+        "uid": "b330c216-4c1f-4318-8add-20b766afd94c",
+        "edition": {
+          "editioncode": "clb"
+        },
+        "oracleCard": {
+          "name": "Baba Lysaga, Night Witch",
+          "types": [
+            "Creature"
+          ]
+        }
+      }
+    },
+    {
+      "id": 1250785119,
+      "categories": [
+        "Maybeboard",
+        "Land"
+      ],
+      "companion": false,
+      "modifier": "Normal",
+      "quantity": 1,
+      "card": {
+        "uid": "d313d051-7295-4884-8cbf-f2f835fd45f4",
+        "edition": {
+          "editioncode": "m21"
+        },
+        "oracleCard": {
+          "name": "Fabled Passage",
+          "types": [
+            "Land"
+          ]
+        }
+      }
+    },
+    {
+      "id": 3187404000,
+      "categories": [
+        "Bracket 3"
+      ],
+      "companion": false,
+      "modifier": "Normal",
+      "quantity": 1,
+      "card": {
+        "uid": "7adbe69f-326d-4b4f-850f-c57a1860d17c",
+        "edition": {
+          "editioncode": "afr"
+        },
+        "oracleCard": {
+          "name": "Vorpal Sword",
+          "types": [
+            "Artifact"
+          ]
+        }
+      }
+    },
+    {
+      "id": 1518141014,
+      "categories": [
+        "Companion More"
+      ],
+      "companion": false,
+      "modifier": "Normal",
+      "quantity": 1,
+      "card": {
+        "uid": "0d0475e9-68ae-4553-a5ef-650091e04967",
+        "edition": {
+          "editioncode": "tclb"
+        },
+        "oracleCard": {
+          "name": "Boo",
+          "types": [
+            "Creature",
+            "Token"
+          ]
+        }
+      }
+    }
+  ]
+}

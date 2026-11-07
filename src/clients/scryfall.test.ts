@@ -110,7 +110,7 @@ test('findScryfallCards looks up 75 cards a request, and a card Scryfall does no
     const cards: MoxfieldCardDetails[] = ids.map((scryfall_id, i) => ({ id: `m${i}`, name: `Card ${i}`, set: 'tst', cn: '1', scryfall_id, isToken: false, type_line: 'Artifact', card_faces: [] }));
     const lookedUp: string[] = [];
 
-    const found = await findScryfallCards(cards, card => lookedUp.push(card.id));
+    const { printings: found } = await findScryfallCards(cards, card => lookedUp.push(card.id));
 
     assert.deepEqual(calls.filter(call => call.ids).map(call => [call.url, call.ids!.length]), [
         ['https://api.scryfall.com/cards/collection', 75], ['https://api.scryfall.com/cards/collection', 5]
@@ -123,4 +123,17 @@ test('findScryfallCards looks up 75 cards a request, and a card Scryfall does no
     assert.equal(found.get('m79')?.id, 'named-Card 79');
     assert.equal(found.get('m80')?.id, 'named-Card 80');
     assert.equal(lookedUp.length, 81);
+});
+
+test('findScryfallCards collects the tokens Scryfall relates to the cards once each, also for cards looked up by name', async () => {
+    const KNOWN = '00000000-0000-4000-8000-000000000001';
+    const part = (id: string, component: string) => ({ object: 'related_card', id, component, name: `Part ${id}`, type_line: 'Token Creature — Soldier' });
+    mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => Response.json(init?.body
+        ? { data: [{ ...printing(KNOWN), all_parts: [part('t1', 'token'), part('emblem', 'combo_piece')] }] }
+        : { ...printing('named'), all_parts: [part('t1', 'token'), part('t2', 'token')] }));
+    const card = (id: string, scryfall_id: string): MoxfieldCardDetails => ({ id, name: `Card ${id}`, set: 'tst', cn: '1', scryfall_id, isToken: false, type_line: 'Artifact', card_faces: [] });
+
+    const { tokens } = await findScryfallCards([card('a', KNOWN), card('b', '')]);
+
+    assert.deepEqual(tokens.map(token => token.id), ['t1', 't2']);
 });

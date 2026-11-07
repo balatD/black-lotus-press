@@ -1,6 +1,6 @@
 # Black Lotus Press
 
-**Your Moxfield deck, printed.** Black Lotus Press is a free desktop app that turns [Moxfield](https://moxfield.com) decks into print-ready card images for the custom playing cards of [meinspiel.de](https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/) and uploads them to your account, or sends them to the designers of [notmpc.eu](https://notmpc.eu/de/) and [printerstudio.de](https://www.printerstudio.de/machen/blanko-spielkarten-63x88mm-personalisieren.html). It takes the exact printings from [Scryfall](https://scryfall.com) or high-resolution images from [MPC Autofill](https://mpcfill.com), cleans them up, upscales them with [Upscayl](https://github.com/upscayl/upscayl-ncnn) and makes them in the colours and size each shop asks for.
+**Your Moxfield deck, printed.** Black Lotus Press is a free desktop app that turns [Moxfield](https://moxfield.com) and [Archidekt](https://archidekt.com) decks into print-ready card images for the custom playing cards of [meinspiel.de](https://www.meinspiel.de/selbstgestaltete-spielkarten-mit-fotos-gestalten-drucken/) and uploads them to your account, or sends them to the designers of [notmpc.eu](https://notmpc.eu/de/) and [printerstudio.de](https://www.printerstudio.de/machen/blanko-spielkarten-63x88mm-personalisieren.html). It takes the exact printings from [Scryfall](https://scryfall.com) or high-resolution images from [MPC Autofill](https://mpcfill.com), cleans them up, upscales them with [Upscayl](https://github.com/upscayl/upscayl-ncnn) and makes them in the colours and size each shop asks for.
 
 ![A tour of the app: the splash screen, the choice of print shop, the cards of an order, the card editor comparing an MPC Autofill image with the Scryfall scan, and the press sheet of the deck](site/img/showcase.webp)
 
@@ -14,7 +14,7 @@
 
 ## What it does
 
-- Imports Moxfield decks with the boards you choose, and offers non-foil printings for the deck's foils.
+- Imports Moxfield and Archidekt decks with the boards you choose, and offers non-foil printings for the deck's foils.
 - Lets you check and edit every card: quantities, the print order, brightness and contrast, and in one card editor its image. Printings with prices, MPC Autofill images and own images show large, next to the Scryfall scan and zoomable to the pixel.
 - Shows every pack or deck as a press sheet, fronts and backs.
 - Cleans up the scans, adds 3 mm bleed, handles the copyright line, upscales up to 1200 dpi and makes the print images in sRGB, in the size each shop asks for.
@@ -59,10 +59,10 @@ The builds are not signed with a paid certificate, so macOS and Windows warn bef
 
 ## Credits
 
-Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com), card backs and high-resolution card images from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
+Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com) and [Archidekt](https://archidekt.com), card backs and high-resolution card images from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
 
 ## License
 
 [MIT](LICENSE). The website's typeface, Barlow Semi Condensed, is under the [SIL Open Font License](site/fonts/OFL.txt).
 
-Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Scryfall or MPC Autofill.
+Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall or MPC Autofill.

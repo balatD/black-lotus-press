@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Replace } from "lucide-react";
-import type { Order, OrderCard } from "../../../../src/model.js";
+import { deckSite, type Order, type OrderCard } from "../../../../src/model.js";
 import { faceImageUris } from "../../../../src/pipeline/packs.js";
 import { printingPrice } from "../../../../src/printings.js";
 import { describePrinting, formatPrice } from "../format.js";
@@ -37,7 +37,7 @@ export function PrintingReview({ order, deckUrl, update, onClose }: Props) {
             <header className="dialog-header">
                 <div>
                     <h2>Foils in {deck?.name ?? 'the deck'}</h2>
-                    <span className="meta">Moxfield has {cards.length === 1 ? 'this card' : `these ${cards.length} cards`} as foil. Keep the foil printings, or pick a non-foil printing for any of them.</span>
+                    <span className="meta">{deckSite(deckUrl)} has {cards.length === 1 ? 'this card' : `these ${cards.length} cards`} as foil. Keep the foil printings, or pick a non-foil printing for any of them.</span>
                 </div>
                 <button className="primary" onClick={() => dialog.current?.close()}><Check/>{cards.some(changed) ? 'Done' : 'Keep the foils'}</button>
             </header>

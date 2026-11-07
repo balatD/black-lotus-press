@@ -61,12 +61,31 @@ const COLLECTION_SIZE = 75;
 // Scryfall refuses the whole collection when one id is no valid UUID.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// The printings of the cards, by their Moxfield id. A card Scryfall no longer has under its id is looked up by its name and set.
-export async function findScryfallCards(cards: MoxfieldCardDetails[], onLookedUp?: (card: MoxfieldCardDetails) => void): Promise<Map<string, ScryfallCard>> {
+// One of Scryfall's all_parts; tokens have the component 'token', emblems and dungeons are 'combo_piece'.
+export type ScryfallRelatedCard = {
+    id: string,
+    component: string,
+    name: string,
+    type_line: string
+};
+
+type CardToLookUp = Pick<MoxfieldCardDetails, 'id' | 'name' | 'set' | 'scryfall_id'>;
+
+// The printings of the cards by their id, and the tokens Scryfall relates to them. A card Scryfall no longer has under its id is looked up by its name and set.
+export async function findScryfallCards(cards: CardToLookUp[], onLookedUp?: (card: CardToLookUp) => void): Promise<{ printings: Map<string, ScryfallCard>, tokens: ScryfallRelatedCard[] }> {
     const found = new Map<string, ScryfallCard>();
-    const lookUpByName = async (card: MoxfieldCardDetails) => {
-        const printing = await findByName(card);
-        if (printing) found.set(card.id, printing);
+    const tokens = new Map<string, ScryfallRelatedCard>();
+    const collectTokens = (json: Record<string, unknown>) => {
+        for (const part of (json.all_parts ?? []) as ScryfallRelatedCard[]) {
+            if (part.component === 'token') tokens.set(part.id, part);
+        }
+    };
+    const lookUpByName = async (card: CardToLookUp) => {
+        const json = await findByName(card);
+        if (json) {
+            collectTokens(json);
+            found.set(card.id, toPrinting(json));
+        }
         onLookedUp?.(card);
     };
 
@@ -83,7 +102,9 @@ export async function findScryfallCards(cards: MoxfieldCardDetails[], onLookedUp
             throw new Error(`Scryfall lookup of ${batch.length} cards failed (${response.status}): ${await response.text()}`);
         }
 
-        const printings = new Map((await response.json() as { data: Record<string, unknown>[] }).data.map(json => [json.id as string, toPrinting(json)]));
+        const data = (await response.json() as { data: Record<string, unknown>[] }).data;
+        data.forEach(collectTokens);
+        const printings = new Map(data.map(json => [json.id as string, toPrinting(json)]));
         for (const card of batch) {
             const printing = printings.get(card.scryfall_id);
             if (printing) {
@@ -94,16 +115,16 @@ export async function findScryfallCards(cards: MoxfieldCardDetails[], onLookedUp
             }
         }
     }
-    return found;
+    return { printings: found, tokens: [...tokens.values()] };
 }
 
-async function findByName(card: MoxfieldCardDetails): Promise<ScryfallCard | undefined> {
+async function findByName(card: CardToLookUp): Promise<Record<string, unknown> | undefined> {
     const response = await scryfallFetch(scryfallSearchBottleneck, `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}&set=${card.set}`, { headers: jsonHeaders });
     if (response.status === 404) return undefined;
     if (response.status !== 200) {
         throw new Error(`Scryfall lookup of ${card.name} failed (${response.status}): ${await response.text()}`);
     }
-    return toPrinting(await response.json() as Record<string, unknown>);
+    return await response.json() as Record<string, unknown>;
 }
 
 // All printings of the card, newest first. Tokens and other extras are included.

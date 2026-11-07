@@ -173,6 +173,7 @@ export interface OrderCard {
 }
 
 export interface ImportedState {
+    // Also the id of cards from Archidekt; orders store it under this name.
     moxfieldId: string;
     quantity: number;
     printingId?: string;
@@ -257,6 +258,23 @@ export function isMoxfieldDeckUrl(value: string) {
     } catch {
         return false;
     }
+}
+
+export function isArchidektDeckUrl(value: string) {
+    try {
+        const url = new URL(value.startsWith('http') ? value : `https://${value}`);
+        return ['archidekt.com', 'www.archidekt.com'].includes(url.host) && /^\/decks\/\d+/.test(url.pathname);
+    } catch {
+        return false;
+    }
+}
+
+export function isDeckUrl(value: string) {
+    return isMoxfieldDeckUrl(value) || isArchidektDeckUrl(value);
+}
+
+export function deckSite(url: string) {
+    return isArchidektDeckUrl(url) ? 'Archidekt' : 'Moxfield';
 }
 
 // Order names become file and folder names.
