@@ -180,8 +180,8 @@ test('cardFaces names the source of every face', () => {
 
 test('cardFaces names print images after the combined adjustments and keeps the card back on the order adjustments', () => {
     const adjusted = card('dfc', 1, { printing: printing('dfc', true), adjustments: { brightness: 1.05, contrast: 1.2 } });
-    const faces = cardFaces(adjusted, { cardBack: 'drive1', adjustments: { brightness: 1.1, contrast: 1 } })!;
-    const plain = cardFaces(card('island', 1), { cardBack: 'drive1', adjustments: { brightness: 1.1, contrast: 1 } })!;
+    const faces = cardFaces(adjusted, { cardBack: 'drive1', adjustments: { brightness: 1.1, contrast: 1 }, shop: 'meinspiel' })!;
+    const plain = cardFaces(card('island', 1), { cardBack: 'drive1', adjustments: { brightness: 1.1, contrast: 1 }, shop: 'meinspiel' })!;
 
     assert.equal(faces.front.file, 'scryfall-dfc-front-b116-c120.jpg');
     assert.equal(faces.front.base, 'base-scryfall-dfc-front.jpg');
@@ -193,7 +193,7 @@ function homeOrder(cards: OrderCard[], homePrint: Partial<HomePrint> = {}) {
     return { ...order(cards, 'home'), homePrint: { ...DEFAULT_HOME_PRINT, ...homePrint } };
 }
 
-const front = (id: string, face: 'front' | 'back' = 'front') => `scryfall-${id}-${face}-b100-c100.jpg`;
+const front = (id: string, face: 'front' | 'back' = 'front') => `scryfall-${id}-${face}-b100-c100-finest.jpg`;
 
 test('buildPacks prints every card at home on pages of the grid, tokens included, and pads the last page with blanks', () => {
     const { packs, droppedTokens } = buildPacks(homeOrder([...tokens(2), card('island', 10)]));

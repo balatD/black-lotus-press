@@ -77,10 +77,12 @@ export function driveId(face: Face): string | undefined {
     return face.source.type === 'mpcfill' ? face.source.id : face.source.type === 'cardback' ? face.source.driveId : undefined;
 }
 
-function adjustedFace(stem: string, source: FaceSource, adjustments: Adjustments): Face {
+function adjustedFace(stem: string, source: FaceSource, adjustments: Adjustments, shop: Shop): Face {
     const percent = (value: number) => Math.round(value * 100);
+    // At home the print images are the finest JPEGs in their own resolution, under names apart from those of older versions.
+    const finest = shop === 'home' ? '-finest' : '';
     return {
-        file: `${stem}-b${percent(adjustments.brightness)}-c${percent(adjustments.contrast)}.jpg`,
+        file: `${stem}-b${percent(adjustments.brightness)}-c${percent(adjustments.contrast)}${finest}.jpg`,
         base: `base-${stem}.jpg`,
         source,
         adjustments
@@ -88,18 +90,18 @@ function adjustedFace(stem: string, source: FaceSource, adjustments: Adjustments
 }
 
 // The shared card back always uses the order's adjustments, so all backs look the same.
-export function cardBackFace(order: Pick<Order, 'cardBack' | 'adjustments'>): Face {
-    return adjustedFace(`cardback-${order.cardBack}`, { type: 'cardback', driveId: order.cardBack }, combineAdjustments(order.adjustments, undefined));
+export function cardBackFace(order: Pick<Order, 'cardBack' | 'adjustments' | 'shop'>): Face {
+    return adjustedFace(`cardback-${order.cardBack}`, { type: 'cardback', driveId: order.cardBack }, combineAdjustments(order.adjustments, undefined), order.shop);
 }
 
 // Undefined when the card has neither a printing nor an own image, i.e. it cannot be printed.
-export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adjustments'>): { front: Face, back: Face } | undefined {
+export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adjustments' | 'shop'>): { front: Face, back: Face } | undefined {
     const printing = card.printing;
     const adjustments = combineAdjustments(order.adjustments, card.adjustments);
-    const scryfall = (face: 'front' | 'back') => adjustedFace(`scryfall-${printing!.id}-${face}`, { type: 'scryfall', printing: printing!, face }, adjustments);
-    const custom = (image: string) => adjustedFace(`custom-${image.replace(/\.[^.]+$/, '')}`, { type: 'custom', image }, adjustments);
+    const scryfall = (face: 'front' | 'back') => adjustedFace(`scryfall-${printing!.id}-${face}`, { type: 'scryfall', printing: printing!, face }, adjustments, order.shop);
+    const custom = (image: string) => adjustedFace(`custom-${image.replace(/\.[^.]+$/, '')}`, { type: 'custom', image }, adjustments, order.shop);
     // "full" since they keep their own resolution: images of older versions, scaled down to the profile's, are made anew.
-    const mpcfill = (id: string) => adjustedFace(`mpcfill-full-${id}`, { type: 'mpcfill', id }, adjustments);
+    const mpcfill = (id: string) => adjustedFace(`mpcfill-full-${id}`, { type: 'mpcfill', id }, adjustments, order.shop);
 
     const front = card.customImage
         ? custom(card.customImage.front)

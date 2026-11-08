@@ -118,6 +118,16 @@ test('processImages upscales MPC Autofill images and card backs below the resolu
     assert.deepEqual(failed.sort(), ['cardback-drive1-b110-c100.jpg', 'mpcfill-full-drive-a-b110-c100.jpg']);
 });
 
+test('processImages makes the print images of a home order in their own resolution as the finest JPEGs, under names of their own', async () => {
+    const target = { ...order([card('m', 1, { mpcfill: { front: 'drive-m' } })]), shop: 'home' as const };
+
+    await processImages(target);
+
+    // The MPC Autofill image has about 300 dpi, twice the profile's 150 dpi, and keeps them.
+    const image = await sharp(path.join(cardsDir(target), 'mpcfill-full-drive-m-b110-c100-finest.jpg')).metadata();
+    assert.deepEqual([image.width, image.height, image.chromaSubsampling], [815, 1110, '4:4:4']);
+});
+
 test('processImages gives MPC Autofill images without bleed a mirrored one', async () => {
     mock.method(globalThis, 'fetch', async () => new Response(new Uint8Array(await sharp({ create: { width: 750, height: 1048, channels: 3, background: '#3366aa' } }).jpeg().toBuffer()), { status: 200, headers: { 'content-type': 'image/jpeg' } }));
     const target = order([card('a', 1, { mpcfill: { front: 'drive-a' } })], 300);

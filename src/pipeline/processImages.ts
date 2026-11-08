@@ -11,7 +11,7 @@ import { downloadDriveImage } from "../clients/googleDrive.js";
 import { postProcessImage } from "./postProcessing.js";
 import { upscaleImage } from "./upscayl.js";
 import { prepareCustomImage } from "./customImage.js";
-import { createBlankPrintJpeg, PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PREVIEW_DIR, printSizeInPixels, toPrintJpeg, toPrintPng, whitePage } from "../output/printImage.js";
+import { createBlankPrintJpeg, PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PREVIEW_DIR, printSizeInPixels, toFinestJpeg, toPrintJpeg, toPrintPng, whitePage } from "../output/printImage.js";
 import { exists, renameWithRetry } from "../utils/fs.js";
 
 // Bump whenever a code change alters the processed images, so existing caches get rebuilt.
@@ -85,7 +85,9 @@ export async function processImages(order: Order, onProgress?: OnProgress, signa
             const tmpFile = path.join(tmpDir, face.file);
             if (face.base && face.adjustments) {
                 await ensureBase(face, face.base);
-                await toPrintJpeg(path.join(dir, face.base), tmpFile, size, face.adjustments);
+                const base = path.join(dir, face.base);
+                if (order.shop === 'home') await toFinestJpeg(base, tmpFile, await ownPrintSize(order, base), face.adjustments);
+                else await toPrintJpeg(base, tmpFile, size, face.adjustments);
             } else {
                 await createBlankPrintJpeg(tmpFile, size);
             }
@@ -114,20 +116,23 @@ export async function processImages(order: Order, onProgress?: OnProgress, signa
     await removeUnusedPrintImages(dir, new Set(jobs.map(face => face.file)));
 }
 
-// The print image of a face as a lossless PNG for meinspiel.de, made from the base image like the JPEG on disk.
 // The profile's resolution is the least: a base image with more, like most MPC Autofill images, keeps its own.
+async function ownPrintSize(order: Order, base: string) {
+    const { width, height } = await sharp(base).metadata();
+    const own = Math.min(width / PAGE_WIDTH_MM, height / PAGE_HEIGHT_MM) * 25.4;
+    return printSizeInPixels(order.shop, Math.max(order.profile.postProcessing.dpi, own));
+}
+
+// The print image of a face as a lossless PNG for meinspiel.de, made from the base image like the JPEG on disk.
 export async function writePrintPng(order: Order, face: Face, outputPath: string) {
-    const minimum = order.profile.postProcessing.dpi;
     if (!face.base || !face.adjustments) {
-        const size = printSizeInPixels(order.shop, minimum);
+        const size = printSizeInPixels(order.shop, order.profile.postProcessing.dpi);
         await toPrintPng(await whitePage(size), outputPath, size, { brightness: 1, contrast: 1 });
         return;
     }
 
     const base = path.join(cardsDir(order), face.base);
-    const { width, height } = await sharp(base).metadata();
-    const own = Math.min(width / PAGE_WIDTH_MM, height / PAGE_HEIGHT_MM) * 25.4;
-    await toPrintPng(base, outputPath, printSizeInPixels(order.shop, Math.max(minimum, own)), face.adjustments);
+    await toPrintPng(base, outputPath, await ownPrintSize(order, base), face.adjustments);
 }
 
 // Deletes the base images of these faces and every print image made from them, so the next run makes them anew.

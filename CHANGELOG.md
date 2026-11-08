@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The crop marks and cut lines of home printing are magenta instead of grey and twice as wide, so they show on black-bordered and dark cards too.
+- Home printing uses the finest images: every card in its own resolution, at least that of the profile, so MPC Autofill images keep their up to 1200 dpi, as JPEGs of the highest quality with the colours at full resolution. PDFs get several times larger, a Commander deck about half a gigabyte. Orders printed at home before make their images once more with *Process images*.
 
 ## 2.4.1
 

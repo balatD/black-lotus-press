@@ -41,6 +41,11 @@ export async function toPrintJpeg(input: string | Buffer, outputPath: string, si
     await printImage(input, size, adjustments).jpeg({ quality: 95 }).toFile(outputPath);
 }
 
+// For printing at home, where the size does not matter: practically lossless, with the colours at full resolution.
+export async function toFinestJpeg(input: string | Buffer, outputPath: string, size: PixelSize, adjustments: Adjustments) {
+    await printImage(input, size, adjustments).jpeg({ quality: 100, chromaSubsampling: '4:4:4' }).toFile(outputPath);
+}
+
 // Lossless: a quality option would make sharp reduce the colours to a palette.
 export async function toPrintPng(input: string | Buffer, outputPath: string, size: PixelSize, adjustments: Adjustments) {
     await printImage(input, size, adjustments).png().toFile(outputPath);
