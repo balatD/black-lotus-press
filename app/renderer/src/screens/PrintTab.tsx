@@ -18,7 +18,7 @@ import {
     packsFingerprint,
     type Slot
 } from "../../../../src/pipeline/packs.js";
-import { fittingGrids, IMAGE_BLEED_MM, PAPERS, sheetLayout, withFittingGrid } from "../../../../src/output/sheetLayout.js";
+import { fittingGrids, GUIDE_COLOR, IMAGE_BLEED_MM, PAPERS, sheetLayout, withFittingGrid } from "../../../../src/output/sheetLayout.js";
 import { adjustmentFilter, percent } from "../adjust.js";
 import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
 import { useStoredState } from "../useStoredState.js";
@@ -516,7 +516,7 @@ function HomePage({ settings, slots, cards, order, status }: { settings: HomePri
                     </div>
                 );
             })}
-            <svg className="home-guides" viewBox={`0 0 ${layout.width} ${layout.height}`} aria-hidden="true">
+            <svg className="home-guides" viewBox={`0 0 ${layout.width} ${layout.height}`} stroke={GUIDE_COLOR} aria-hidden="true">
                 {layout.guides.map((line, index) => <line key={index} {...line}/>)}
             </svg>
         </div>

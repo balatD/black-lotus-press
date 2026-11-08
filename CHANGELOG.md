@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The crop marks and cut lines of home printing are magenta instead of grey and twice as wide, so they show on black-bordered and dark cards too.
+
 ## 2.4.1
 
 Cards printed at home can be moved on the page, for printers that pull the paper in early or late.

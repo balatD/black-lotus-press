@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import sharp from "sharp";
-import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { DEFAULT_HOME_PRINT, DefaultOrder, DefaultProfile, type HomePrint, NO_ADJUSTMENTS, type Order, type OrderCard } from "../model.js";
 import { cardsDir } from "../config/paths.js";
 import { buildPacks } from "../pipeline/packs.js";
@@ -72,6 +72,23 @@ test('writeHomePdf turns the page for a landscape grid', async () => {
     const pdf = await PDFDocument.load(await fs.readFile(file));
     assert.equal(pdf.getPageCount(), 1);
     assert.deepEqual(points(pdf), [841.89, 595.28]);
+});
+
+test('writeHomePdf and homePrintHtml draw the guides in magenta, 0.5 pt wide, so they show on dark cards too', async () => {
+    const target = order([card('island', 9)], { guides: 'cut-lines' });
+    await processImages(target);
+    const file = path.join(dir, 'home.pdf');
+
+    await writeHomePdf(target, file);
+
+    const pdf = await PDFDocument.load(await fs.readFile(file));
+    const contents = pdf.getPage(0).node.Contents()!;
+    const streams = contents instanceof PDFArray ? contents.asArray().map(ref => pdf.context.lookup(ref)) : [contents];
+    const operators = streams.map(stream => Buffer.from(decodePDFRawStream(stream as PDFRawStream).decode()).toString('latin1')).join('\n');
+    const [, red, blue] = operators.match(/([\d.]+) 0 ([\d.]+) RG/) ?? [];
+    assert.deepEqual([Math.round(Number(red) * 255), Math.round(Number(blue) * 255)], [0xec, 0x8c]);
+    assert.match(operators, /\b0\.5 w\b/);
+    assert.match(await homePrintHtml(target), /line \{ stroke: #ec008c; stroke-width: 0\.5pt;/);
 });
 
 test('writeHomePdf asks for the images to be processed first', async () => {

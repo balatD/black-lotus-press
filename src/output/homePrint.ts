@@ -6,9 +6,10 @@ import { DEFAULT_HOME_PRINT, type Order } from "../model.js";
 import { buildPacks, type Slot } from "../pipeline/packs.js";
 import { cardsDir } from "../config/paths.js";
 import { exists } from "../utils/fs.js";
-import { IMAGE_BLEED_MM, sheetLayout } from "./sheetLayout.js";
+import { GUIDE_COLOR, IMAGE_BLEED_MM, sheetLayout } from "./sheetLayout.js";
 
 const POINTS_PER_MM = 72 / 25.4;
+const GUIDE_WIDTH_PT = 0.5;
 
 async function processedPages(order: Order): Promise<Slot[][]> {
     const pages = buildPacks(order).packs;
@@ -32,6 +33,8 @@ export async function writeHomePdf(order: Order, outputPath: string) {
     const bottom = (y: number, height = 0) => pt(layout.height - y - height);
     // The print images are larger than the slots by the bleed they have and the slots do not.
     const overhang = IMAGE_BLEED_MM - settings.bleed;
+    const [red, green, blue] = [1, 3, 5].map(at => parseInt(GUIDE_COLOR.slice(at, at + 2), 16) / 255) as [number, number, number];
+    const guideColor = rgb(red, green, blue);
 
     const doc = await PDFDocument.create();
     doc.setTitle(order.name);
@@ -60,7 +63,7 @@ export async function writeHomePdf(order: Order, outputPath: string) {
                 page.pushOperators(popGraphicsState());
             }
             for (const line of layout.guides) {
-                page.drawLine({ start: { x: pt(line.x1), y: bottom(line.y1) }, end: { x: pt(line.x2), y: bottom(line.y2) }, thickness: 0.25, color: rgb(0.5, 0.5, 0.5) });
+                page.drawLine({ start: { x: pt(line.x1), y: bottom(line.y1) }, end: { x: pt(line.x2), y: bottom(line.y2) }, thickness: GUIDE_WIDTH_PT, color: guideColor });
             }
         }
     }
@@ -98,7 +101,7 @@ section + section { break-before: page; }
 section > div { position: absolute; overflow: hidden; }
 img { position: absolute; }
 svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-line { stroke: #808080; stroke-width: 0.25pt; vector-effect: non-scaling-stroke; }
+line { stroke: ${GUIDE_COLOR}; stroke-width: ${GUIDE_WIDTH_PT}pt; vector-effect: non-scaling-stroke; }
 </style>
 </head>
 <body>${Array.from({ length: settings.copies }, () => pages.map(page).join('')).join('')}</body>

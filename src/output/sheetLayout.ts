@@ -13,6 +13,8 @@ export const IMAGE_BLEED_MM = 3;
 const MARGIN_MM = 5;
 const MARK_OFFSET_MM = 1;
 const MARK_LENGTH_MM = 4;
+// Magenta shows on black, white and coloured card borders alike, where grey vanishes on dark ones.
+export const GUIDE_COLOR = '#ec008c';
 
 export interface Box { x: number, y: number, width: number, height: number }
 export interface Line { x1: number, y1: number, x2: number, y2: number }
