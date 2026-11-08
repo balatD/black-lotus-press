@@ -85,7 +85,7 @@ async function applyBleed(buffer: Buffer, config: PostProcessingProfile, scryfal
         .toBuffer();
 }
 
-async function fixCorners(buffer: Buffer, config: PostProcessingProfile) {
+export async function fixCorners(buffer: Buffer, config: PostProcessingProfile) {
     const img = sharp(buffer);
     const { width, height } = await img.metadata();
 

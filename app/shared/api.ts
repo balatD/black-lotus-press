@@ -1,4 +1,4 @@
-import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, UploadedGame } from "../../src/model.js";
+import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, Tcg, TcgCard, UploadedGame } from "../../src/model.js";
 import type { MpcfillCard } from "../../src/clients/mpcfill.js";
 import type { Recognition } from "../../src/mpcfill/recognise.js";
 
@@ -54,6 +54,8 @@ export interface Api {
 
     // Long-running jobs report through onProgress and show up in the tasks; only one runs at a time.
     importDeck(deck: DeckConfig, channel: PlaywrightChannel): Promise<{ name: string, cards: OrderCard[] }>;
+    // A pasted Yu-Gi-Oh or Pokémon list; the notes name the lines that were not found and the cards that print from another image.
+    importDeckList(deck: DeckConfig, tcg: Tcg, language: string): Promise<{ cards: OrderCard[], notes: string[] }>;
     processImages(order: Order): Promise<void>;
     // Makes these faces anew from the download on, then processes what is missing.
     reprocessImages(order: Order, files: string[]): Promise<void>;
@@ -77,6 +79,8 @@ export interface Api {
 
     searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
     searchTokens(name: string): Promise<ScryfallCard[]>;
+    // The other artworks of a Yu-Gi-Oh card, or the printings of a Pokémon card in a language, by the card's name.
+    searchTcgCards(tcg: Tcg, name: string, language: string): Promise<TcgCard[]>;
     // The MPC Autofill images of a face of the card, in MPC Autofill's order.
     searchMpcfill(card: Pick<OrderCard, 'name' | 'printing' | 'isToken'>, face: 'front' | 'back'): Promise<MpcfillCard[]>;
     // Loads the Scryfall scans the comparison needs; the window asks for a few at a time to show the progress.
@@ -95,8 +99,8 @@ export interface Api {
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'saveHomePdf', 'printHome', 'exportOrder', 'importOrder', 'openOrderFolder',
-    'importDeck', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
+    'importDeck', 'importDeckList', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
+    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.

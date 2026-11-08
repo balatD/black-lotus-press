@@ -259,6 +259,17 @@
             <p>The cards sit in the middle of the page, at least 5 mm from its edges, which most printers leave blank. Both sides of a double-faced card print as cards of their own, next to each other on one page. When the last page has empty slots, the <em>Print</em> and <em>Cards</em> tabs offer the order's tokens to fill them, so no paper goes to waste.</p>
             <p>In the print dialog, keep the scale at 100 % or <em>Actual size</em>, not <em>Fit to page</em>, and choose the paper set in the app; then the cards come out at 63 × 88 mm. Printers differ a little, so hold a real card against the first page.</p>
 
+            <h3 id="tcg">Yu-Gi-Oh and Pokémon</h3>
+            <p>The home printer also prints Yu-Gi-Oh and Pokémon cards. <em>New order</em> asks for the card game when the <em>Home printer</em> is chosen; such an order stays at the home printer and cannot be moved to a shop.</p>
+            <ul>
+                <li><strong>Deck lists:</strong> instead of a deck link, paste the list into <em>Deck lists</em> on the <em>Setup</em> tab and click <em>Import</em>. For Yu-Gi-Oh, a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks, with the main, extra and side deck to tick. For Pokémon, the export of Pokémon TCG Live or Limitless, with lines like <code>4 Charizard ex OBF 125</code>. <em>Update</em> brings the changes of the list and keeps your edits.</li>
+                <li><strong>Images:</strong> Yu-Gi-Oh cards come from <a href="https://ygoprodeck.com">YGOPRODeck</a> in the artwork the list names, about 350 dpi; Pokémon cards from <a href="https://tcgdex.dev">TCGdex</a>, about 240 dpi. Both are upscaled to the profile's resolution like the Magic scans. The app downloads every image once and keeps it.</li>
+                <li><strong>Card language:</strong> Pokémon orders take English, German, French, Italian or Spanish cards. Update the lists after changing it; cards without an image in the language print in English.</li>
+                <li><strong>Missing images:</strong> TCGdex has no image of some cards, like the basic energies of Scarlet &amp; Violet. They print as another card of the same name, and the import says which; pick another on the <em>Printings</em> tab of the card.</li>
+                <li><strong>Card editor:</strong> the <em>Artworks</em> tab shows the other artworks of a Yu-Gi-Oh card, the <em>Printings</em> tab the other printings of a Pokémon card, without those of Pokémon TCG Pocket. Your own image works as for Magic.</li>
+                <li><strong>Size:</strong> Yu-Gi-Oh cards print at 59 × 86 mm, Pokémon cards at 63 × 88 mm like Magic; up to 9 fit on a page.</li>
+            </ul>
+
             <h3 id="xml">MPC Autofill XML</h3>
             <p><em>Save MPC Autofill XML</em> on the <em>Print</em> tab, for every shop but the home printer, saves the cards of the order as an order file of <a href="https://mpcfill.com">MPC Autofill</a>. MPC Autofill images and the card back are in it by their Google Drive ID, the other cards as their processed images on this computer; so process the images first. Blank cards are left out, and the stock is MPC Autofill's default, (S30) Standard Smooth.</p>
             <ul>
@@ -383,6 +394,10 @@
                     <div><p>meinspiel.de prints packs of exactly 55 cards from an image per card side and needs an account. printerstudio.de prints decks of any size up to 612 cards, so a Commander deck is one deck instead of two packs and costs less; you need an account there as well. notmpc.eu, which prints decks like that without an account, is not available at the moment. <a href="#shops">Print shops</a> compares them.</p></div>
                 </details>
                 <details>
+                    <summary>Can I print Yu-Gi-Oh or Pokémon cards?</summary>
+                    <div><p>Yes, at home: choose <em>Home printer</em>, start a new order and pick Yu-Gi-Oh or Pokémon. Paste the deck list on the <em>Setup</em> tab; see <a href="#tcg">Yu-Gi-Oh and Pokémon</a>.</p></div>
+                </details>
+                <details>
                     <summary>Can I print the cards on my own printer?</summary>
                     <div><p>Yes: choose <em>Home printer</em> as the shop, and the <em>Print</em> tab prints the card fronts on A4 or Letter pages or saves them as a PDF; see <a href="#home">Home printer</a>. Print at 100 % or actual size, not fit to page, and the cards come out at the real size of 63 × 88 mm.</p></div>
                 </details>
@@ -492,8 +507,8 @@
         <section id="legal">
             <h2>Credits and legal</h2>
             <p>Black Lotus Press is made by balatD and is based on <a href="https://github.com/benedikt-wueller/mpc-proxy-forge">MPC Proxy Forge</a> by Benedikt Wüller. It is open source under the <a href="https://github.com/balatD/black-lotus-press/blob/main/LICENSE">MIT license</a>.</p>
-            <p>It uses card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a> and <a href="https://archidekt.com">Archidekt</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a> and the upscaler <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>. The website uses the typeface Barlow Semi Condensed under the SIL Open Font License.</p>
-            <p class="note">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall or MPC Autofill.</p>
+            <p>It uses card data and images from <a href="https://scryfall.com">Scryfall</a>, decks from <a href="https://moxfield.com">Moxfield</a> and <a href="https://archidekt.com">Archidekt</a>, Yu-Gi-Oh card data and images from <a href="https://ygoprodeck.com">YGOPRODeck</a>, Pokémon card data and images from <a href="https://tcgdex.dev">TCGdex</a>, card backs and high-resolution card images from <a href="https://mpcautofill.github.io">MPC Autofill</a> and the upscaler <a href="https://github.com/upscayl/upscayl-ncnn">Upscayl</a>. The website uses the typeface Barlow Semi Condensed under the SIL Open Font License.</p>
+            <p class="note">Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall, MPC Autofill, YGOPRODeck or TCGdex. Yu-Gi-Oh! card images belong to Konami, Pokémon card images to The Pokémon Company.</p>
         </section>
     </main>
 </div>

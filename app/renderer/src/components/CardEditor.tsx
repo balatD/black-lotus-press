@@ -1,6 +1,7 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Columns2, ImagePlus, ImageUp, Trash2, Undo2, X } from "lucide-react";
-import { changePrinting, chooseMpcfillImage, combineAdjustments, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
+import { CARD_SIZES, changePrinting, chooseMpcfillImage, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type TcgCard, tcgCardKey } from "../../../../src/model.js";
+import { IMAGE_BLEED_MM } from "../../../../src/output/sheetLayout.js";
 import type { MpcfillCard } from "../../../../src/clients/mpcfill.js";
 import { cardFaces, faceImageUris, mpcfillImage } from "../../../../src/pipeline/packs.js";
 import { api, errorMessage } from "../api.js";
@@ -11,6 +12,8 @@ import { AdjustmentSliders } from "./AdjustmentSliders.js";
 import { ImageStage, type Pane } from "./ImageStage.js";
 import { MpcfillCandidates, mpcfillSearchKey } from "./MpcfillCandidates.js";
 import { PrintingCandidates } from "./PrintingCandidates.js";
+import { TcgCandidates } from "./TcgCandidates.js";
+import { tcgPreview } from "../shops.js";
 
 type Tab = 'printings' | 'mpcfill' | 'own';
 type Face = 'front' | 'back';
@@ -20,6 +23,7 @@ type Candidate =
     | { type: 'scryfall', printing: ScryfallCard }
     // The printing is the one the image shows, if it was recognised.
     | { type: 'mpcfill', id: string, image: MpcfillCard | undefined, printing: ScryfallCard | undefined }
+    | { type: 'tcg', card: TcgCard }
     | { type: 'custom', image: string };
 
 interface Props {
@@ -60,6 +64,8 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
 
     if (!card) return null;
 
+    const tabs: [Tab, string][] = order.tcg === 'magic' ? TABS : [['printings', order.tcg === 'yugioh' ? 'Artworks' : 'Printings'], ['own', 'Own image']];
+    const backToImage = order.tcg === 'magic' ? 'Use Scryfall again' : order.tcg === 'yugioh' ? 'Use the artwork again' : 'Use the printing again';
     const index = ids.indexOf(card.id);
     const activeTab = tab === 'mpcfill' && !card.printing ? 'printings' : tab;
     const hasBack = (card.printing !== undefined && faceImageUris(card.printing, 'back') !== undefined) || card.customImage?.back !== undefined || card.mpcfill?.back !== undefined;
@@ -106,6 +112,8 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
             setCopies(undefined);
         } else if (candidate.type === 'mpcfill') {
             changeCard(c => chooseMpcfillImage(c, face, candidate.id, candidate.printing));
+        } else if (candidate.type === 'tcg') {
+            changeCard(c => ({ ...c, tcgCard: candidate.card }));
         }
         setSelected(undefined);
         dialog.current?.focus();
@@ -170,9 +178,11 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                 <button aria-pressed={face === 'back'} onClick={() => chooseFace('back')}>Back</button>
             </div>
         )}
-        <button aria-pressed={comparing && reference !== undefined} disabled={!reference}
-                title={reference ? 'Shows the Scryfall scan next to the image (C)' : shown?.type === 'scryfall' ? 'This is the Scryfall scan of the current printing' : 'The card has no Scryfall printing'}
-                onClick={() => setComparing(!comparing)}><Columns2/>Compare with Scryfall</button>
+        {order.tcg === 'magic' && (
+            <button aria-pressed={comparing && reference !== undefined} disabled={!reference}
+                    title={reference ? 'Shows the Scryfall scan next to the image (C)' : shown?.type === 'scryfall' ? 'This is the Scryfall scan of the current printing' : 'The card has no Scryfall printing'}
+                    onClick={() => setComparing(!comparing)}><Columns2/>Compare with Scryfall</button>
+        )}
     </>;
 
     return (
@@ -200,7 +210,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                         </div>}
 
                     <div className="row use-row">
-                        <span className="status grow">{explain(selected, current, card, face, changing)}</span>
+                        <span className="status grow">{explain(selected, current, card, face, changing, backToImage)}</span>
                         {selected?.type === 'scryfall' && usable && card.quantity > 1 && (
                             <label className="row">
                                 <span className="muted">Change</span>
@@ -232,10 +242,10 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                         </div>
                         <div className="row">
                             <span className="status grow">
-                                {card.customImage ? 'Printed from your own image.' : card.mpcfill ? 'Printed from the MPC Autofill image picked for this printing.' : card.printing ? 'Printed from the Scryfall scan of this printing.' : 'Not printed, as Scryfall has no printing of this card.'}
+                                {card.customImage ? 'Printed from your own image.' : card.tcgCard ? `Printed from the ${card.tcgCard.tcg === 'yugioh' ? 'YGOPRODeck artwork' : 'TCGdex image'}.` : card.mpcfill ? 'Printed from the MPC Autofill image picked for this printing.' : card.printing ? 'Printed from the Scryfall scan of this printing.' : 'Not printed, as Scryfall has no printing of this card.'}
                                 {' '}Brightness and contrast apply on top of the order's {percent(order.adjustments.brightness)} and {percent(order.adjustments.contrast)}; the preview shows them approximately.
                             </span>
-                            {(card.customImage || card.mpcfill) && <button className="quiet danger" onClick={() => changeCard(({ customImage: _, mpcfill: __, ...rest }) => rest)}><Undo2/>Use Scryfall again</button>}
+                            {(card.customImage || card.mpcfill) && <button className="quiet danger" onClick={() => changeCard(({ customImage: _, mpcfill: __, ...rest }) => rest)}><Undo2/>{backToImage}</button>}
                             {card.deck === '' && <button className="quiet danger" onClick={remove}><Trash2/>Remove from the order</button>}
                         </div>
                     </div>
@@ -244,7 +254,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                 <section className="editor-candidates">
                     <div className="row">
                         <div className="segmented" role="group" aria-label="Image source">
-                            {TABS.map(([value, label]) => (
+                            {tabs.map(([value, label]) => (
                                 <button key={value} aria-pressed={activeTab === value} disabled={value === 'mpcfill' && !card.printing}
                                         title={value === 'mpcfill' && !card.printing ? 'Pick a printing first; MPC Autofill images are matched against it.' : undefined}
                                         onClick={() => chooseTab(value)}>{label}</button>
@@ -259,7 +269,13 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                     </div>
 
                     <div ref={candidates} className="candidates" style={{ '--tile-width': `${tileWidth}px` } as CSSProperties}>
-                        {activeTab === 'printings' && (
+                        {activeTab === 'printings' && card.tcgCard && (
+                            <TcgCandidates key={card.id} card={{ ...card, tcgCard: card.tcgCard }}
+                                           selected={selected?.type === 'tcg' ? tcgCardKey(selected.card) : undefined}
+                                           onSelect={tcgCard => setSelected({ type: 'tcg', card: tcgCard })}
+                                           onUse={tcgCard => use({ type: 'tcg', card: tcgCard })}/>
+                        )}
+                        {activeTab === 'printings' && !card.tcgCard && (
                             <PrintingCandidates key={card.name} card={card} face={face} nonfoilOnly={nonfoilOnly}
                                                 selected={selected?.type === 'scryfall' ? selected.printing.id : undefined}
                                                 onSelect={printing => setSelected({ type: 'scryfall', printing })}
@@ -274,7 +290,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                         {activeTab === 'own' && (
                             <div className="own-image">
                                 <p className="status">
-                                    Your own image is printed instead of the printing's. Images in the page format of 69 × 94 mm already contain the bleed,
+                                    Your own image is printed instead of the printing's. Images in the page format of {CARD_SIZES[order.tcg].width + 2 * IMAGE_BLEED_MM} × {CARD_SIZES[order.tcg].height + 2 * IMAGE_BLEED_MM} mm already contain the bleed,
                                     card-sized images get a mirrored 3 mm bleed. PNG, JPEG and WebP images work; landscape images are turned down.
                                 </p>
                                 <div className="row">
@@ -285,7 +301,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                             </div>
                         )}
                     </div>
-                    <p className="status">Arrow keys pick an image, Enter uses it, C compares it with the Scryfall scan, Page Up and Page Down go to the previous or next card.</p>
+                    <p className="status">Arrow keys pick an image, Enter uses it, {order.tcg === 'magic' && 'C compares it with the Scryfall scan, '}Page Up and Page Down go to the previous or next card.</p>
                 </section>
             </div>
         </dialog>
@@ -298,12 +314,14 @@ function currentCandidate(card: OrderCard, order: Order, face: Face): Candidate 
     if (source?.type === 'scryfall') return { type: 'scryfall', printing: source.printing };
     if (source?.type === 'mpcfill') return { type: 'mpcfill', id: source.id, image: undefined, printing: card.printing };
     if (source?.type === 'custom') return { type: 'custom', image: source.image };
+    if (source?.type === 'tcg') return { type: 'tcg', card: source.card };
     return undefined;
 }
 
 function isCurrent(candidate: Candidate, card: OrderCard, face: Face) {
     if (candidate.type === 'scryfall') return candidate.printing.id === card.printing?.id;
     if (candidate.type === 'mpcfill') return card.mpcfill?.[face] === candidate.id;
+    if (candidate.type === 'tcg') return card.tcgCard !== undefined && tcgCardKey(candidate.card) === tcgCardKey(card.tcgCard);
     return true;
 }
 
@@ -317,6 +335,7 @@ function referencePrinting(candidate: Candidate, card: OrderCard, face: Face) {
 function candidatePane(candidate: Candidate, face: Face): Pane | undefined {
     if (candidate.type === 'scryfall') return scryfallPane(candidate.printing, face);
     if (candidate.type === 'custom') return { preview: `preview://image/${encodeURIComponent(candidate.image)}`, bleed: false, caption: 'Your own image, as a 700 px preview' };
+    if (candidate.type === 'tcg') return { preview: tcgPreview(candidate.card), bleed: false, caption: candidate.card.tcg === 'yugioh' ? `YGOPRODeck artwork ${candidate.card.id}` : `TCGdex ${candidate.card.id} (${candidate.card.lang})` };
     const { id, image } = candidate;
     return {
         preview: mpcfillImage(id, 'large'),
@@ -334,9 +353,10 @@ function scryfallPane(printing: ScryfallCard, face: Face): Pane | undefined {
 }
 
 // What using the picked image changes besides the image.
-function explain(selected: Candidate | undefined, current: Candidate | undefined, card: OrderCard, face: Face, copies: number) {
+function explain(selected: Candidate | undefined, current: Candidate | undefined, card: OrderCard, face: Face, copies: number, backToImage: string) {
     if (!selected || isCurrent(selected, card, face)) return current ? 'This is the image the card prints from now. Pick another one on the right to compare it.' : '';
-    const ownWins = card.customImage ? ' Your own image is still printed until you use Scryfall again.' : '';
+    const ownWins = card.customImage ? ` Your own image is still printed until you ${backToImage.charAt(0).toLowerCase()}${backToImage.slice(1)}.` : '';
+    if (selected.type === 'tcg') return `Prints all ${count(card.quantity, 'copy', 'copies')} from this ${selected.card.tcg === 'yugioh' ? 'artwork' : 'printing'}.${ownWins}`;
     if (selected.type === 'scryfall') {
         const others = copies < card.quantity ? ` The other ${count(card.quantity - copies, 'copy', 'copies')} keep their printing.` : '';
         const dropped = card.mpcfill ? ' The MPC Autofill image of the old printing is dropped.' : '';

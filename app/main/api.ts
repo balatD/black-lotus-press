@@ -11,6 +11,7 @@ import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js"
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
 import { DEFAULT_HOME_PRINT, deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
+import { importDeckList, searchTcgCards } from "../../src/pipeline/deckLists.js";
 import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
 import { uploadToMeinspiel } from "../../src/clients/meinspiel.js";
@@ -230,6 +231,9 @@ export function registerApi(window: BrowserWindow) {
         importDeck: (deck, channel) => runJob(
             { kind: 'import', title: `Loading ${deck.name ?? 'a deck'} from ${deckSite(deck.url)}`, deck: deck.url, stoppable: true },
             (onProgress, signal) => importDeck(deck, channel, onProgress, signal)),
+        importDeckList: (deck, tcg, language) => runJob(
+            { kind: 'import', title: `Looking up ${deck.name ?? 'a deck list'} on ${tcg === 'yugioh' ? 'YGOPRODeck' : 'TCGdex'}`, deck: deck.url, stoppable: true },
+            (onProgress, signal) => importDeckList(deck, tcg, language, onProgress, signal)),
         processImages: order => runJob(
             { kind: 'process', title: `Processing the images of ${order.name}`, order: order.name, stoppable: true },
             (onProgress, signal) => processImages(order, onProgress, signal)),
@@ -280,6 +284,7 @@ export function registerApi(window: BrowserWindow) {
 
         searchPrintings,
         searchTokens,
+        searchTcgCards,
         searchMpcfill: findMpcfillImages,
         loadPrintingScans,
         recogniseMpcfill: recogniseMpcfillImages,

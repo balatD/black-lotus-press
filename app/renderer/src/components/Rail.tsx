@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { Package, PackageOpen, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
-import { isValidOrderName, type Order, type Shop } from "../../../../src/model.js";
+import { isValidOrderName, type Order, type Shop, type Tcg, TCG_NAMES } from "../../../../src/model.js";
 import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
 import { ColorBar, RegistrationMark } from "./Decor.js";
@@ -18,13 +18,14 @@ interface Props {
     profilesSelected: boolean;
     onSelectOrder(name: string): void;
     onSelectProfiles(): void;
-    onCreateOrder(name: string): Promise<void>;
+    onCreateOrder(name: string, tcg: Tcg): Promise<void>;
     onImportOrder(): void;
 }
 
 export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder, onImportOrder }: Props) {
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState('');
+    const [tcg, setTcg] = useState<Tcg>('magic');
     const [error, setError] = useState<string>();
     const [query, setQuery] = useState('');
     // Orders belong to a shop, so there is none to create before one is chosen.
@@ -36,7 +37,8 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
         event.preventDefault();
         if (problem) return;
         try {
-            await onCreateOrder(name);
+            // Yu-Gi-Oh and Pokémon only print at home.
+            await onCreateOrder(name, shop === 'home' ? tcg : 'magic');
             setCreating(false);
             setName('');
         } catch (e) {
@@ -78,6 +80,13 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
                     <input autoFocus placeholder="Order name" value={name} aria-invalid={name !== '' && !!problem} onChange={e => setName(e.target.value)}/>
                     {name !== '' && problem && <span className="status error">{problem}</span>}
                     {error && <span className="status error">{error}</span>}
+                    {shop === 'home' && (
+                        <div className="chips" role="group" aria-label="Card game">
+                            {(Object.keys(TCG_NAMES) as Tcg[]).map(game => (
+                                <button key={game} type="button" className="chip" aria-pressed={game === tcg} onClick={() => setTcg(game)}>{TCG_NAMES[game]}</button>
+                            ))}
+                        </div>
+                    )}
                     <div className="row">
                         <button type="submit" className="primary" disabled={!!problem}><Plus/>Create order</button>
                         <button type="button" className="quiet" onClick={() => setCreating(false)}><X/>Cancel</button>
@@ -110,8 +119,9 @@ export function orderNameProblem(name: string, orders: Order[], shop: Shop | und
 }
 
 function describe(order: Order) {
-    if (order.cards.length === 0) return 'not imported';
+    const game = order.tcg === 'magic' ? '' : `${TCG_NAMES[order.tcg]}, `;
+    if (order.cards.length === 0) return `${game}not imported`;
     const packs = buildPacks(order).packs.length;
     const unit = order.shop === 'meinspiel' ? 'pack' : order.shop === 'home' ? 'page' : 'deck';
-    return packs === 1 ? `1 ${unit}` : `${packs} ${unit}s`;
+    return `${game}${packs === 1 ? `1 ${unit}` : `${packs} ${unit}s`}`;
 }

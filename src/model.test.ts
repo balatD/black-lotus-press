@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePrinting, chooseMpcfillImage, DeckData, deckSite, DefaultOrder, isArchidektDeckUrl, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
+import { changePrinting, chooseMpcfillImage, DeckData, deckSite, DefaultOrder, isArchidektDeckUrl, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, printsAt, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
 
 function card(id: string, deck: string): OrderCard {
     return { id, deck, board: 'mainboard', name: id, quantity: 1, isToken: false, excluded: false };
@@ -120,6 +120,22 @@ test('updateDeckCards follows the Moxfield printing unless another printing was 
     const { cards } = updateDeckCards([swapped, untouched], 'B', [imported('sol', 1, 'new-sol'), imported('mox', 1, 'new-mox')]);
 
     assert.deepEqual(cards.map(c => c.printing?.id), ['picked-here', 'new-mox']);
+});
+
+test('updateDeckCards follows the artwork of a deck list unless another artwork was picked here', () => {
+    const ygo = (id: string, art: number): OrderCard => ({ ...card(id, 'B'), tcgCard: { tcg: 'yugioh', id: art, image: `${art}.jpg` }, imported: { moxfieldId: id, quantity: 1, printingId: String(art) } });
+    const swapped = { ...ygo('blue-eyes', 1), tcgCard: { tcg: 'yugioh' as const, id: 7, image: '7.jpg' } };
+
+    const { cards, changed } = updateDeckCards([swapped, ygo('kuriboh', 2)], 'B', [ygo('blue-eyes', 3), ygo('kuriboh', 4)]);
+
+    assert.deepEqual(cards.map(c => c.tcgCard?.id), [7, 4]);
+    assert.equal(changed, 1);
+});
+
+test('printsAt lets Magic print at every shop and the other card games only at home', () => {
+    assert.ok((['meinspiel', 'notmpc', 'printerstudio', 'home'] as const).every(shop => printsAt('magic', shop)));
+    assert.ok(printsAt('yugioh', 'home') && printsAt('pokemon', 'home'));
+    assert.ok(!printsAt('yugioh', 'meinspiel') && !printsAt('pokemon', 'printerstudio'));
 });
 
 test('updateDeckCards removes cards that left the deck and adds new ones after the deck', () => {

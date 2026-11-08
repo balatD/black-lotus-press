@@ -4,9 +4,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { DefaultProfile } from "../model.js";
+import { CARD_SIZES, DefaultProfile } from "../model.js";
 import { customImagePath, setDataRoot } from "../config/paths.js";
-import { importCustomImage, prepareCustomImage } from "./customImage.js";
+import { hasBleed, importCustomImage, prepareCustomImage } from "./customImage.js";
 
 let dir: string;
 
@@ -48,4 +48,15 @@ test('prepareCustomImage adds a 3 mm bleed around card-sized images', async () =
 
     const { width, height } = await sharp(prepared).metadata();
     assert.deepEqual([width, height], [690, 940]);
+});
+
+test('hasBleed and prepareCustomImage go by the size of the card, like the 59 × 86 mm of Yu-Gi-Oh', async () => {
+    assert.ok(!hasBleed(813, 1185, CARD_SIZES.yugioh), 'a Yu-Gi-Oh card scan');
+    assert.ok(hasBleed(768, 1087, CARD_SIZES.yugioh), 'a Yu-Gi-Oh page with bleed');
+    const config = { ...DefaultProfile.postProcessing, cardWidth: 59 / 25.4 };
+
+    const prepared = await prepareCustomImage(await fs.readFile(await image(813, 1185, 'ygo.png')), config, CARD_SIZES.yugioh);
+
+    const { width, height } = await sharp(prepared).metadata();
+    assert.deepEqual([width, height], [895, 1267]);
 });

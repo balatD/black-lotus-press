@@ -53,7 +53,7 @@ a { color: var(--cyan); }
 
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Lucide icons sit in the line of text and take its colour. */
 .lucide { flex: none; width: 1.1em; height: 1.1em; }
@@ -84,15 +84,16 @@ button.quiet { background: none; border-color: transparent; color: var(--muted);
 button.quiet:hover:not(:disabled) { color: var(--text); border-color: var(--line); }
 button.danger:hover:not(:disabled) { border-color: var(--magenta); color: var(--magenta); }
 
-input, select {
+input, select, textarea {
     padding: 0.35rem 0.55rem;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--booth);
 }
 
-input:focus, select:focus { border-color: var(--cyan); outline: none; }
-input[aria-invalid="true"] { border-color: var(--magenta); }
+input:focus, select:focus, textarea:focus { border-color: var(--cyan); outline: none; }
+input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--magenta); }
+.deck-list { resize: vertical; }
 input[type="checkbox"] { accent-color: var(--cyan); }
 
 .muted { color: var(--muted); }
@@ -292,7 +293,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-width), 1fr)); gap: 1.25rem 1rem; margin: 0; padding: 0; list-style: none; }
 .card-tile { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
 .tile-image { position: relative; display: block; padding: 0; border: none; background: none; }
-.tile-image img, .tile-missing { display: block; width: 100%; aspect-ratio: 63 / 88; border-radius: 4.75% / 3.4%; object-fit: cover; }
+.tile-image img, .tile-missing { display: block; width: 100%; aspect-ratio: var(--card-mm-width, 63) / var(--card-mm-height, 88); border-radius: 4.75% / 3.4%; object-fit: cover; }
 .tile-image:hover img, .tile-image:focus-visible img { box-shadow: 0 0 0 2px var(--cyan); }
 .tile-missing { display: grid; place-content: center; border: 1px dashed var(--magenta); color: var(--magenta); font-size: var(--step--1); }
 .tile-quantity { position: absolute; top: 7%; right: -0.4rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--cyan); color: #06141b; font-size: var(--step--1); font-weight: 700; }
@@ -324,7 +325,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 }
 
 .handle { justify-content: center; padding: 0.2rem; border: none; background: none; color: var(--muted); cursor: grab; }
-.thumb { display: block; width: 2.6rem; aspect-ratio: 63 / 88; border-radius: 2px; object-fit: cover; background: var(--raised); }
+.thumb { display: block; width: 2.6rem; aspect-ratio: var(--card-mm-width, 63) / var(--card-mm-height, 88); border-radius: 2px; object-fit: cover; background: var(--raised); }
 .thumb.missing { border: 1px dashed var(--magenta); }
 .card-name { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 0; border: none; background: none; text-align: left; }
 .card-name .name { font-weight: 600; }
@@ -378,15 +379,15 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .stage-pane figcaption { text-align: center; }
 .stage-frame {
     position: relative;
-    height: min(calc(100cqh - 2.4rem), calc(100cqw * 88 / 63));
-    aspect-ratio: 63 / 88;
+    height: min(calc(100cqh - 2.4rem), calc(100cqw * var(--card-mm-height, 88) / var(--card-mm-width, 63)));
+    aspect-ratio: var(--card-mm-width, 63) / var(--card-mm-height, 88);
     overflow: hidden;
     border-radius: 4.75% / 3.4%;
     background: var(--raised);
     cursor: zoom-in;
     touch-action: none;
 }
-.stage.comparing .stage-frame { height: min(calc(100cqh - 2.4rem), calc((50cqw - 0.5rem) * 88 / 63)); }
+.stage.comparing .stage-frame { height: min(calc(100cqh - 2.4rem), calc((50cqw - 0.5rem) * var(--card-mm-height, 88) / var(--card-mm-width, 63))); }
 .stage.zoomed .stage-frame { border-radius: 0; cursor: grab; }
 .stage-content { position: absolute; inset: 0; transform-origin: 0 0; }
 .stage-content img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
@@ -425,7 +426,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .printing-set { font-weight: 600; line-height: 1.2; margin-top: 0.3rem; }
 .printing-price { font-weight: 600; }
 .printing-current { font-size: var(--step--1); color: var(--cyan); }
-.printing img, .printing .thumb { width: 100%; aspect-ratio: 63 / 88; border-radius: 4px; object-fit: cover; }
+.printing img, .printing .thumb { width: 100%; aspect-ratio: var(--card-mm-width, 63) / var(--card-mm-height, 88); border-radius: 4px; object-fit: cover; }
 .printing:hover:not(:disabled) img { outline: 1px solid var(--muted); }
 .printing[aria-pressed="true"] img { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .printing.current { --mark-color: var(--cyan); width: auto; }

@@ -3,12 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { customImagePath } from "../config/paths.js";
-import type { PostProcessingProfile } from "../model.js";
-import { BLEED_MM, PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from "../output/printImage.js";
+import { CARD_SIZES, type PostProcessingProfile } from "../model.js";
+import { BLEED_MM } from "../output/printImage.js";
 import { exists } from "../utils/fs.js";
-
-const CARD_RATIO = (PAGE_WIDTH_MM - 2 * BLEED_MM) / (PAGE_HEIGHT_MM - 2 * BLEED_MM);
-const PAGE_RATIO = PAGE_WIDTH_MM / PAGE_HEIGHT_MM;
 
 // Stored by content, so the same image is kept once and a changed image gets a new name.
 export async function importCustomImage(sourcePath: string): Promise<string> {
@@ -28,16 +25,18 @@ export async function importCustomImage(sourcePath: string): Promise<string> {
     return file;
 }
 
-// Images shaped like the page (69x94 mm, e.g. MPC images) already include the bleed,
+// Images shaped like the page (69x94 mm for Magic, e.g. MPC images) already include the bleed,
 // images shaped like the card (63x88 mm) do not.
-export function hasBleed(width: number, height: number) {
-    return width / height >= (CARD_RATIO + PAGE_RATIO) / 2;
+export function hasBleed(width: number, height: number, card = CARD_SIZES.magic) {
+    const cardRatio = card.width / card.height;
+    const pageRatio = (card.width + 2 * BLEED_MM) / (card.height + 2 * BLEED_MM);
+    return width / height >= (cardRatio + pageRatio) / 2;
 }
 
 // Images without bleed get a mirrored bleed around them.
-export async function prepareCustomImage(image: Buffer, config: PostProcessingProfile): Promise<Buffer> {
+export async function prepareCustomImage(image: Buffer, config: PostProcessingProfile, card = CARD_SIZES.magic): Promise<Buffer> {
     const { width, height } = await sharp(image).metadata();
-    if (hasBleed(width, height)) {
+    if (hasBleed(width, height, card)) {
         return await sharp(image).png().toBuffer();
     }
 

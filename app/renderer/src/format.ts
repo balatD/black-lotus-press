@@ -30,13 +30,15 @@ export function describeProcessing(profile: { postProcessing: { dpi: number }, u
 
 export function describePrinting(card: OrderCard) {
     const printing = card.printing;
+    const tcg = card.tcgCard;
+    if (tcg) return tcg.tcg === 'yugioh' ? `YGOPRODeck artwork ${tcg.id}` : `TCGdex ${tcg.id} (${tcg.lang})`;
     if (!printing) return 'No Scryfall printing';
     return `${printing.set_name ?? printing.set.toUpperCase()} (${printing.set.toUpperCase()}) #${printing.collector_number}`;
 }
 
 export function boardName(board: string) {
     const names: Record<string, string> = {
-        commanders: 'Commander', companions: 'Companion', signatureSpells: 'Signature spell', mainboard: 'Main board', sideboard: 'Sideboard',
+        commanders: 'Commander', companions: 'Companion', signatureSpells: 'Signature spell', mainboard: 'Main board', extra: 'Extra deck', sideboard: 'Sideboard',
         maybeboard: 'Considering', tokens: 'Token', attractions: 'Attraction', contraptions: 'Contraption', stickers: 'Sticker', planes: 'Plane', schemes: 'Scheme'
     };
     return names[board] ?? board;

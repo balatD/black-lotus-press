@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
-import { DefaultOrder, DefaultProfile, isValidOrderName, type Order, type ProcessingProfile, type Shop } from "../model.js";
+import { DefaultOrder, DefaultProfile, isValidOrderName, type Order, printsAt, type ProcessingProfile, type Shop, TCG_NAMES } from "../model.js";
 import { cardsDir, customImagePath, dataPath, orderDir } from "./paths.js";
 import { readJsonFiles, writeJsonFile } from "./jsonStore.js";
 import { copyBaseImages, forgetPrintImages, usedBaseImages } from "../pipeline/processImages.js";
@@ -35,7 +35,12 @@ export async function deleteOrder(order: Order): Promise<void> {
     await fs.unlink(orderFile(order.name));
 }
 
+function assertPrintsAt(order: Pick<Order, 'tcg'>, shop: Shop) {
+    if (!printsAt(order.tcg, shop)) throw new Error(`${TCG_NAMES[order.tcg]} orders only print at home.`);
+}
+
 export async function moveOrder(order: Order, shop: Shop): Promise<void> {
+    assertPrintsAt(order, shop);
     await saveOrder({ ...order, shop });
     await forgetPrintImages(order);
 }
@@ -47,6 +52,7 @@ async function assertFreeName(name: string) {
 }
 
 export async function copyOrder(order: Order, shop: Shop, name: string): Promise<void> {
+    assertPrintsAt(order, shop);
     await assertFreeName(name);
 
     // The games of the last upload belong to the original.
@@ -99,6 +105,7 @@ export async function importOrder(file: string, profiles: ProcessingProfile[]): 
 
     const shared = fromJson(JSON.parse(json));
     if (!isValidOrderName(shared.name)) throw new Error(`Invalid order name: "${shared.name}"`);
+    assertPrintsAt(shared, shared.shop);
     // These ids become file names.
     const ids = shared.cards.flatMap(card => [card.printing?.id, card.customImage?.front, card.customImage?.back, card.mpcfill?.front, card.mpcfill?.back]);
     const unsafe = [shared.cardBack, ...ids].find(id => id !== undefined && !FILE_ID.test(id));

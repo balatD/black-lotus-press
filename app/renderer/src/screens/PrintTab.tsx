@@ -3,7 +3,7 @@ import {
     AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
     ListPlus, Maximize2, Package, Printer, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
-import { DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
+import { CARD_SIZES, DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
@@ -23,6 +23,7 @@ import { adjustmentFilter, percent } from "../adjust.js";
 import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
 import { useStoredState } from "../useStoredState.js";
 import { api, errorMessage, wasStopped } from "../api.js";
+import { tcgPreview } from "../shops.js";
 import { count, describeProcessing } from "../format.js";
 import { ColorBar, RegistrationMark } from "../components/Decor.js";
 import { useProgress } from "../useProgress.js";
@@ -88,7 +89,8 @@ export function PrintTab({ order, update, onFlush }: Props) {
 
     const { packs, droppedTokens } = buildPacks(order);
     const cards = new Map(order.cards.map(card => [card.id, card]));
-    const needed = new Set(packs.flat().flatMap(slot => [slot.front, slot.back]));
+    // Home prints the fronts of the cards only.
+    const needed = new Set(packs.flat().flatMap(slot => order.shop !== 'home' ? [slot.front, slot.back] : slot.cardId === undefined ? [] : [slot.front]));
     const processed = [...needed].filter(file => status.files[file] !== undefined).length;
     const allProcessed = needed.size > 0 && processed === needed.size;
     const failedFiles = [...needed].filter(file => failed[file] !== undefined);
@@ -252,7 +254,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                         <h2><Printer/>Print the cards</h2>
                         <p className="muted">
                             The fronts of the cards on {PAPERS[homePrint.paper].name} pages, laid out as set below. Print opens your system's print dialog, Save PDF saves the pages
-                            as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at 63 × 88 mm.
+                            as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at {CARD_SIZES[order.tcg].width} × {CARD_SIZES[order.tcg].height} mm.
                         </p>
                         <div className="row">
                             <button className={allProcessed ? 'primary' : ''} disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={printPages}>
@@ -400,9 +402,9 @@ function HomeSheet({ order, update, pages, cards, status }: {
     const blank = pages.at(-1)?.filter(slot => slot.cardId === undefined).length ?? 0;
     const tokens = fillingTokens(order);
     const decks = order.decks.filter(deck => order.cards.some(card => card.deck === deck.url));
-    const grids = fittingGrids(settings);
+    const grids = fittingGrids(settings, CARD_SIZES[order.tcg]);
     const gridKey = (grid: Pick<HomePrint, 'landscape' | 'columns' | 'rows'>) => `${grid.columns}x${grid.rows}${grid.landscape ? '-landscape' : ''}`;
-    const set = (change: Partial<HomePrint>) => update(current => ({ ...current, homePrint: withFittingGrid({ ...(current.homePrint ?? DEFAULT_HOME_PRINT), ...change }) }));
+    const set = (change: Partial<HomePrint>) => update(current => ({ ...current, homePrint: withFittingGrid({ ...(current.homePrint ?? DEFAULT_HOME_PRINT), ...change }, CARD_SIZES[current.tcg]) }));
 
     return (
         <section className="home-section">
@@ -428,7 +430,7 @@ function HomeSheet({ order, update, pages, cards, status }: {
                     <select id="home-cards" value={typeof settings.cards === 'string' ? settings.cards : `deck:${settings.cards.deck}`}
                             onChange={e => set({ cards: e.target.value.startsWith('deck:') ? { deck: e.target.value.slice('deck:'.length) } : e.target.value as 'all' | 'tokens' })}>
                         <option value="all">All cards</option>
-                        <option value="tokens">Only the tokens</option>
+                        {order.tcg === 'magic' && <option value="tokens">Only the tokens</option>}
                         {decks.map(deck => <option key={deck.url} value={`deck:${deck.url}`}>Only {deck.name ?? deck.url}</option>)}
                     </select>
                 </div>
@@ -478,10 +480,10 @@ function HomeSheet({ order, update, pages, cards, status }: {
                     {blank > 0 && (
                         <div className="row">
                             <span className="warning">
-                                {count(blank, 'slot')} on the last page {blank === 1 ? 'stays' : 'stay'} empty. Fill {blank === 1 ? 'it' : 'them'} with tokens, so no paper goes to waste
-                                {tokens.length > 0 ? '.' : ': add tokens on the Cards tab with Find a token….'}
+                                {count(blank, 'slot')} on the last page {blank === 1 ? 'stays' : 'stay'} empty.
+                                {order.tcg === 'magic' && <> Fill {blank === 1 ? 'it' : 'them'} with tokens, so no paper goes to waste{tokens.length > 0 ? '.' : ': add tokens on the Cards tab with Find a token….'}</>}
                             </span>
-                            {tokens.length > 0 && <button onClick={() => update(current => ({ ...current, cards: fillFreeSlots(current) }))}><ListPlus/>Fill with tokens</button>}
+                            {order.tcg === 'magic' && tokens.length > 0 && <button onClick={() => update(current => ({ ...current, cards: fillFreeSlots(current) }))}><ListPlus/>Fill with tokens</button>}
                         </div>
                     )}
                     <HomePage settings={settings} slots={pages[page]!} cards={cards} order={order} status={status}/>
@@ -492,7 +494,7 @@ function HomeSheet({ order, update, pages, cards, status }: {
 }
 
 function HomePage({ settings, slots, cards, order, status }: { settings: HomePrint, slots: Slot[], cards: Map<string, OrderCard>, order: Order, status: Status }) {
-    const layout = sheetLayout(settings);
+    const layout = sheetLayout(settings, CARD_SIZES[order.tcg]);
     const percent = (value: number, of: number) => `${value / of * 100}%`;
     // The print images are larger than the slots by the bleed they have and the slots do not.
     const overhang = IMAGE_BLEED_MM - settings.bleed;
@@ -638,6 +640,8 @@ function sourceImage(face: Face) {
             return `preview://image/${encodeURIComponent(face.source.image)}`;
         case 'mpcfill':
             return mpcfillImage(face.source.id, 'large');
+        case 'tcg':
+            return tcgPreview(face.source.card);
         default:
             return undefined;
     }

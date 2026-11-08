@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { clip, endPath, PDFDocument, type PDFImage, popGraphicsState, pushGraphicsState, rectangle, rgb } from "pdf-lib";
-import { DEFAULT_HOME_PRINT, type Order } from "../model.js";
+import { CARD_SIZES, DEFAULT_HOME_PRINT, type Order } from "../model.js";
 import { buildPacks, type Slot } from "../pipeline/packs.js";
 import { cardsDir } from "../config/paths.js";
 import { exists } from "../utils/fs.js";
@@ -27,7 +27,7 @@ export async function writeHomePdf(order: Order, outputPath: string) {
     const pages = await processedPages(order);
     const dir = cardsDir(order);
 
-    const layout = sheetLayout(settings);
+    const layout = sheetLayout(settings, CARD_SIZES[order.tcg]);
     const pt = (mm: number) => mm * POINTS_PER_MM;
     // PDF measures from the bottom left corner.
     const bottom = (y: number, height = 0) => pt(layout.height - y - height);
@@ -75,7 +75,7 @@ export async function writeHomePdf(order: Order, outputPath: string) {
 export async function homePrintHtml(order: Order): Promise<string> {
     const settings = order.homePrint ?? DEFAULT_HOME_PRINT;
     const pages = await processedPages(order);
-    const layout = sheetLayout(settings);
+    const layout = sheetLayout(settings, CARD_SIZES[order.tcg]);
     const overhang = IMAGE_BLEED_MM - settings.bleed;
     const mm = (value: number) => `${value}mm`;
     const guides = layout.guides.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}"/>`).join('');

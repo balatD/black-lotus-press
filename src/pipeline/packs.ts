@@ -1,4 +1,4 @@
-import { type Adjustments, combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop } from "../model.js";
+import { type Adjustments, combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard, type ScryfallImageUris, type Shop, type TcgCard, tcgCardKey } from "../model.js";
 
 export const CARDS_PER_PACK = 55;
 export const PACK_PRICE_EUR = 19.95;
@@ -33,6 +33,7 @@ export type FaceSource =
     | { type: 'custom', image: string }
     | { type: 'mpcfill', id: string }
     | { type: 'cardback', driveId: string }
+    | { type: 'tcg', card: TcgCard }
     | { type: 'blank' };
 
 export interface Face {
@@ -102,9 +103,12 @@ export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adju
     const custom = (image: string) => adjustedFace(`custom-${image.replace(/\.[^.]+$/, '')}`, { type: 'custom', image }, adjustments, order.shop);
     // "full" since they keep their own resolution: images of older versions, scaled down to the profile's, are made anew.
     const mpcfill = (id: string) => adjustedFace(`mpcfill-full-${id}`, { type: 'mpcfill', id }, adjustments, order.shop);
+    // TCGdex ids can have dots, which file names of order files may not.
+    const tcg = (tcgCard: TcgCard) => adjustedFace(tcgCard.tcg === 'yugioh' ? `ygo-${tcgCard.id}` : `ptcg-${tcgCardKey(tcgCard).replace(/[^\w-]/g, '_')}`, { type: 'tcg', card: tcgCard }, adjustments, order.shop);
 
     const front = card.customImage
         ? custom(card.customImage.front)
+        : card.tcgCard ? tcg(card.tcgCard)
         : card.mpcfill?.front ? mpcfill(card.mpcfill.front)
         : printing && faceImageUris(printing, 'front') ? scryfall('front') : undefined;
     if (!front) return undefined;

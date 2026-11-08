@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { net, protocol } from "electron";
 import { loadOrder } from "../../src/config/orderConfigManager.js";
 import { cacheDriveImage } from "../../src/clients/googleDrive.js";
+import { cacheTcgImage } from "../../src/clients/tcgImages.js";
 import { cardsDir, customImagePath, dataPath } from "../../src/config/paths.js";
 import { isValidOrderName } from "../../src/model.js";
 import { pageSizeInPixels, PREVIEW_DIR, writePreview } from "../../src/output/printImage.js";
@@ -20,12 +21,14 @@ export function registerPreviewScheme() {
 }
 
 // preview://order/<order name>/<file> shows a processed card, preview://image/<file> an own image,
-// preview://mpcfill/<Drive id> an MPC Autofill image in high resolution.
+// preview://mpcfill/<Drive id> an MPC Autofill image in high resolution, preview://tcg/image?url=<image URL> a Yu-Gi-Oh or Pokémon card image.
 export function handlePreviews() {
     protocol.handle('preview', async request => {
         try {
             const url = new URL(request.url);
             if (url.host === 'mpcfill') return await mpcfillImage(url);
+            // The image goes through the cache, as YGOPRODeck asks for its images not to be loaded from its server every time.
+            if (url.host === 'tcg') return net.fetch(pathToFileURL(await cacheTcgImage(url.searchParams.get('url') ?? '')).toString());
 
             const source = await previewSource(url);
             if (!source) return new Response('Not found', { status: 404 });

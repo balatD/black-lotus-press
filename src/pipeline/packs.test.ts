@@ -169,6 +169,16 @@ test('cardFaces prefers own images over MPC Autofill images over Scryfall', () =
     assert.deepEqual(faces({ mpcfill: { front: 'drive-f' } }).front.source, { type: 'mpcfill', id: 'drive-f' });
 });
 
+test('cardFaces prints Yu-Gi-Oh and Pokémon cards from their artwork unless they have an own image', () => {
+    const home = (tcg: 'yugioh' | 'pokemon') => ({ ...order([], 'home'), tcg });
+    const ygo = card('blue-eyes', 1, { tcgCard: { tcg: 'yugioh', id: 89631139, image: 'https://images.ygoprodeck.com/images/cards/89631139.jpg' } });
+    const pokemon = card('fire', 1, { tcgCard: { tcg: 'pokemon', id: 'swsh12.5-153', lang: 'de', image: 'https://assets.tcgdex.net/de/swsh/swsh12.5/153/high.png' } });
+
+    assert.deepEqual(cardFaces(ygo, home('yugioh'))!.front, { file: 'ygo-89631139-b100-c100-finest.jpg', base: 'base-ygo-89631139.jpg', source: { type: 'tcg', card: ygo.tcgCard! }, adjustments: { brightness: 1, contrast: 1 } });
+    assert.equal(cardFaces(pokemon, home('pokemon'))!.front.file, 'ptcg-de-swsh12_5-153-b100-c100-finest.jpg');
+    assert.equal(cardFaces({ ...ygo, customImage: { front: 'own.png' } }, home('yugioh'))!.front.file, 'custom-own-b100-c100-finest.jpg');
+});
+
 test('cardFaces names the source of every face', () => {
     const dfc = printing('dfc', true);
     const faces = cardFaces(card('dfc', 1, { printing: dfc, customImage: { front: 'abc.png' } }), order([]));

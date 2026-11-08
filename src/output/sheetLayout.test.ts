@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_HOME_PRINT } from "../model.js";
+import { CARD_SIZES, DEFAULT_HOME_PRINT } from "../model.js";
 import { fittingGrids, sheetLayout, withFittingGrid } from "./sheetLayout.js";
 
 test('sheetLayout centres a grid of 3 × 3 cards of 63 × 88 mm on A4', () => {
@@ -61,4 +61,12 @@ test('withFittingGrid keeps the offset small enough for the cards to stay on the
     // 3 × 3 on Letter leaves 7.7 mm above and below the cards.
     const letter = withFittingGrid({ ...DEFAULT_HOME_PRINT, offsetY: 12, paper: 'letter' });
     assert.equal(Math.round(letter.offsetY! * 100) / 100, 7.7);
+});
+
+test('sheetLayout and fittingGrids lay out Yu-Gi-Oh cards at their 59 × 86 mm, 3 × 3 on A4', () => {
+    const layout = sheetLayout({ ...DEFAULT_HOME_PRINT, guides: 'none' }, CARD_SIZES.yugioh);
+
+    assert.deepEqual(layout.slots[0], { x: 16.5, y: 19.5, width: 59, height: 86 });
+    assert.deepEqual(fittingGrids({ paper: 'a4', gap: 0, bleed: 3 }, CARD_SIZES.yugioh)[0], { landscape: false, columns: 3, rows: 3 });
+    assert.deepEqual(withFittingGrid({ ...DEFAULT_HOME_PRINT, offsetY: 30 }, CARD_SIZES.yugioh).offsetY, 19.5);
 });

@@ -5,11 +5,16 @@ import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import { createBlankPrintJpeg, pageSizeInPixels, printSizeInPixels, toPrintJpeg, toPrintPng, writePreview } from "./printImage.js";
-import { NO_ADJUSTMENTS } from "../model.js";
+import { CARD_SIZES, NO_ADJUSTMENTS } from "../model.js";
 
 test('page size is 69x94 mm with 3 mm bleed', () => {
     assert.deepEqual(pageSizeInPixels(300), { width: 815, height: 1110 });
     assert.deepEqual(pageSizeInPixels(600), { width: 1630, height: 2220 });
+});
+
+test('the page of a Yu-Gi-Oh card is its 59 × 86 mm with 3 mm bleed', () => {
+    assert.deepEqual(pageSizeInPixels(300, CARD_SIZES.yugioh), { width: 768, height: 1087 });
+    assert.deepEqual(printSizeInPixels('home', 300, CARD_SIZES.yugioh), { width: 768, height: 1087 });
 });
 
 test('print images for printerstudio have the 2.72 × 3.70 inches of MPC, a pixel wider than the page at 300 dpi', () => {

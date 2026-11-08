@@ -9,8 +9,11 @@ import { _electron as electron, type ElectronApplication, type Page } from "play
 import { DeckData, DefaultOrder, DefaultProfile, type OrderCard, type ScryfallCard } from "../../src/model.js";
 import { buildPacks, cardFaces, packsFingerprint } from "../../src/pipeline/packs.js";
 import { settingsFingerprint } from "../../src/pipeline/processImages.js";
+import { setDataRoot } from "../../src/config/paths.js";
+import { tcgImageFile } from "../../src/clients/tcgImages.js";
 
 const MAIN = path.resolve('out/main/index.js');
+const KURIBOH_IMAGE = 'https://images.ygoprodeck.com/images/cards/40640057.jpg';
 
 let app: ElectronApplication;
 let window: Page;
@@ -99,6 +102,17 @@ before(async () => {
     for (const file of [pdfFaces.front.base!, pdfFaces.front.file, pdfFaces.back.base!, pdfFaces.back.file]) {
         await sharp({ create: { width: 815, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toFile(path.join(pdfCards, file));
     }
+    // A Yu-Gi-Oh order of a pasted list, with its card image in the download cache, so nothing goes over the network.
+    const ygoOrder = {
+        ...DefaultOrder, name: 'ygo deck', shop: 'home', tcg: 'yugioh', cardBack: '',
+        decks: [{ url: 'list:seeded', data: [DeckData.MainBoard, DeckData.Extra, DeckData.SideBoard], name: 'Deck list 1', list: '#main\n40640057' }],
+        cards: [{ id: 'kuriboh', deck: 'list:seeded', board: 'mainboard', name: 'Kuriboh', quantity: 9, isToken: false, excluded: false,
+            tcgCard: { tcg: 'yugioh', id: 40640057, image: KURIBOH_IMAGE }, imported: { moxfieldId: '40640057', quantity: 9, printingId: '40640057' } }]
+    };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'ygo deck.json'), JSON.stringify(ygoOrder));
+    setDataRoot(root);
+    await fs.mkdir(path.dirname(tcgImageFile(KURIBOH_IMAGE)), { recursive: true });
+    await sharp({ create: { width: 813, height: 1185, channels: 3, background: '#7a5230' } }).jpeg().toFile(tcgImageFile(KURIBOH_IMAGE));
     await fs.writeFile(path.join(root, 'config', 'profiles', 'default.json'), JSON.stringify(DefaultProfile));
     await fs.mkdir(path.join(root, 'config', 'images'), { recursive: true });
     for (const id of ['a', 'b']) {
@@ -605,6 +619,54 @@ test('the cards tab shows only the cards of one kind, together with the name sea
     await search.fill('');
     assert.deepEqual(await names(), ['Card a', 'Treasure', 'Off card', 'Card c']);
     assert.ok(await window.getByRole('button', { name: 'Move Card a' }).isEnabled());
+});
+
+test('Yu-Gi-Oh orders print at home only, from a pasted deck list, at 59 × 86 mm', async () => {
+    const target = path.join(root, 'kuriboh.pdf');
+    const passcodes = Buffer.alloc(8);
+    passcodes.writeUInt32LE(40640057, 0);
+    passcodes.writeUInt32LE(40640057, 4);
+    await app.evaluate(({ dialog, shell }, { filePath, kuriboh }) => {
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath })) as typeof dialog.showSaveDialog;
+        shell.openPath = (async () => '') as typeof shell.openPath;
+        const real = globalThis.fetch;
+        globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
+            String(input).startsWith('https://db.ygoprodeck.com/') ? Response.json({ data: [kuriboh] }) : real(input, init)) as typeof fetch;
+    }, { filePath: target, kuriboh: { id: 40640057, name: 'Kuriboh', type: 'Effect Monster', card_images: [{ id: 40640057, image_url: KURIBOH_IMAGE }] } });
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('Home printer');
+
+    await window.getByRole('button', { name: 'New order' }).click();
+    await window.getByRole('button', { name: 'Yu-Gi-Oh', exact: true }).click();
+    await window.getByPlaceholder('Order name').fill('kaiba');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await window.getByRole('heading', { name: 'Deck lists' }).waitFor();
+    assert.equal(await window.getByRole('heading', { name: 'Card back' }).count(), 0);
+    await window.getByLabel('New deck list').fill(`ydke://${passcodes.toString('base64')}!!!`);
+    await window.getByRole('button', { name: 'Add deck list' }).click();
+    await window.getByRole('button', { name: 'Import', exact: true }).click();
+    await window.locator('.deck').getByText('2 cards').waitFor();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByText('Kuriboh').first().waitFor();
+    assert.equal(await window.getByRole('button', { name: 'Use the sharpest MPC Autofill images' }).count(), 0);
+
+    await window.getByRole('button', { name: /ygo deck/ }).click();
+    await window.getByRole('button', { name: 'Order actions' }).click();
+    assert.equal(await window.getByRole('button', { name: 'Move or copy' }).count(), 0);
+    await window.keyboard.press('Escape');
+    await window.getByRole('tab', { name: 'Print' }).click();
+    await window.getByText(/come out at 59 × 86 mm/).waitFor();
+    await window.getByRole('button', { name: 'Process images', exact: true }).click();
+    await window.getByText('All images are ready').waitFor({ timeout: 60000 });
+    await window.getByRole('button', { name: 'Save PDF' }).click();
+    await window.getByText(`Saved as ${target}`).waitFor();
+    assert.equal((await PDFDocument.load(await fs.readFile(target))).getPageCount(), 1);
+    const slot = await window.locator('.home-slot').first().boundingBox();
+    assert.ok(Math.abs(slot!.width / slot!.height - 59 / 86) < 0.01, `a slot is ${slot!.width} × ${slot!.height}`);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
 });
 
 test('meinspiel.de gets the card images in one step that asks first, and nothing starts when the answer is no', async () => {

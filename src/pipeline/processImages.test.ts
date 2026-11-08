@@ -6,13 +6,17 @@ import path from "node:path";
 import sharp from "sharp";
 import { DefaultOrder, DefaultProfile, type Order, type OrderCard, type ScryfallCard } from "../model.js";
 import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
-import { faceJobs, forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages, writePrintPng } from "./processImages.js";
+import { cardProfile, faceJobs, forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages, writePrintPng } from "./processImages.js";
 import { moveOrder, saveOrder } from "../config/orderConfigManager.js";
 import { BLANK_FILE } from "./packs.js";
 import { printSizeInPixels } from "../output/printImage.js";
 
 const scan = await sharp({ create: { width: 745, height: 1040, channels: 4, background: { r: 90, g: 60, b: 40, alpha: 1 } } }).png().toBuffer();
 const mpcImage = await sharp({ create: { width: 816, height: 1110, channels: 3, background: '#3366aa' } }).jpeg().toBuffer();
+const ygoImage = await sharp({ create: { width: 813, height: 1185, channels: 3, background: '#7a5230' } }).jpeg().toBuffer();
+// Like TCGdex scans: transparent rounded corners and a little wider than the card.
+const pokemonImage = await sharp({ create: { width: 600, height: 825, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: Buffer.from('<svg width="600" height="825"><rect width="600" height="825" rx="24" fill="#d4b13a"/></svg>') }]).png().toBuffer();
 let fetched: string[] = [];
 
 beforeEach(async () => {
@@ -22,6 +26,8 @@ beforeEach(async () => {
         fetched.push(url);
         if (url.includes('/missing.png')) return new Response('not found', { status: 404 });
         if (url.includes('googleusercontent.com') || url.includes('drive.google.com')) return new Response(new Uint8Array(mpcImage), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        if (url.includes('images.ygoprodeck.com')) return new Response(new Uint8Array(ygoImage), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        if (url.includes('assets.tcgdex.net')) return new Response(new Uint8Array(pokemonImage), { status: 200, headers: { 'content-type': 'image/png' } });
         return new Response(new Uint8Array(scan), { status: 200, headers: { 'content-type': 'image/png' } });
     });
 });
@@ -126,6 +132,33 @@ test('processImages makes the print images of a home order in their own resoluti
     // The MPC Autofill image has about 300 dpi, twice the profile's 150 dpi, and keeps them.
     const image = await sharp(path.join(cardsDir(target), 'mpcfill-full-drive-m-b110-c100-finest.jpg')).metadata();
     assert.deepEqual([image.width, image.height, image.chromaSubsampling], [815, 1110, '4:4:4']);
+});
+
+test('processImages makes Yu-Gi-Oh cards at 59 × 86 mm with a mirrored 3 mm bleed, prints only the fronts at home and keeps their cache apart', async () => {
+    const target: Order = { ...order([card('kuriboh', 2, { tcgCard: { tcg: 'yugioh', id: 40640057, image: 'https://images.ygoprodeck.com/images/cards/40640057.jpg' } })], 300), shop: 'home', tcg: 'yugioh' };
+
+    await processImages(target);
+
+    const base = await sharp(path.join(cardsDir(target), 'base-ygo-40640057.jpg')).metadata();
+    assert.deepEqual([base.width, base.height], [895, 1267]);
+    // 895 pixels on the 65 mm page are about 350 dpi, more than the profile's 300.
+    const print = await sharp(path.join(cardsDir(target), 'ygo-40640057-b110-c100-finest.jpg')).metadata();
+    assert.deepEqual([print.width, print.height], [895, 1267]);
+    assert.deepEqual(await processedFiles(target), ['ygo-40640057-b110-c100-finest.jpg'], 'neither a blank card nor the card back');
+    assert.notEqual(settingsFingerprint(cardProfile(target)), settingsFingerprint(target.profile));
+});
+
+test('processImages fills the transparent corners of Pokémon scans and brings them to the shape of the card', async () => {
+    const target: Order = { ...order([card('charizard', 1, { tcgCard: { tcg: 'pokemon', id: 'sv03-125', lang: 'en', image: 'https://assets.tcgdex.net/en/sv/sv03/125/high.png' } })], 150), shop: 'home', tcg: 'pokemon' };
+
+    await processImages(target);
+
+    const { data, info } = await sharp(path.join(cardsDir(target), 'base-ptcg-en-sv03-125.jpg')).raw().toBuffer({ resolveWithObject: true });
+    // 600 × 838 for 63 × 88 mm, plus 3 mm of bleed on every side.
+    assert.deepEqual([info.width, info.height], [658, 896]);
+    const bleed = 29;
+    const corner = (bleed * info.width + bleed) * info.channels;
+    assert.ok(data[corner]! < 240 || data[corner + 2]! < 240, `the corner of the card is not white: ${[...data.subarray(corner, corner + 3)]}`);
 });
 
 test('processImages gives MPC Autofill images without bleed a mirrored one', async () => {

@@ -1,7 +1,7 @@
-import { type FormEvent, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ArrowRightLeft, Check, Ellipsis, GalleryVerticalEnd, type LucideIcon, PencilLine, Printer, Settings2, Share2, Trash, X } from "lucide-react";
-import type { Order, ProcessingProfile, Shop } from "../../../../src/model.js";
+import { CARD_SIZES, type Order, type ProcessingProfile, type Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab } from "./CardsTab.js";
 import { PrintTab } from "./PrintTab.js";
@@ -100,13 +100,14 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
                 </div>
                 <button className="quiet order-menu-button" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }} popoverTarget="order-menu" aria-label="Order actions" title="Order actions"><Ellipsis/></button>
                 <div ref={menu} id="order-menu" popover="auto" className="order-menu">
-                    <button className="quiet" onClick={fromMenu(() => setTransferring(true))}><ArrowRightLeft/>Move or copy</button>
+                    {order.tcg === 'magic' && <button className="quiet" onClick={fromMenu(() => setTransferring(true))}><ArrowRightLeft/>Move or copy</button>}
                     <button className="quiet" onClick={fromMenu(() => setExporting(true))}><Share2/>Export</button>
                     {renaming === undefined && <button className="quiet" disabled={busy} onClick={fromMenu(() => setRenaming(order.name))}><PencilLine/>Rename</button>}
                     <button className="quiet danger" onClick={fromMenu(confirmDelete)}><Trash/>Delete order</button>
                 </div>
             </header>
-            <div className="screen-body">
+            {/* The card images of the order in the shape of its cards, also in the dialogs opened from here. */}
+            <div className="screen-body" style={{ '--card-mm-width': CARD_SIZES[order.tcg].width, '--card-mm-height': CARD_SIZES[order.tcg].height } as CSSProperties}>
                 {tab === 'Setup' && <SetupTab order={order} profiles={profiles} update={update}/>}
                 {tab === 'Cards' && <CardsTab order={order} update={update} search={search}/>}
                 {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush}/>}

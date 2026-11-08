@@ -1,12 +1,11 @@
-import type { HomePrint, Paper } from "../model.js";
+import { CARD_SIZES, type HomePrint, type Paper } from "../model.js";
 
 export const PAPERS: Record<Paper, { name: string, width: number, height: number }> = {
     a4: { name: 'A4', width: 210, height: 297 },
     letter: { name: 'Letter', width: 215.9, height: 279.4 }
 };
 
-const CARD_WIDTH_MM = 63;
-const CARD_HEIGHT_MM = 88;
+type CardSize = { width: number, height: number };
 // The bleed the print images have around the card, as in printImage.ts.
 export const IMAGE_BLEED_MM = 3;
 // Home printers leave about this much of the paper's edge blank.
@@ -34,27 +33,27 @@ function pageSize({ paper, landscape }: Pick<HomePrint, 'paper' | 'landscape'>) 
     return landscape ? { width: height, height: width } : { width, height };
 }
 
-function gridSize({ columns, rows, gap, bleed }: Grid) {
+function gridSize({ columns, rows, gap, bleed }: Grid, card: CardSize) {
     return {
-        width: columns * (CARD_WIDTH_MM + 2 * bleed) + (columns - 1) * gap,
-        height: rows * (CARD_HEIGHT_MM + 2 * bleed) + (rows - 1) * gap
+        width: columns * (card.width + 2 * bleed) + (columns - 1) * gap,
+        height: rows * (card.height + 2 * bleed) + (rows - 1) * gap
     };
 }
 
-function fits(grid: Grid) {
+function fits(grid: Grid, card: CardSize) {
     const page = pageSize(grid);
-    const size = gridSize(grid);
+    const size = gridSize(grid, card);
     return size.width <= page.width - 2 * MARGIN_MM && size.height <= page.height - 2 * MARGIN_MM;
 }
 
-export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides' | 'offsetX' | 'offsetY'>): SheetLayout {
+export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides' | 'offsetX' | 'offsetY'>, card: CardSize = CARD_SIZES.magic): SheetLayout {
     const { columns, rows, gap, bleed } = settings;
     const page = pageSize(settings);
-    const grid = gridSize(settings);
+    const grid = gridSize(settings, card);
     const left = (page.width - grid.width) / 2 + (settings.offsetX ?? 0);
     const top = (page.height - grid.height) / 2 + (settings.offsetY ?? 0);
-    const width = CARD_WIDTH_MM + 2 * bleed;
-    const height = CARD_HEIGHT_MM + 2 * bleed;
+    const width = card.width + 2 * bleed;
+    const height = card.height + 2 * bleed;
 
     const slots: Box[] = [];
     for (let row = 0; row < rows; row++) {
@@ -65,8 +64,8 @@ export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides' | 'offsetX
 
     // Both edges of every card; cards that touch share theirs.
     const unique = (values: number[]) => [...new Set(values.map(value => Math.round(value * 1000) / 1000))];
-    const cutsX = unique(slots.slice(0, columns).flatMap(slot => [slot.x + bleed, slot.x + bleed + CARD_WIDTH_MM]));
-    const cutsY = unique(slots.filter((_, index) => index % columns === 0).flatMap(slot => [slot.y + bleed, slot.y + bleed + CARD_HEIGHT_MM]));
+    const cutsX = unique(slots.slice(0, columns).flatMap(slot => [slot.x + bleed, slot.x + bleed + card.width]));
+    const cutsY = unique(slots.filter((_, index) => index % columns === 0).flatMap(slot => [slot.y + bleed, slot.y + bleed + card.height]));
 
     const right = left + grid.width;
     const bottom = top + grid.height;
@@ -88,22 +87,22 @@ export function sheetLayout(settings: Grid & Pick<HomePrint, 'guides' | 'offsetX
 }
 
 // Portrait before landscape where both hold as many cards. A single card always fits, as the bleed is at most 3 mm.
-export function fittingGrids(settings: Pick<HomePrint, 'paper' | 'gap' | 'bleed'>): Pick<HomePrint, 'landscape' | 'columns' | 'rows'>[] {
+export function fittingGrids(settings: Pick<HomePrint, 'paper' | 'gap' | 'bleed'>, card: CardSize = CARD_SIZES.magic): Pick<HomePrint, 'landscape' | 'columns' | 'rows'>[] {
     const grids: Pick<HomePrint, 'landscape' | 'columns' | 'rows'>[] = [];
     for (const landscape of [false, true]) {
-        for (let columns = 1; fits({ ...settings, landscape, columns, rows: 1 }); columns++) {
-            for (let rows = 1; fits({ ...settings, landscape, columns, rows }); rows++) grids.push({ landscape, columns, rows });
+        for (let columns = 1; fits({ ...settings, landscape, columns, rows: 1 }, card); columns++) {
+            for (let rows = 1; fits({ ...settings, landscape, columns, rows }, card); rows++) grids.push({ landscape, columns, rows });
         }
     }
     return grids.sort((a, b) => b.columns * b.rows - a.columns * a.rows);
 }
 
 // Also keeps the offset small enough for the cards to stay on the paper.
-export function withFittingGrid(settings: HomePrint): HomePrint {
-    const fitting = fits(settings) ? settings : { ...settings, ...fittingGrids(settings)[0]! };
+export function withFittingGrid(settings: HomePrint, card: CardSize = CARD_SIZES.magic): HomePrint {
+    const fitting = fits(settings, card) ? settings : { ...settings, ...fittingGrids(settings, card)[0]! };
     if (fitting.offsetX === undefined && fitting.offsetY === undefined) return fitting;
     const page = pageSize(fitting);
-    const grid = gridSize(fitting);
+    const grid = gridSize(fitting, card);
     const within = (offset: number | undefined, room: number) => Math.min(room, Math.max(-room, offset ?? 0));
     return { ...fitting, offsetX: within(fitting.offsetX, (page.width - grid.width) / 2), offsetY: within(fitting.offsetY, (page.height - grid.height) / 2) };
 }

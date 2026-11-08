@@ -12,6 +12,7 @@ import { RegistrationMark } from "../components/Decor.js";
 import { TokenPicker } from "../components/TokenPicker.js";
 import { useStoredState } from "../useStoredState.js";
 import { adjustmentFilter } from "../adjust.js";
+import { tcgPreview } from "../shops.js";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
 import { useProgress } from "../useProgress.js";
@@ -26,7 +27,7 @@ interface Props {
 type View = 'list' | 'cards';
 
 const isLowRes = (card: OrderCard) => !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres';
-const isNotOnScryfall = (card: OrderCard) => !card.printing && !card.customImage;
+const isNotOnScryfall = (card: OrderCard) => !card.printing && !card.customImage && !card.tcgCard;
 
 // The kinds of cards the tab can show alone, as the badges name them.
 const KINDS: [label: string, matches: (card: OrderCard) => boolean][] = [
@@ -139,7 +140,7 @@ export function CardsTab({ order, update, search }: Props) {
                     ))}
                 </div>
             )}
-            <SharpestImages order={order} update={update}/>
+            {order.tcg === 'magic' && <SharpestImages order={order} update={update}/>}
             <p className="status">{filtering ? 'Clear the search and show all cards to reorder them.' : view === 'list'
                 ? 'Drag cards or use Alt + arrow keys on the handle to change the print order.'
                 : 'Drag cards to change the print order, click a card to choose its image, copies and brightness.'}</p>
@@ -193,10 +194,11 @@ export function CardsTab({ order, update, search }: Props) {
     );
 }
 
-// The image a face is printed from, in the same order as the processing: own image, MPC Autofill image, Scryfall scan.
+// The image a face is printed from, in the same order as the processing: own image, Yu-Gi-Oh or Pokémon card, MPC Autofill image, Scryfall scan.
 function faceImage(card: OrderCard, face: 'front' | 'back', size: 'small' | 'normal' | 'large') {
     const own = face === 'front' ? card.customImage?.front : card.customImage?.back;
     if (own) return `preview://image/${encodeURIComponent(own)}`;
+    if (card.tcgCard) return face === 'front' ? tcgPreview(card.tcgCard, size === 'small') : undefined;
     const mpcfill = card.mpcfill?.[face];
     if (mpcfill) return mpcfillImage(mpcfill, size === 'small' ? 'small' : 'large');
     return card.printing && faceImageUris(card.printing, face)?.[size];
@@ -291,7 +293,7 @@ function Summary({ order, update }: Props) {
                 {value > 0 && <><s title="Cardmarket value of the printed cards">{formatEuro(value)}</s>{' '}</>}
                 {formatEuro(price)} plus shipping.</>}
             </p>
-            {blank > 0 && (
+            {blank > 0 && order.tcg === 'magic' && (
                 <div className="free-slots">
                     <p>{count(blank, 'slot')}{packs.length > 1 ? ` of ${shop === 'home' ? 'page' : 'pack'} ${packs.length}` : ''} {blank === 1 ? 'stays' : 'stay'} blank. Fill {blank === 1 ? 'it' : 'them'} with tokens:</p>
                     <div className="row">

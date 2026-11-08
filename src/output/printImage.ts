@@ -1,8 +1,6 @@
 import sharp from "sharp";
-import type { Adjustments, Shop } from "../model.js";
+import { type Adjustments, CARD_SIZES, type Shop } from "../model.js";
 
-export const PAGE_WIDTH_MM = 69;
-export const PAGE_HEIGHT_MM = 94;
 export const BLEED_MM = 3;
 
 // Previews sit in this folder next to the images they show.
@@ -13,16 +11,17 @@ export interface PixelSize {
     height: number;
 }
 
-export function pageSizeInPixels(dpi: number): PixelSize {
+// The card with its bleed, 69 × 94 mm for Magic.
+export function pageSizeInPixels(dpi: number, card = CARD_SIZES.magic): PixelSize {
     return {
-        width: Math.round(PAGE_WIDTH_MM / 25.4 * dpi),
-        height: Math.round(PAGE_HEIGHT_MM / 25.4 * dpi)
+        width: Math.round((card.width + 2 * BLEED_MM) / 25.4 * dpi),
+        height: Math.round((card.height + 2 * BLEED_MM) / 25.4 * dpi)
     };
 }
 
 // printerstudio.de flags images narrower than MPC's 2.72 × 3.70 inches as low resolution, and the page is 0.1 mm narrower.
-export function printSizeInPixels(shop: Shop, dpi: number): PixelSize {
-    return shop === 'printerstudio' ? { width: Math.round(2.72 * dpi), height: Math.round(3.7 * dpi) } : pageSizeInPixels(dpi);
+export function printSizeInPixels(shop: Shop, dpi: number, card = CARD_SIZES.magic): PixelSize {
+    return shop === 'printerstudio' ? { width: Math.round(2.72 * dpi), height: Math.round(3.7 * dpi) } : pageSizeInPixels(dpi, card);
 }
 
 // Shared by both formats, so the PNG uploaded to meinspiel.de shows the card exactly like the JPEG on disk.

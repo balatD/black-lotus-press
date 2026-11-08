@@ -22,6 +22,7 @@
 - Uploads a lossless image of every card side to your meinspiel.de account, a game per pack of 55 cards, each image in its own resolution and at least that of the profile. You log in and order yourself; the app never sees your password and never pays anything.
 - For notmpc.eu, uploads RGB images and fills their designer with every card of a deck in its slot; you choose the options and order there. notmpc.eu is not available at the moment.
 - For printerstudio.de, lets you log in, uploads RGB images, fills their designer for 63 × 88 mm cards on Standard stock up to the preview and saves every deck in your account; you confirm the copyright and put the decks into the cart.
+- Also prints Yu-Gi-Oh and Pokémon cards at home, from a pasted .ydk file, ydke:// link or Pokémon TCG Live list: the cards come from YGOPRODeck and TCGdex, with their other artworks and printings to pick, Pokémon cards also in German, French, Italian or Spanish, and print at their own size.
 - For your own printer, prints the card fronts on A4 or Letter pages through the system's print dialog, or saves them as a PDF: as many cards per page as fit, copies, all cards or only the tokens or one deck, space between the cards, bleed, crop marks or cut lines, and an offset for printers that pull the paper in early or late. A live preview shows each page; both sides of a double-faced card print next to each other, and empty slots on the last page are offered to tokens, so no paper goes to waste.
 - Moves an order to another shop, or copies it there, with its cards, images and edits; the upscaled images are kept.
 - Exports an order as a file to share, with or without the upscaled images, and imports such files.
@@ -60,10 +61,10 @@ The builds are not signed with a paid certificate, so macOS and Windows warn bef
 
 ## Credits
 
-Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com) and [Archidekt](https://archidekt.com), card backs and high-resolution card images from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
+Based on [MPC Proxy Forge](https://github.com/benedikt-wueller/mpc-proxy-forge) by Benedikt Wüller. Card data and images from [Scryfall](https://scryfall.com), decks from [Moxfield](https://moxfield.com) and [Archidekt](https://archidekt.com), Yu-Gi-Oh card data and images from [YGOPRODeck](https://ygoprodeck.com), Pokémon card data and images from [TCGdex](https://tcgdex.dev), card backs and high-resolution card images from [MPC Autofill](https://mpcautofill.github.io), upscaling by [Upscayl](https://github.com/upscayl/upscayl-ncnn). The splash screen's card printer is drawn with Ryan's Anatomy isometric kit ([MIT](tools/anatomy/LICENSE)).
 
 ## License
 
 [MIT](LICENSE). The website's typeface, Barlow Semi Condensed, is under the [SIL Open Font License](site/fonts/OFL.txt).
 
-Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall or MPC Autofill.
+Black Lotus Press is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Not affiliated with meinspiel.de, notmpc.eu, printerstudio.de, Moxfield, Archidekt, Scryfall, MPC Autofill, YGOPRODeck or TCGdex. Yu-Gi-Oh! card images belong to Konami, Pokémon card images to The Pokémon Company.

@@ -164,6 +164,27 @@ test('loadOrders gives orders saved before there was a choice of shop to meinspi
     assert.equal((await loadOrders())[0]?.shop, 'meinspiel');
 });
 
+test('loadOrders gives orders saved before there was a choice of card game to Magic', async () => {
+    const root = await tempRoot();
+    await fs.mkdir(path.join(root, 'config', 'orders'), { recursive: true });
+    const { tcg: _, ...older } = { ...DefaultOrder, name: 'sauron' };
+    await fs.writeFile(path.join(root, 'config', 'orders', 'sauron.json'), JSON.stringify(older));
+
+    assert.equal((await loadOrders())[0]?.tcg, 'magic');
+});
+
+test('Yu-Gi-Oh and Pokémon orders cannot be moved, copied or imported to a shop other than the home printer', async () => {
+    await tempRoot();
+    const order: Order = { ...DefaultOrder, name: 'kaiba', shop: 'home', tcg: 'yugioh' };
+    await saveOrder(order);
+
+    await assert.rejects(moveOrder(order, 'meinspiel'), /Yu-Gi-Oh orders only print at home/);
+    await assert.rejects(copyOrder(order, 'printerstudio', 'kaiba copy'), /Yu-Gi-Oh orders only print at home/);
+    const doctored = await exported({ ...order, name: 'ash', tcg: 'pokemon', shop: 'notmpc' }, false);
+    await assert.rejects(importOrder(doctored, [DefaultProfile]), /Pokémon orders only print at home/);
+    assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['kaiba', 'home']]);
+});
+
 const OWN_IMAGE = '0123456789abcdef.png';
 const ownCard: OrderCard = { id: 'a', deck: 'deck', board: 'mainboard', name: 'Sauron', quantity: 1, isToken: false, excluded: false, customImage: { front: OWN_IMAGE } };
 // The profile of the same name on the friend's computer, with its own folders and browser.

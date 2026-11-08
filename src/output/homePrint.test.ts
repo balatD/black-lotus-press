@@ -109,6 +109,15 @@ test('homePrintHtml lays the pages out in millimetres like the PDF, with the pro
     assert.equal(html.match(/<line /g)?.length, 4 * 8);
 });
 
+test('homePrintHtml lays Yu-Gi-Oh cards out at their 59 × 86 mm', async () => {
+    const target = { ...order([card('island', 9)]), tcg: 'yugioh' as const };
+    await processImages(target);
+
+    const html = await homePrintHtml(target);
+
+    assert.ok(html.includes('<div style="left:16.5mm;top:19.5mm;width:59mm;height:86mm">'));
+});
+
 test('homePrintHtml asks for the images to be processed first', async () => {
     await assert.rejects(homePrintHtml(order([card('island', 2)])), /Process the images first/);
 });

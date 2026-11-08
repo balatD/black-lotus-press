@@ -108,10 +108,13 @@ export interface DeckConfig {
     url: string;
     data: DeckData[];
     name?: string;
+    // The pasted deck list of a Yu-Gi-Oh or Pokémon deck, whose url is then an id starting with "list:".
+    list?: string;
 }
 
 export enum DeckData {
     MainBoard = "mainboard",
+    Extra = "extra",
     SideBoard = "sideboard",
     Tokens = "tokens",
     Considering = "maybeboard",
@@ -165,6 +168,7 @@ export interface OrderCard {
     // Moxfield has the card as foil or etched.
     foil?: boolean;
     printing?: ScryfallCard;
+    tcgCard?: TcgCard;
     customImage?: CustomImage;
     mpcfill?: MpcfillImage;
     adjustments?: Adjustments;
@@ -180,6 +184,38 @@ export interface ImportedState {
 }
 
 export type Shop = 'meinspiel' | 'notmpc' | 'printerstudio' | 'home';
+
+export type Tcg = 'magic' | 'yugioh' | 'pokemon';
+
+export const TCG_NAMES: Record<Tcg, string> = { magic: 'Magic', yugioh: 'Yu-Gi-Oh', pokemon: 'Pokémon' };
+
+// Millimetres, without bleed.
+export const CARD_SIZES: Record<Tcg, { width: number, height: number }> = {
+    magic: { width: 63, height: 88 },
+    yugioh: { width: 59, height: 86 },
+    pokemon: { width: 63, height: 88 }
+};
+
+export function printsAt(tcg: Tcg, shop: Shop) {
+    return tcg === 'magic' || shop === 'home';
+}
+
+// The languages TCGdex has Pokémon card images in.
+export const POKEMON_LANGUAGES: [code: string, name: string][] = [['en', 'English'], ['de', 'German'], ['fr', 'French'], ['it', 'Italian'], ['es', 'Spanish']];
+
+// A Yu-Gi-Oh artwork from YGOPRODeck, its id the passcode of the artwork, or a Pokémon card from TCGdex, its id like "sv03-125".
+export type TcgCard =
+    | { tcg: 'yugioh', id: number, image: string }
+    | { tcg: 'pokemon', id: string, lang: string, image: string };
+
+export function tcgCardKey(card: TcgCard) {
+    return card.tcg === 'yugioh' ? String(card.id) : `${card.lang}-${card.id}`;
+}
+
+// The printing a card prints in, whatever the game.
+export function printingId(card: Pick<OrderCard, 'printing' | 'tcgCard'>) {
+    return card.printing?.id ?? (card.tcgCard && tcgCardKey(card.tcgCard));
+}
 
 export type Paper = 'a4' | 'letter';
 
@@ -208,6 +244,9 @@ export const DEFAULT_HOME_PRINT: HomePrint = {
 export interface Order {
     name: string;
     shop: Shop;
+    tcg: Tcg;
+    // The language of the Pokémon cards' images, English when missing.
+    language?: string;
     profile: ProcessingProfile;
     decks: DeckConfig[];
     // Google Drive id of an MPC Autofill card back.
@@ -223,6 +262,7 @@ export interface Order {
 export const DefaultOrder: Order = {
     name: 'unnamed',
     shop: 'meinspiel',
+    tcg: 'magic',
     profile: DefaultProfile,
     cardBack: '1osewJhv5oaP5glJsBpnFJq0pXNuPwZY2',
     decks: [],
@@ -359,7 +399,7 @@ export function updateDeckCards(cards: OrderCard[], deckUrl: string, imported: O
         group.forEach((card, index) => {
             const quantity = quantities[index]!;
             const result = quantity > 0 ? mergeCard(card, fresh, quantity) : undefined;
-            if (result?.quantity !== card.quantity || result.printing?.id !== card.printing?.id) groupChanged = true;
+            if (result?.quantity !== card.quantity || printingId(result) !== printingId(card)) groupChanged = true;
             merged.set(card, result);
         });
         if (groupChanged) changed++;
@@ -444,10 +484,11 @@ function sameEntry(card: OrderCard, fresh: OrderCard) {
 function mergeCard(card: OrderCard, fresh: OrderCard, quantity: number): OrderCard {
     const before = card.imported;
     // Without import state a printing picked here cannot be told apart, so it stays.
-    const printingPickedHere = before === undefined || card.printing?.id !== before.printingId;
+    const printingPickedHere = before === undefined || printingId(card) !== before.printingId;
 
     const printing = (printingPickedHere ? card.printing : undefined) ?? fresh.printing ?? card.printing;
-    const { printing: _, imported: __, mpcfill, ...rest } = card;
+    const tcgCard = (printingPickedHere ? card.tcgCard : undefined) ?? fresh.tcgCard ?? card.tcgCard;
+    const { printing: _, tcgCard: ___, imported: __, mpcfill, ...rest } = card;
 
     return {
         ...rest,
@@ -455,6 +496,7 @@ function mergeCard(card: OrderCard, fresh: OrderCard, quantity: number): OrderCa
         isToken: fresh.isToken,
         quantity,
         ...(printing ? { printing } : {}),
+        ...(tcgCard ? { tcgCard } : {}),
         // The image was picked for the old printing.
         ...(mpcfill && printing?.id === card.printing?.id ? { mpcfill } : {}),
         ...(fresh.imported ? { imported: fresh.imported } : {})

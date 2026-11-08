@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircleStop, Download, Images, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
-import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
+import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, POKEMON_LANGUAGES, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
 import type { Task } from "../../../shared/api.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { useProgress } from "../useProgress.js";
@@ -27,6 +27,8 @@ const BOARDS: [DeckData, string][] = [
     [DeckData.Planes, 'Planar deck'],
     [DeckData.Schemes, 'Schemes']
 ];
+
+const YGO_BOARDS: [DeckData, string][] = [[DeckData.MainBoard, 'Main deck'], [DeckData.Extra, 'Extra deck'], [DeckData.SideBoard, 'Side deck']];
 
 const NEW_DECK_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens];
 const ARCHIDEKT_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens, DeckData.Considering];
@@ -92,11 +94,25 @@ export function SetupTab({ order, profiles, update }: Props) {
                 )}
             </section>
 
-            <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>
+            {order.tcg === 'magic' && <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>}
 
             <section>
-                <h2><Layers/>Decks</h2>
-                <p className="muted">Update brings the deck's changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.</p>
+                <h2><Layers/>{order.tcg === 'magic' ? 'Decks' : 'Deck lists'}</h2>
+                <p className="muted">
+                    {order.tcg === 'magic' ? 'Update brings the deck\'s changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.'
+                        : order.tcg === 'yugioh' ? 'Paste a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks. The cards come from YGOPRODeck in the artwork the list names.'
+                        : 'Paste the deck list Pokémon TCG Live or Limitless exports, with lines like "4 Charizard ex OBF 125". The cards come from TCGdex.'}
+                    {order.tcg !== 'magic' && ' Update brings the changes of the list and keeps your edits.'}
+                </p>
+                {order.tcg === 'pokemon' && (
+                    <div className="field">
+                        <label htmlFor="card-language">Card language</label>
+                        <select id="card-language" value={order.language ?? 'en'} onChange={e => onChange({ ...order, language: e.target.value })}>
+                            {POKEMON_LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                        </select>
+                        <p className="hint">The language of the card images. Update the lists to switch their cards; cards without an image in the language print in English.</p>
+                    </div>
+                )}
                 {order.decks.map((deck, index) => (
                     <DeckRow
                         key={deck.url}
@@ -110,11 +126,19 @@ export function SetupTab({ order, profiles, update }: Props) {
                         onRemove={() => setDecks(order.decks.filter((_, i) => i !== index))}
                     />
                 ))}
-                <NewDeck existing={order.decks} onAdd={url => setDecks([...order.decks, { url, data: NEW_DECK_BOARDS }])}/>
+                {order.tcg === 'magic'
+                    ? <NewDeck existing={order.decks} onAdd={url => setDecks([...order.decks, { url, data: NEW_DECK_BOARDS }])}/>
+                    : <NewDeckList onAdd={list => setDecks([...order.decks, newDeckList(order, list)])}/>}
             </section>
             {review && <PrintingReview order={order} deckUrl={review} update={update} onClose={() => setReview(undefined)}/>}
         </div>
     );
+}
+
+// The url of a pasted list is an id, which the cards and tasks of the list refer to like to a deck's address.
+function newDeckList(order: Order, list: string): DeckConfig {
+    const data = order.tcg === 'yugioh' ? YGO_BOARDS.map(([board]) => board) : [DeckData.MainBoard];
+    return { url: `list:${crypto.randomUUID()}`, data, name: `Deck list ${order.decks.length + 1}`, list };
 }
 
 function CardBack({ driveId, onChange }: { driveId: string, onChange(driveId: string): void }) {
@@ -175,18 +199,28 @@ interface DeckRowProps {
 
 function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpdated, onRemove }: DeckRowProps) {
     const [url, setUrl] = useState(deck.url);
+    const [list, setList] = useState(deck.list ?? '');
     const [error, setError] = useState<string>();
     const [result, setResult] = useState<string>();
+    const [notes, setNotes] = useState<string[]>([]);
     const importing = running?.kind === 'import' && running.deck === deck.url ? running : undefined;
     const progress = useProgress(importing !== undefined);
-    const valid = isDeckUrl(url);
-    const site = deckSite(deck.url);
+    const isList = deck.list !== undefined;
+    const valid = isList ? list.trim() !== '' : isDeckUrl(url);
+    const site = isList ? 'the list' : deckSite(deck.url);
     const archidekt = isArchidektDeckUrl(deck.url);
 
     async function load(apply: (name: string, cards: OrderCard[]) => void) {
         setError(undefined);
         setResult(undefined);
+        setNotes([]);
         try {
+            if (isList) {
+                const { cards, notes } = await api.importDeckList({ ...deck, list }, order.tcg, order.language ?? 'en');
+                setNotes(notes);
+                apply(deck.name ?? 'Deck list', cards);
+                return;
+            }
             const { name, cards } = await api.importDeck(deck, order.profile.playwrightChannel);
             apply(name, cards);
         } catch (e) {
@@ -212,6 +246,11 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
         if (valid && url !== deck.url) onChange({ url, data: deck.data });
     }
 
+    // A changed list keeps its cards until it is imported or updated again.
+    function commitList() {
+        if (list !== deck.list) onChange({ ...deck, list });
+    }
+
     function toggle(board: DeckData) {
         const data = deck.data.includes(board) ? deck.data.filter(b => b !== board) : [...deck.data, board];
         if (data.length > 0) onChange({ ...deck, data });
@@ -232,13 +271,17 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
                     ? <button className="quiet" onClick={() => void api.stopTask(importing.id)}><CircleStop/>Cancel</button>
                     : <button className="quiet danger" onClick={remove}><Trash/>Remove</button>}
             </div>
-            {importing && <ProgressBar progress={progress} label={archidekt ? 'Loading the deck from Archidekt' : 'Loading the deck from Moxfield in a browser window'}/>}
+            {importing && <ProgressBar progress={progress} label={isList ? `Looking up the cards on ${order.tcg === 'yugioh' ? 'YGOPRODeck' : 'TCGdex'}` : archidekt ? 'Loading the deck from Archidekt' : 'Loading the deck from Moxfield in a browser window'}/>}
             {error && <span className="status error">{error}</span>}
             {result && <span className="status">{result}</span>}
-            <input value={url} aria-invalid={!valid} spellCheck={false}
-                   onChange={e => setUrl(e.target.value)} onBlur={commitUrl} onKeyDown={e => e.key === 'Enter' && commitUrl()}/>
+            {notes.map(note => <span key={note} className="warning">{note}</span>)}
+            {isList
+                ? <textarea className="deck-list" aria-label={`List of ${deck.name ?? 'the deck'}`} value={list} aria-invalid={!valid} spellCheck={false} rows={4}
+                            onChange={e => setList(e.target.value)} onBlur={commitList}/>
+                : <input value={url} aria-invalid={!valid} spellCheck={false}
+                         onChange={e => setUrl(e.target.value)} onBlur={commitUrl} onKeyDown={e => e.key === 'Enter' && commitUrl()}/>}
             <div className="boards">
-                {BOARDS.filter(([board]) => !archidekt || ARCHIDEKT_BOARDS.includes(board)).map(([board, label]) => (
+                {(order.tcg === 'yugioh' ? YGO_BOARDS : order.tcg === 'pokemon' ? [] : BOARDS.filter(([board]) => !archidekt || ARCHIDEKT_BOARDS.includes(board))).map(([board, label]) => (
                     <label key={board}>
                         <input type="checkbox" checked={deck.data.includes(board)} onChange={() => toggle(board)}/>
                         <span>{label}</span>
@@ -266,6 +309,23 @@ function NewDeck({ existing, onAdd }: { existing: DeckConfig[], onAdd(url: strin
                    aria-invalid={url !== '' && !valid} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}/>
             <button disabled={!valid} onClick={add}><Plus/>Add deck</button>
             {duplicate && <span className="status error">This deck is already in the order.</span>}
+        </div>
+    );
+}
+
+function NewDeckList({ onAdd }: { onAdd(list: string): void }) {
+    const [list, setList] = useState('');
+
+    function add() {
+        if (list.trim() === '') return;
+        onAdd(list);
+        setList('');
+    }
+
+    return (
+        <div className="row" style={{ alignItems: 'flex-start' }}>
+            <textarea className="grow deck-list" aria-label="New deck list" placeholder="Paste a deck list" value={list} spellCheck={false} rows={4} onChange={e => setList(e.target.value)}/>
+            <button disabled={list.trim() === ''} onClick={add}><Plus/>Add deck list</button>
         </div>
     );
 }

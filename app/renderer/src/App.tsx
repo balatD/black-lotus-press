@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DefaultOrder, type Order, type ProcessingProfile, type Shop } from "../../../src/model.js";
+import { DefaultOrder, type Order, type ProcessingProfile, type Shop, type Tcg } from "../../../src/model.js";
 import { api, errorMessage } from "./api.js";
 import { Rail } from "./components/Rail.js";
 import { OrderScreen } from "./screens/OrderScreen.js";
@@ -70,8 +70,8 @@ export function App() {
         return () => window.removeEventListener('beforeunload', beforeUnload);
     }, [flushSaves]);
 
-    async function createOrder(name: string) {
-        const order: Order = { ...DefaultOrder, name, shop: shop!, profile: profiles[0] ?? DefaultOrder.profile };
+    async function createOrder(name: string, tcg: Tcg) {
+        const order: Order = { ...DefaultOrder, name, shop: shop!, tcg, profile: profiles[0] ?? DefaultOrder.profile };
         await api.saveOrder(order);
         await reload();
         setView({ type: 'order', name });
