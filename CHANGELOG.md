@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.5.0
+
+Yu-Gi-Oh and Pokémon cards printed at home, from pasted deck lists.
 
 - Yu-Gi-Oh and Pokémon cards print at home: a new order for the *Home printer* asks for the card game. Its decks are pasted lists: a .ydk file or ydke:// link for Yu-Gi-Oh, the export of Pokémon TCG Live or Limitless for Pokémon. The cards come from YGOPRODeck and TCGdex, Pokémon cards in English, German, French, Italian or Spanish, are upscaled like the Magic scans and print at their own size, 59 × 86 mm for Yu-Gi-Oh. The card editor offers the other artworks of a Yu-Gi-Oh card and the other printings of a Pokémon card. Cards TCGdex has no image of, like the basic energies, print as another card of the same name, and the import says which.
 - Home printing no longer processes the card back, which it does not print.
