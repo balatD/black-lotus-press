@@ -2,7 +2,7 @@ import { afterEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ScryfallCard } from "../model.js";
 import type { MoxfieldCardDetails } from "./moxfield.js";
-import { findScryfallCards, searchPrintings, searchTokens } from "./scryfall.js";
+import { findScryfallCards, searchCards, searchPrintings, searchTokens } from "./scryfall.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -94,6 +94,19 @@ test('searchTokens finds paper tokens by name, one per artwork, and nothing when
     assert.equal(url.searchParams.get('unique'), 'art');
 
     assert.deepEqual(await searchTokens('zzqx'), []);
+});
+
+test('searchCards finds paper cards by name, one per card, and nothing when no card has the name', async () => {
+    const urls = mockPages({ 'sol': { data: [printing('c1')], has_more: false } });
+
+    const cards = await searchCards('sol');
+    assert.deepEqual(cards.map(card => [card.id, card.name]), [['c1', 'Sol Ring']]);
+    assert.ok(!('oracle_text' in cards[0]!), 'cards are trimmed');
+    const url = new URL(urls[0]!);
+    assert.equal(url.searchParams.get('q'), '-t:token game:paper sol');
+    assert.equal(url.searchParams.get('unique'), 'cards');
+
+    assert.deepEqual(await searchCards('zzqx'), []);
 });
 
 test('findScryfallCards looks up 75 cards a request, and a card Scryfall does not know by its id by its name and set', async () => {

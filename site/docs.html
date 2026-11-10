@@ -93,6 +93,7 @@
                 <li><strong>Copyright line:</strong> what happens to the copyright line on the cards; see <a href="#profiles">Processing profiles</a>.</li>
             </ul>
             <p>After the splash screen the app asks where you want to print; see <a href="#shops">Print shops</a>. Then click <em>New order</em>, give it a name, and you are in the order's <em>Setup</em> tab.</p>
+            <p>On a first start without orders, a guide in the order list takes you through the first order step by step: it says what to do and highlights the button or field to use next. <em>Turn off the guide</em> hides it, and <em>Show the guide</em> at the bottom of the list brings it back.</p>
         </section>
 
         <section id="shops">
@@ -114,7 +115,7 @@
             </div>
             <p class="note">notmpc.eu is not available at the moment, because sending orders to it does not work. Its orders are kept as they are and come back when it is available again.</p>
             <p>Prices are for one deck without shipping, as of this release. The <em>Cards</em> tab shows what an order costs at its shop.</p>
-            <p>Every order belongs to the shop it was made for, and the order list shows the orders of the chosen shop; the field above it finds an order by name. <em>Switch print shop</em> at the bottom of the list asks again.</p>
+            <p>Every order belongs to the shop it was made for, and the order list shows the orders of the chosen shop; the field above it finds an order by name. <em>Switch print shop</em> at the bottom of the list asks again. Tick <em>Always start with the shop I pick</em> before picking one, and the app starts with that shop without asking; untick it there to be asked on every start again.</p>
 
             <h3 id="move">Move or copy an order</h3>
             <p><em>Move or copy</em> in the <em>⋯</em> menu at the top of an order takes it to another shop, with its decks, cards, the images you picked and your edits. Choose the shop, then:</p>
@@ -127,15 +128,15 @@
 
         <section id="decks">
             <h2>Orders and decks</h2>
-            <p>An order is one print job: one or more decks, a card back, and the settings of a profile. Its tabs follow the job: <em>Setup</em>, <em>Cards</em>, <em>Print</em>.</p>
+            <p>An order is one print job: one or more decks, a card back, and the settings of a profile. Its tabs are the steps of the job, numbered in their order: <em>Setup</em>, <em>Cards</em>, <em>Print</em>. A tick marks a step that is done, and the bar at the bottom of <em>Setup</em> and <em>Cards</em> leads to the next one.</p>
             <p><em>Rename</em> in the <em>⋯</em> menu at the top of an order gives it another name. Its images and the links to its meinspiel.de games come along.</p>
             <p>Keyboard shortcuts, with Ctrl instead of Cmd on Windows and Linux: <kbd>Cmd</kbd> + <kbd>1</kbd>, <kbd>2</kbd> and <kbd>3</kbd> switch between the tabs, <kbd>Cmd</kbd> + <kbd>F</kbd> finds a card on the <em>Cards</em> tab, and <kbd>Cmd</kbd> + <kbd>N</kbd> starts a new order.</p>
 
             <h3>Add a deck</h3>
             <ol>
-                <li>Paste the link of a Moxfield or Archidekt deck, for example <code>https://moxfield.com/decks/…</code> or <code>https://archidekt.com/decks/…</code>, and click <em>Add deck</em>. A Moxfield deck has to be public or unlisted, an Archidekt deck visible without logging in.</li>
-                <li>Tick the boards to print: main board, sideboard, tokens, considering, attractions, contraptions, stickers, planar deck, schemes. Commanders and companions are always included. Archidekt decks have the main board, sideboard, tokens and considering.</li>
-                <li>Click <em>Import</em>. For a Moxfield deck, a browser window opens on the deck, the app reads it and closes the window again; an Archidekt deck loads without one. Then the app looks up every card on Scryfall.</li>
+                <li>Paste the link of a Moxfield or Archidekt deck, for example <code>https://moxfield.com/decks/…</code> or <code>https://archidekt.com/decks/…</code>. A Moxfield deck has to be public or unlisted, an Archidekt deck visible without logging in.</li>
+                <li>Tick the boards to print, below the link: main board, sideboard, tokens, considering, attractions, contraptions, stickers, planar deck, schemes. Commanders and companions are always included. Archidekt decks have the main board, sideboard, tokens and considering.</li>
+                <li>Click <em>Add and import</em>. For a Moxfield deck, a browser window opens on the deck, the app reads it and closes the window again; an Archidekt deck loads without one. Then the app looks up every card on Scryfall. While another task runs, the button only adds the deck; click its <em>Import</em> once the task is done.</li>
             </ol>
             <p>The app uses exactly the printing chosen in Moxfield or Archidekt. Cards Scryfall does not know are marked, so you can pick a printing or your own image for them.</p>
             <p>Archidekt has categories instead of boards, and every card goes by its first category: the commander and companion always come along, a card in <em>Sideboard</em> goes to the sideboard, one in a category left out of the deck, such as <em>Maybeboard</em>, to considering, and the rest to the main board. With tokens ticked, the deck's tokens come along together with one of each token Scryfall knows its cards make.</p>
@@ -170,6 +171,7 @@
             <figure class="proof"><img src="img/cards.webp" width="1440" height="900" loading="lazy" alt="The Cards tab as a grid of card images, with the summary of the order."></figure>
             <p>The <em>Cards</em> tab shows the whole order, as a list or as a zoomable grid. At the top, a summary says how many packs or decks the cards fill, how many slots stay blank, which tokens are left out, and what printing costs at the order's shop. The Cardmarket value of the printed cards is shown struck out next to it.</p>
             <p>When a meinspiel.de or home printer order leaves slots of its last pack or page blank, the summary offers its tokens to fill them: <em>Fill all blank slots</em> shares the slots out over the tokens in turn, a click on a token prints another copy of it, and <em>Find a token…</em> searches Scryfall for any token by name, such as Clue, Food or Soldier, and adds it to the order. A token added this way belongs to no deck, so updating the decks keeps it. <em>Remove from the order</em> in its card editor takes it out again; cards from a deck are switched off instead, since the next update would bring them back.</p>
+            <p><em>Add a card…</em> next to the search box, or on the <em>Cards</em> tab of an order without cards, searches Scryfall for any card by name and adds the one you click to the order, without a deck, like a token found there. Its card editor opens right away on its printings: pick the printing, then an image on <em>MPC Autofill</em>. Clicking the same card again adds another copy.</p>
 
             <h3>Edit</h3>
             <ul>
@@ -262,7 +264,7 @@
             <h3 id="tcg">Yu-Gi-Oh and Pokémon</h3>
             <p>The home printer also prints Yu-Gi-Oh and Pokémon cards. <em>New order</em> asks for the card game when the <em>Home printer</em> is chosen; such an order stays at the home printer and cannot be moved to a shop.</p>
             <ul>
-                <li><strong>Deck lists:</strong> instead of a deck link, paste the list into <em>Deck lists</em> on the <em>Setup</em> tab and click <em>Import</em>. For Yu-Gi-Oh, a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks, with the main, extra and side deck to tick. For Pokémon, the export of Pokémon TCG Live or Limitless, with lines like <code>4 Charizard ex OBF 125</code>. <em>Update</em> brings the changes of the list and keeps your edits.</li>
+                <li><strong>Deck lists:</strong> instead of a deck link, paste the list into <em>Deck lists</em> on the <em>Setup</em> tab and click <em>Add and import</em>. For Yu-Gi-Oh, a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks, with the main, extra and side deck to tick. For Pokémon, the export of Pokémon TCG Live or Limitless, with lines like <code>4 Charizard ex OBF 125</code>. <em>Update</em> brings the changes of the list and keeps your edits.</li>
                 <li><strong>Images:</strong> Yu-Gi-Oh cards come from <a href="https://ygoprodeck.com">YGOPRODeck</a> in the artwork the list names, about 350 dpi; Pokémon cards from <a href="https://tcgdex.dev">TCGdex</a>, about 240 dpi. Both are upscaled to the profile's resolution like the Magic scans. The app downloads every image once and keeps it.</li>
                 <li><strong>Card language:</strong> Pokémon orders take English, German, French, Italian or Spanish cards. Update the lists after changing it; cards without an image in the language print in English.</li>
                 <li><strong>Missing images:</strong> TCGdex has no image of some cards, like the basic energies of Scarlet &amp; Violet. They print as another card of the same name, and the import says which; pick another on the <em>Printings</em> tab of the card.</li>
@@ -284,7 +286,8 @@
 
         <section id="profiles">
             <h2>Processing profiles</h2>
-            <p>Profiles hold the settings for processing. An order takes over a copy of its profile; when you change the profile later, the order's <em>Setup</em> tab offers to use the changed profile. Changing the resolution, the copyright line or the upscaling processes the order's images again.</p>
+            <p>Profiles hold the settings for processing. An order takes over a copy of its profile, which its <em>Setup</em> tab sums up with <em>Edit profile</em> next to it; <em>Back to</em> the order leads there again. When you save changes to a profile, it lists the orders that still use its older settings, and <em>Update them</em> gives them the new ones; an order's <em>Setup</em> tab offers the same for that order. Changing the resolution, the copyright line or the upscaling processes the order's images again.</p>
+            <p><em>Copy profile</em> asks for the name of the copy. The <em>Name</em> field renames a profile when you save it, and the orders that use it stay on it. Switching to another profile or leaving the screen with unsaved changes asks first.</p>
 
             <h3>Copyright line</h3>
             <table>

@@ -1,5 +1,5 @@
 import { type CSSProperties, type DragEvent, type RefObject, useState } from "react";
-import { CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
 import { buildPacks, CARDS_PER_PACK, faceImageUris, fillFreeSlots, fillingTokens, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
 import { PAPERS } from "../../../../src/output/sheetLayout.js";
@@ -9,7 +9,7 @@ import { boardName, count, describePrinting, formatEuro } from "../format.js";
 import { CardEditor } from "../components/CardEditor.js";
 import { lacksMpcfill, MpcfillReview } from "../components/MpcfillReview.js";
 import { RegistrationMark } from "../components/Decor.js";
-import { TokenPicker } from "../components/TokenPicker.js";
+import { ScryfallPicker } from "../components/ScryfallPicker.js";
 import { useStoredState } from "../useStoredState.js";
 import { adjustmentFilter } from "../adjust.js";
 import { tcgPreview } from "../shops.js";
@@ -22,12 +22,13 @@ interface Props {
     update(change: (order: Order) => Order): void;
     // The name search, which Cmd/Ctrl+F focuses.
     search?: RefObject<HTMLInputElement | null>;
+    onSetup?(): void;
 }
 
 type View = 'list' | 'cards';
 
 const isLowRes = (card: OrderCard) => !card.customImage && !card.mpcfill?.front && card.printing?.image_status === 'lowres';
-const isNotOnScryfall = (card: OrderCard) => !card.printing && !card.customImage && !card.tcgCard;
+export const isNotOnScryfall = (card: OrderCard) => !card.printing && !card.customImage && !card.tcgCard;
 
 // The kinds of cards the tab can show alone, as the badges name them.
 const KINDS: [label: string, matches: (card: OrderCard) => boolean][] = [
@@ -42,7 +43,7 @@ const ZOOM_MIN = 110;
 const ZOOM_MAX = 420;
 const ZOOM_STEP = 30;
 
-export function CardsTab({ order, update, search }: Props) {
+export function CardsTab({ order, update, search, onSetup }: Props) {
     const [filter, setFilter] = useState('');
     const [kind, setKind] = useState<string>();
     // The cards Previous and Next step through stay those shown when the editor opened, even when an edit takes a card out of the filter.
@@ -51,13 +52,36 @@ export function CardsTab({ order, update, search }: Props) {
     const [target, setTarget] = useState<number>();
     const [view, setView] = useStoredState<View>('cards-view', 'list');
     const [zoom, setZoom] = useStoredState('cards-zoom', 180);
+    const [adding, setAdding] = useState(false);
+    const addButton = order.tcg === 'magic' && <button onClick={() => setAdding(true)}><Plus/>Add a card…</button>;
+    const picker = adding && <ScryfallPicker kind="card" onPick={addCard} onClose={() => setAdding(false)}/>;
+
+    // A card added here belongs to no deck, so updating the decks keeps it. It opens in the editor, where its printing and image are chosen.
+    function addCard(printing: ScryfallCard) {
+        // Closed right away: the empty tab gives way to the cards, which would show the picker again.
+        setAdding(false);
+        const existing = order.cards.find(card => card.deck === '' && !card.isToken && card.printing?.id === printing.id && !card.customImage && !card.mpcfill);
+        const id = existing?.id ?? crypto.randomUUID();
+        update(current => ({
+            ...current,
+            cards: existing
+                ? current.cards.map(card => card.id === id ? { ...card, quantity: card.quantity + 1 } : card)
+                : [...current.cards, { id, deck: '', board: 'mainboard', name: printing.name, quantity: 1, isToken: false, excluded: false, printing }]
+        }));
+        setEditing({ id, ids: [id] });
+    }
 
     if (order.cards.length === 0) {
         return (
             <div className="empty">
                 <RegistrationMark size={56} className="empty-mark"/>
                 <h2>No cards yet</h2>
-                <p>Import the decks on the Setup tab to see their cards here.</p>
+                <p>Import the decks on the Setup tab to see their cards here{order.tcg === 'magic' ? ', or add cards one by one from Scryfall' : ''}.</p>
+                <div className="row">
+                    <button className="primary" data-guide="setup" onClick={onSetup}><ArrowLeft/>Go to Setup</button>
+                    {addButton}
+                </div>
+                {picker}
             </div>
         );
     }
@@ -124,6 +148,7 @@ export function CardsTab({ order, update, search }: Props) {
                     <button aria-pressed={view === 'list'} onClick={() => setView('list')}><List/>List</button>
                     <button aria-pressed={view === 'cards'} onClick={() => setView('cards')}><LayoutGrid/>Cards</button>
                 </div>
+                {addButton}
                 {view === 'cards' && (
                     <div className="zoom">
                         <button className="quiet" aria-label="Smaller cards" disabled={zoom <= ZOOM_MIN} onClick={() => setZoom(Math.max(ZOOM_MIN, zoom - ZOOM_STEP))}><ZoomOut/></button>
@@ -190,6 +215,7 @@ export function CardsTab({ order, update, search }: Props) {
             )}
 
             {editing && <CardEditor order={order} update={update} ids={editing.ids} start={editing.id} onClose={() => setEditing(undefined)}/>}
+            {picker}
         </div>
     );
 }
@@ -309,7 +335,7 @@ function Summary({ order, update }: Props) {
                     </div>
                 </div>
             )}
-            {findingToken && <TokenPicker onPick={addToken} onClose={() => setFindingToken(false)}/>}
+            {findingToken && <ScryfallPicker kind="token" onPick={addToken} onClose={() => setFindingToken(false)}/>}
             {droppedTokens.length > 0 && (
                 <p>Left out because they would need {order.shop === 'meinspiel' ? 'another pack' : 'a larger deck'}: {droppedTokens.map(token => token.copies > 1 ? `${token.card.name} ×${token.copies}` : token.card.name).join(', ')}.</p>
             )}

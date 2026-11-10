@@ -75,7 +75,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
     const usable = selected !== undefined && !isCurrent(selected, card, face);
     const changing = Math.min(copies ?? card.quantity, card.quantity);
     const filter = adjustmentFilter(combineAdjustments(order.adjustments, card.adjustments));
-    const deckName = order.decks.find(deck => deck.url === card.deck)?.name ?? card.deck;
+    const deckName = order.decks.find(deck => deck.url === card.deck)?.name ?? (card.deck || 'Added here');
     const panes = [shown && candidatePane(shown, face), reference && scryfallPane(reference, face)].filter(pane => pane !== undefined);
 
     function changeCard(change: (card: OrderCard) => OrderCard) {

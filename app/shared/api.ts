@@ -23,6 +23,8 @@ export interface Api {
     // Files that cannot be read are left out and named.
     listProfiles(): Promise<{ profiles: ProcessingProfile[], unreadable: string[] }>;
     saveProfile(profile: ProcessingProfile): Promise<void>;
+    // Saves the profile under its new name; the orders that took it over keep their settings under the new name.
+    renameProfile(from: string, profile: ProcessingProfile): Promise<void>;
     deleteProfile(profile: ProcessingProfile): Promise<void>;
     installUpscayl(binaryFile: string, modelsDirectory: string): Promise<string[]>;
     listUpscaylModels(modelsDirectory: string): Promise<string[]>;
@@ -79,6 +81,7 @@ export interface Api {
 
     searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
     searchTokens(name: string): Promise<ScryfallCard[]>;
+    searchCards(name: string): Promise<ScryfallCard[]>;
     // The other artworks of a Yu-Gi-Oh card, or the printings of a Pokémon card in a language, by the card's name.
     searchTcgCards(tcg: Tcg, name: string, language: string): Promise<TcgCard[]>;
     // The MPC Autofill images of a face of the card, in MPC Autofill's order.
@@ -97,10 +100,10 @@ export interface Api {
 }
 
 export const API_METHODS = [
-    'listProfiles', 'saveProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
+    'listProfiles', 'saveProfile', 'renameProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'saveHomePdf', 'printHome', 'exportOrder', 'importOrder', 'openOrderFolder',
     'importDeck', 'importDeckList', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
+    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchCards', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.

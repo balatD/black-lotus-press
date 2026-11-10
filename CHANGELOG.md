@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Single cards from Scryfall: *Add a card…* on the *Cards* tab searches Scryfall for any card by name and adds it to the order, also to one without decks. Its card editor opens right away, to pick the printing and the MPC Autofill image.
+- Processing profiles are easier to handle: a profile can be renamed, and its orders stay on it; *Copy profile* asks for the name of the copy. After saving, a profile lists the orders that still use its older settings and updates them in one click. An order's *Setup* tab shows its profile's resolution, upscaling and copyright line, with *Edit profile* to open it and a way back. Unsaved changes of a profile are no longer dropped without asking when you switch to another profile or leave the screen.
+- An order guides you through its steps: the tabs *Setup*, *Cards* and *Print* are numbered and ticked once done, and a bar at the bottom of *Setup* and *Cards* names what comes next and leads there. The *Cards* and *Print* tabs of an order without cards lead back to *Setup*, and a shop without orders offers to create the first one.
+- A guide for the first order: on a first start without orders, a card in the order list takes you through creating the order, adding the deck, checking the cards and printing, and highlights the control to use next. *Turn off the guide* hides it; *Show the guide* at the bottom of the list brings it back.
+- A default shop: tick *Always start with the shop I pick* when choosing the shop, and the app starts with it instead of asking. *Switch print shop* changes it or, unticked, asks on every start again.
+- *Add and import* imports a deck as soon as it is added, with the boards ticked below its link, so no second click on *Import* is needed. The decks now come first on the *Setup* tab, before the card back and the profile.
+
 ## 2.5.0
 
 Yu-Gi-Oh and Pokémon cards printed at home, from pasted deck lists.

@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleStop, Download, Images, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
-import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, POKEMON_LANGUAGES, type ProcessingProfile, replaceDeckCards, updateDeckCards, withDecks } from "../../../../src/model.js";
+import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, POKEMON_LANGUAGES, type ProcessingProfile, replaceDeckCards, type Tcg, updateDeckCards, withDecks } from "../../../../src/model.js";
 import type { Task } from "../../../shared/api.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { useProgress } from "../useProgress.js";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
 import { PrintingReview } from "../components/PrintingReview.js";
-import { count, describeProcessing } from "../format.js";
+import { count, describeCopyright, describeProcessing } from "../format.js";
 import { CardbackPicker } from "../components/CardbackPicker.js";
 
 interface Props {
     order: Order;
     profiles: ProcessingProfile[];
     update(change: (order: Order) => Order): void;
+    onEditProfile(name: string): void;
 }
 
 const BOARDS: [DeckData, string][] = [
@@ -33,16 +34,23 @@ const YGO_BOARDS: [DeckData, string][] = [[DeckData.MainBoard, 'Main deck'], [De
 const NEW_DECK_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens];
 const ARCHIDEKT_BOARDS = [DeckData.MainBoard, DeckData.SideBoard, DeckData.Tokens, DeckData.Considering];
 
-export function SetupTab({ order, profiles, update }: Props) {
+export function SetupTab({ order, profiles, update, onEditProfile }: Props) {
     const onChange = (changed: Order) => update(() => changed);
     const savedProfile = profiles.find(profile => profile.name === order.profile.name);
     const profileChanged = savedProfile !== undefined && JSON.stringify(savedProfile) !== JSON.stringify(order.profile);
     const running = useTasks().find(task => task.kind !== 'browser');
     // The deck whose freshly imported printings are up for review.
     const [review, setReview] = useState<string>();
+    // A deck added while no task runs is imported right away.
+    const [fresh, setFresh] = useState<string>();
 
     function setDecks(decks: DeckConfig[]) {
         onChange(withDecks(order, decks));
+    }
+
+    function addDeck(deck: DeckConfig) {
+        setDecks([...order.decks, deck]);
+        if (!running) setFresh(deck.url);
     }
 
     function imported(url: string, name: string, cards: OrderCard[]) {
@@ -72,34 +80,11 @@ export function SetupTab({ order, profiles, update }: Props) {
     return (
         <div className="form">
             <section>
-                <h2><SlidersHorizontal/>Profile</h2>
-                <div className="field">
-                    <label htmlFor="profile">Processing profile</label>
-                    <select id="profile" value={order.profile.name} onChange={e => applyProfile(e.target.value)}>
-                        {!savedProfile && <option value={order.profile.name}>{order.profile.name} (deleted)</option>}
-                        {profiles.map(profile => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
-                    </select>
-                    <p className="hint">
-                        {describeProcessing(order.profile)}. Another profile or changed settings process all images of this order again.
-                    </p>
-                </div>
-                {profileChanged && (
-                    <div className="field">
-                        <span/>
-                        <div className="row">
-                            <span className="warning">The profile "{order.profile.name}" was changed since this order took it over.</span>
-                            <button onClick={() => applyProfile(order.profile.name)}><RefreshCw/>Use the changed profile</button>
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            {order.tcg === 'magic' && <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>}
-
-            <section>
                 <h2><Layers/>{order.tcg === 'magic' ? 'Decks' : 'Deck lists'}</h2>
                 <p className="muted">
-                    {order.tcg === 'magic' ? 'Update brings the deck\'s changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.'
+                    {order.tcg === 'magic' ? order.decks.length === 0
+                            ? 'Paste the link of a Moxfield deck that is public or unlisted, or of an Archidekt deck visible without logging in, tick the boards to print and click Add and import.'
+                            : 'Update brings the deck\'s changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.'
                         : order.tcg === 'yugioh' ? 'Paste a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks. The cards come from YGOPRODeck in the artwork the list names.'
                         : 'Paste the deck list Pokémon TCG Live or Limitless exports, with lines like "4 Charizard ex OBF 125". The cards come from TCGdex.'}
                     {order.tcg !== 'magic' && ' Update brings the changes of the list and keeps your edits.'}
@@ -119,6 +104,7 @@ export function SetupTab({ order, profiles, update }: Props) {
                         deck={deck}
                         order={order}
                         running={running}
+                        importNow={deck.url === fresh}
                         onImported={(name, cards) => imported(deck.url, name, cards)}
                         onUpdated={(name, cards) => updated(deck.url, name, cards)}
                         cardCount={order.cards.filter(card => card.deck === deck.url).reduce((total, card) => total + card.quantity, 0)}
@@ -127,17 +113,45 @@ export function SetupTab({ order, profiles, update }: Props) {
                     />
                 ))}
                 {order.tcg === 'magic'
-                    ? <NewDeck existing={order.decks} onAdd={url => setDecks([...order.decks, { url, data: NEW_DECK_BOARDS }])}/>
-                    : <NewDeckList onAdd={list => setDecks([...order.decks, newDeckList(order, list)])}/>}
+                    ? <NewDeck existing={order.decks} running={running !== undefined} onAdd={(url, data) => addDeck({ url, data })}/>
+                    : <NewDeckList tcg={order.tcg} running={running !== undefined} onAdd={(list, data) => addDeck(newDeckList(order, list, data))}/>}
             </section>
+
+            {order.tcg === 'magic' && <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>}
+
+            <section>
+                <h2><SlidersHorizontal/>Profile</h2>
+                <div className="field">
+                    <label htmlFor="profile">Processing profile</label>
+                    <div className="row">
+                        <select id="profile" className="grow" value={order.profile.name} onChange={e => applyProfile(e.target.value)}>
+                            {!savedProfile && <option value={order.profile.name}>{order.profile.name} (deleted)</option>}
+                            {profiles.map(profile => <option key={profile.name} value={profile.name}>{profile.name}</option>)}
+                        </select>
+                        <button disabled={!savedProfile} onClick={() => onEditProfile(order.profile.name)}><SlidersHorizontal/>Edit profile</button>
+                    </div>
+                    <p className="hint">
+                        {describeProcessing(order.profile)}, {describeCopyright(order.profile.postProcessing)}. Another profile or changed settings process all images of this order again.
+                    </p>
+                </div>
+                {profileChanged && (
+                    <div className="field">
+                        <span/>
+                        <div className="row">
+                            <span className="warning">The profile "{order.profile.name}" was changed since this order took it over.</span>
+                            <button onClick={() => applyProfile(order.profile.name)}><RefreshCw/>Use the changed profile</button>
+                        </div>
+                    </div>
+                )}
+            </section>
+
             {review && <PrintingReview order={order} deckUrl={review} update={update} onClose={() => setReview(undefined)}/>}
         </div>
     );
 }
 
 // The url of a pasted list is an id, which the cards and tasks of the list refer to like to a deck's address.
-function newDeckList(order: Order, list: string): DeckConfig {
-    const data = order.tcg === 'yugioh' ? YGO_BOARDS.map(([board]) => board) : [DeckData.MainBoard];
+function newDeckList(order: Order, list: string, data: DeckData[]): DeckConfig {
     return { url: `list:${crypto.randomUUID()}`, data, name: `Deck list ${order.decks.length + 1}`, list };
 }
 
@@ -190,6 +204,7 @@ interface DeckRowProps {
     deck: DeckConfig;
     order: Order;
     running: Task | undefined;
+    importNow: boolean;
     cardCount: number;
     onChange(deck: DeckConfig): void;
     onImported(name: string, cards: OrderCard[]): void;
@@ -197,7 +212,7 @@ interface DeckRowProps {
     onRemove(): void;
 }
 
-function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpdated, onRemove }: DeckRowProps) {
+function DeckRow({ deck, order, running, importNow, cardCount, onChange, onImported, onUpdated, onRemove }: DeckRowProps) {
     const [url, setUrl] = useState(deck.url);
     const [list, setList] = useState(deck.list ?? '');
     const [error, setError] = useState<string>();
@@ -209,6 +224,8 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
     const valid = isList ? list.trim() !== '' : isDeckUrl(url);
     const site = isList ? 'the list' : deckSite(deck.url);
     const archidekt = isArchidektDeckUrl(deck.url);
+    // StrictMode runs the effect twice in development, which would start a second import.
+    const started = useRef(false);
 
     async function load(apply: (name: string, cards: OrderCard[]) => void) {
         setError(undefined);
@@ -227,6 +244,12 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
             if (!wasStopped(e)) setError(errorMessage(e));
         }
     }
+
+    useEffect(() => {
+        if (!importNow || started.current) return;
+        started.current = true;
+        void load(onImported);
+    }, []);
 
     function importDeck() {
         if (cardCount > 0 && !window.confirm(`Import ${deck.name ?? 'this deck'} again? Your changes to its cards are lost.`)) return;
@@ -251,17 +274,12 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
         if (list !== deck.list) onChange({ ...deck, list });
     }
 
-    function toggle(board: DeckData) {
-        const data = deck.data.includes(board) ? deck.data.filter(b => b !== board) : [...deck.data, board];
-        if (data.length > 0) onChange({ ...deck, data });
-    }
-
     function remove() {
         if (cardCount === 0 || window.confirm(`Remove ${deck.name ?? 'this deck'} and its ${cardCount} cards from the order?`)) onRemove();
     }
 
     return (
-        <div className="deck">
+        <div className="deck" data-guide={importing ? 'importing' : undefined}>
             <div className="row">
                 <span className="name grow">{deck.name ?? 'Not imported yet'}</span>
                 <span className="muted">{cardCount > 0 ? `${cardCount} cards` : ''}</span>
@@ -280,52 +298,80 @@ function DeckRow({ deck, order, running, cardCount, onChange, onImported, onUpda
                             onChange={e => setList(e.target.value)} onBlur={commitList}/>
                 : <input value={url} aria-invalid={!valid} spellCheck={false}
                          onChange={e => setUrl(e.target.value)} onBlur={commitUrl} onKeyDown={e => e.key === 'Enter' && commitUrl()}/>}
-            <div className="boards">
-                {(order.tcg === 'yugioh' ? YGO_BOARDS : order.tcg === 'pokemon' ? [] : BOARDS.filter(([board]) => !archidekt || ARCHIDEKT_BOARDS.includes(board))).map(([board, label]) => (
-                    <label key={board}>
-                        <input type="checkbox" checked={deck.data.includes(board)} onChange={() => toggle(board)}/>
-                        <span>{label}</span>
-                    </label>
-                ))}
-            </div>
+            <Boards boards={boardsOf(order.tcg, deck.url)} data={deck.data} onChange={data => onChange({ ...deck, data })}/>
         </div>
     );
 }
 
-function NewDeck({ existing, onAdd }: { existing: DeckConfig[], onAdd(url: string): void }) {
+function boardsOf(tcg: Tcg, url: string): [DeckData, string][] {
+    return tcg === 'yugioh' ? YGO_BOARDS : tcg === 'pokemon' ? [] : BOARDS.filter(([board]) => !isArchidektDeckUrl(url) || ARCHIDEKT_BOARDS.includes(board));
+}
+
+function Boards({ boards, data, onChange }: { boards: [DeckData, string][], data: DeckData[], onChange(data: DeckData[]): void }) {
+    function toggle(board: DeckData) {
+        const changed = data.includes(board) ? data.filter(b => b !== board) : [...data, board];
+        if (changed.length > 0) onChange(changed);
+    }
+
+    return (
+        <div className="boards">
+            {boards.map(([board, label]) => (
+                <label key={board}>
+                    <input type="checkbox" checked={data.includes(board)} onChange={() => toggle(board)}/>
+                    <span>{label}</span>
+                </label>
+            ))}
+        </div>
+    );
+}
+
+// The boards come first: the deck imports right away, and changing its boards later removes its cards.
+function NewDeck({ existing, running, onAdd }: { existing: DeckConfig[], running: boolean, onAdd(url: string, data: DeckData[]): void }) {
     const [url, setUrl] = useState('');
+    const [data, setData] = useState(NEW_DECK_BOARDS);
     const duplicate = existing.some(deck => deck.url === url);
-    const valid = isDeckUrl(url) && !duplicate;
+    const boards = boardsOf('magic', url);
+    // An Archidekt deck lacks some of the boards of a Moxfield deck.
+    const chosen = data.filter(board => boards.some(([offered]) => offered === board));
+    const valid = isDeckUrl(url) && !duplicate && chosen.length > 0;
 
     function add() {
         if (!valid) return;
-        onAdd(url);
+        onAdd(url, chosen);
         setUrl('');
     }
 
     return (
-        <div className="row">
-            <input className="grow" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value={url} spellCheck={false}
-                   aria-invalid={url !== '' && !valid} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}/>
-            <button disabled={!valid} onClick={add}><Plus/>Add deck</button>
-            {duplicate && <span className="status error">This deck is already in the order.</span>}
+        <div className="new-deck" data-guide="deck">
+            <div className="row">
+                <input className="grow" placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value={url} spellCheck={false}
+                       aria-invalid={url !== '' && !valid} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()}/>
+                <button className={existing.length === 0 ? 'primary' : ''} disabled={!valid} onClick={add}><Plus/>{running ? 'Add deck' : 'Add and import'}</button>
+                {duplicate && <span className="status error">This deck is already in the order.</span>}
+            </div>
+            {isDeckUrl(url) && <Boards boards={boards} data={chosen} onChange={setData}/>}
         </div>
     );
 }
 
-function NewDeckList({ onAdd }: { onAdd(list: string): void }) {
+function NewDeckList({ tcg, running, onAdd }: { tcg: Tcg, running: boolean, onAdd(list: string, data: DeckData[]): void }) {
     const [list, setList] = useState('');
+    const boards = boardsOf(tcg, '');
+    const [data, setData] = useState(boards.length > 0 ? boards.map(([board]) => board) : [DeckData.MainBoard]);
 
     function add() {
         if (list.trim() === '') return;
-        onAdd(list);
+        onAdd(list, data);
         setList('');
     }
 
     return (
-        <div className="row" style={{ alignItems: 'flex-start' }}>
-            <textarea className="grow deck-list" aria-label="New deck list" placeholder="Paste a deck list" value={list} spellCheck={false} rows={4} onChange={e => setList(e.target.value)}/>
-            <button disabled={list.trim() === ''} onClick={add}><Plus/>Add deck list</button>
+        <div className="new-deck" data-guide="deck">
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+                <textarea className="grow deck-list" aria-label="New deck list" placeholder="Paste a deck list" value={list} spellCheck={false} rows={4} onChange={e => setList(e.target.value)}/>
+                <button className={list.trim() !== '' ? 'primary' : ''} disabled={list.trim() === ''} onClick={add}><Plus/>{running ? 'Add deck list' : 'Add and import'}</button>
+            </div>
+            {boards.length > 0 && <Boards boards={boards} data={data} onChange={setData}/>}
         </div>
     );
 }

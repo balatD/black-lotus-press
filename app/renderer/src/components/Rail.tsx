@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Package, PackageOpen, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
+import { LifeBuoy, Package, PackageOpen, Plus, Search, SlidersHorizontal, Store, X } from "lucide-react";
 import { isValidOrderName, type Order, type Shop, type Tcg, TCG_NAMES } from "../../../../src/model.js";
 import { buildPacks } from "../../../../src/pipeline/packs.js";
 import { errorMessage } from "../api.js";
@@ -14,6 +14,11 @@ interface Props {
     orders: Order[];
     shop: Shop | undefined;
     onSwitchShop(): void;
+    creating: boolean;
+    onCreating(creating: boolean): void;
+    guide: boolean;
+    onShowGuide(): void;
+    guideSlot(slot: HTMLDivElement | null): void;
     selected: string | undefined;
     profilesSelected: boolean;
     onSelectOrder(name: string): void;
@@ -22,14 +27,13 @@ interface Props {
     onImportOrder(): void;
 }
 
-export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder, onImportOrder }: Props) {
-    const [creating, setCreating] = useState(false);
+export function Rail({ orders, shop, onSwitchShop, creating, onCreating, guide, onShowGuide, guideSlot, selected, profilesSelected, onSelectOrder, onSelectProfiles, onCreateOrder, onImportOrder }: Props) {
     const [name, setName] = useState('');
     const [tcg, setTcg] = useState<Tcg>('magic');
     const [error, setError] = useState<string>();
     const [query, setQuery] = useState('');
     // Orders belong to a shop, so there is none to create before one is chosen.
-    useShortcut('n', () => shop && setCreating(true));
+    useShortcut('n', () => shop && onCreating(true));
 
     const problem = orderNameProblem(name, orders, shop);
 
@@ -39,7 +43,7 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
         try {
             // Yu-Gi-Oh and Pokémon only print at home.
             await onCreateOrder(name, shop === 'home' ? tcg : 'magic');
-            setCreating(false);
+            onCreating(false);
             setName('');
         } catch (e) {
             setError(errorMessage(e));
@@ -76,7 +80,7 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
             </div>
 
             {creating ? (
-                <form onSubmit={submit}>
+                <form data-guide="name" onSubmit={submit}>
                     <input autoFocus placeholder="Order name" value={name} aria-invalid={name !== '' && !!problem} onChange={e => setName(e.target.value)}/>
                     {name !== '' && problem && <span className="status error">{problem}</span>}
                     {error && <span className="status error">{error}</span>}
@@ -89,20 +93,23 @@ export function Rail({ orders, shop, onSwitchShop, selected, profilesSelected, o
                     )}
                     <div className="row">
                         <button type="submit" className="primary" disabled={!!problem}><Plus/>Create order</button>
-                        <button type="button" className="quiet" onClick={() => setCreating(false)}><X/>Cancel</button>
+                        <button type="button" className="quiet" onClick={() => onCreating(false)}><X/>Cancel</button>
                     </div>
                 </form>
             ) : (
                 <div className="row">
-                    <button className="quiet" onClick={() => setCreating(true)}><Plus/>New order</button>
+                    <button className="quiet" data-guide="create" onClick={() => onCreating(true)}><Plus/>New order</button>
                     <button className="quiet" onClick={onImportOrder}><PackageOpen/>Import order</button>
                 </div>
             )}
+
+            <div className="guide-slot" ref={guideSlot}/>
 
             <Tasks/>
 
             <div className="footer">
                 <UpdateNotice/>
+                {!guide && <button className="rail-item" onClick={onShowGuide}><span className="with-icon"><LifeBuoy/>Show the guide</span></button>}
                 <button className="rail-item" onClick={onSwitchShop}><span className="with-icon"><Store/>Switch print shop</span></button>
                 <button className="rail-item" aria-current={profilesSelected ? 'page' : undefined} onClick={onSelectProfiles}><span className="with-icon"><SlidersHorizontal/>Processing profiles</span></button>
             </div>

@@ -1,28 +1,72 @@
-import { useEffect, useState } from "react";
-import { Copy, Download, Folder, FolderOpen, Images, Save, SlidersHorizontal, Sparkles, Trash } from "lucide-react";
-import { DefaultProfile, PlaywrightChannel, type ProcessingProfile } from "../../../../src/model.js";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Copy, Download, Folder, FolderOpen, Images, RefreshCw, Save, SlidersHorizontal, Sparkles, Trash, X } from "lucide-react";
+import { DefaultProfile, isValidOrderName, type Order, PlaywrightChannel, type ProcessingProfile } from "../../../../src/model.js";
 import { api, errorMessage } from "../api.js";
 import { useProgress } from "../useProgress.js";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { useTasks } from "../useTasks.js";
+import { count } from "../format.js";
 
 interface Props {
     profiles: ProcessingProfile[];
+    // The orders of every shop, as any of them can use a profile.
+    orders: Order[];
+    // The profile shown first.
+    start?: string | undefined;
+    // The order the screen was opened from, which Back leads to.
+    from?: string | undefined;
+    onBack(): void;
     onSaved(): Promise<void>;
+    onRename(from: string, profile: ProcessingProfile): Promise<void>;
+    onUpdateOrders(orders: Order[]): void;
+    // Whether the profile on screen has changes that are not saved.
+    onUnsaved(unsaved: boolean): void;
 }
 
 const UPSCAYL_BINARY = navigator.userAgent.includes('Windows') ? './upscayl/upscayl-bin.exe' : './upscayl/upscayl-bin';
 
-export function ProfilesScreen({ profiles, onSaved }: Props) {
-    const [selected, setSelected] = useState(profiles[0]?.name);
+export function ProfilesScreen({ profiles, orders, start, from, onBack, onSaved, onRename, onUpdateOrders, onUnsaved }: Props) {
+    const [selected, setSelected] = useState(start ?? profiles[0]?.name);
     const profile = profiles.find(p => p.name === selected) ?? profiles[0];
+    const source = profile ?? DefaultProfile;
+    // The name of the copy while it is being typed.
+    const [copying, setCopying] = useState<string>();
+    const [copyError, setCopyError] = useState<string>();
+    const copyProblem = copying === undefined ? undefined : profileNameProblem(copying, profiles);
+    const unsaved = useRef(false);
 
-    async function createFrom(source: ProcessingProfile) {
+    // Another profile on screen drops the changes of this one.
+    function mayDrop() {
+        return !unsaved.current || window.confirm(`Drop the unsaved changes of the profile "${source.name}"?`);
+    }
+
+    function select(name: string) {
+        if (name !== profile?.name && mayDrop()) setSelected(name);
+    }
+
+    function startCopy() {
         let name = `${source.name} copy`;
         for (let i = 2; profiles.some(p => p.name === name); i++) name = `${source.name} copy ${i}`;
-        await api.saveProfile({ ...source, name });
-        await onSaved();
-        setSelected(name);
+        setCopying(name);
+        setCopyError(undefined);
+    }
+
+    async function copy(event: FormEvent) {
+        event.preventDefault();
+        if (copying === undefined || copyProblem || !mayDrop()) return;
+        try {
+            await api.saveProfile({ ...source, name: copying });
+            await onSaved();
+            setSelected(copying);
+            setCopying(undefined);
+        } catch (e) {
+            setCopyError(errorMessage(e));
+        }
+    }
+
+    async function rename(renamed: ProcessingProfile) {
+        await onRename(source.name, renamed);
+        setSelected(renamed.name);
     }
 
     return (
@@ -31,19 +75,51 @@ export function ProfilesScreen({ profiles, onSaved }: Props) {
                 <h1>Processing profiles</h1>
                 <div className="tabs" role="tablist">
                     {profiles.map(p => (
-                        <button key={p.name} role="tab" aria-selected={p.name === profile?.name} onClick={() => setSelected(p.name)}><SlidersHorizontal/>{p.name}</button>
+                        <button key={p.name} role="tab" aria-selected={p.name === profile?.name} onClick={() => select(p.name)}><SlidersHorizontal/>{p.name}</button>
                     ))}
                 </div>
-                <button className="quiet" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }} onClick={() => void createFrom(profile ?? DefaultProfile)}><Copy/>Copy profile</button>
+                {copying === undefined ? (
+                    <div className="row" style={{ marginLeft: 'auto', marginBottom: '0.75rem' }}>
+                        {from !== undefined && <button className="quiet" onClick={onBack}><ArrowLeft/>Back to {from}</button>}
+                        <button className="quiet" onClick={startCopy}><Copy/>Copy profile</button>
+                    </div>
+                ) : (
+                    <form className="rename-form" style={{ marginLeft: 'auto' }} onSubmit={e => void copy(e)}>
+                        <input autoFocus aria-label="Name of the copy" value={copying} aria-invalid={copyProblem !== undefined}
+                               onChange={e => { setCopying(e.target.value); setCopyError(undefined); }}/>
+                        <button type="submit" className="primary" disabled={copyProblem !== undefined}><Copy/>Copy</button>
+                        <button type="button" className="quiet" onClick={() => setCopying(undefined)}><X/>Cancel</button>
+                        {(copyProblem ?? copyError) && <span className="status error">{copyProblem ?? copyError}</span>}
+                    </form>
+                )}
             </header>
             <div className="screen-body">
-                {profile && <ProfileForm key={profile.name} profile={profile} canDelete={profiles.length > 1} onSaved={onSaved}/>}
+                {profile && <ProfileForm key={profile.name} profile={profile} profiles={profiles} orders={orders} canDelete={profiles.length > 1}
+                                         onSaved={onSaved} onRename={rename} onUpdateOrders={onUpdateOrders}
+                                         onUnsaved={value => { unsaved.current = value; onUnsaved(value); }}/>}
             </div>
         </>
     );
 }
 
-function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfile, canDelete: boolean, onSaved(): Promise<void> }) {
+// Profile names become file names, which macOS and Windows tell apart without their case.
+function profileNameProblem(name: string, profiles: ProcessingProfile[], own?: string) {
+    if (!isValidOrderName(name)) return 'Use a name without \\ / : * ? " < > | and without spaces at the ends.';
+    return profiles.some(p => p.name !== own && p.name.toLowerCase() === name.toLowerCase()) ? 'A profile with this name exists already.' : undefined;
+}
+
+interface FormProps {
+    profile: ProcessingProfile;
+    profiles: ProcessingProfile[];
+    orders: Order[];
+    canDelete: boolean;
+    onSaved(): Promise<void>;
+    onRename(profile: ProcessingProfile): Promise<void>;
+    onUpdateOrders(orders: Order[]): void;
+    onUnsaved(unsaved: boolean): void;
+}
+
+function ProfileForm({ profile, profiles, orders, canDelete, onSaved, onRename, onUpdateOrders, onUnsaved }: FormProps) {
     const [draft, setDraft] = useState(profile);
     const [models, setModels] = useState<string[]>([]);
     const [status, setStatus] = useState<{ message: string, error?: boolean }>();
@@ -52,11 +128,17 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
     const installing = running?.kind === 'upscayl';
     const progress = useProgress(installing);
     const changed = JSON.stringify(draft) !== JSON.stringify(profile);
+    const nameProblem = profileNameProblem(draft.name, profiles, profile.name);
+    const outdated = orders.filter(order => order.profile.name === profile.name && JSON.stringify(order.profile) !== JSON.stringify(profile));
+    const outdatedNames = outdated.slice(0, 3).map(order => order.name).join(', ') + (outdated.length > 3 ? ` and ${outdated.length - 3} more` : '');
 
     const post = draft.postProcessing;
     const upscaling = draft.upscaling;
     const setPost = (changes: Partial<ProcessingProfile['postProcessing']>) => setDraft({ ...draft, postProcessing: { ...post, ...changes } });
     const setUpscaling = (changes: Partial<ProcessingProfile['upscaling']>) => setDraft({ ...draft, upscaling: { ...upscaling, ...changes } });
+
+    useEffect(() => onUnsaved(changed), [changed]);
+    useEffect(() => () => onUnsaved(false), []);
 
     useEffect(() => {
         if (!upscaling.modelsDirectory) return;
@@ -75,10 +157,15 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
         }
     }
 
+    // A rename shows the profile under its new name, which starts this form anew.
     const save = () => run(async () => {
+        if (draft.name !== profile.name) {
+            await onRename(draft);
+            return '';
+        }
         await api.saveProfile(draft);
         await onSaved();
-        return 'Saved. Orders keep their settings until you pick the changed profile in their setup.';
+        return 'Saved.';
     });
 
     const install = () => run(async () => {
@@ -104,6 +191,14 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
 
     return (
         <div className="form">
+            <div className="field">
+                <label htmlFor="profile-name">Name</label>
+                <input id="profile-name" value={draft.name} aria-invalid={nameProblem !== undefined} onChange={e => setDraft({ ...draft, name: e.target.value })}/>
+                {nameProblem
+                    ? <p className="hint"><span className="error">{nameProblem}</span></p>
+                    : <p className="hint">Renaming the profile keeps the orders that use it on it.</p>}
+            </div>
+
             <section>
                 <h2><Folder/>Files</h2>
                 <div className="field">
@@ -207,8 +302,17 @@ function ProfileForm({ profile, canDelete, onSaved }: { profile: ProcessingProfi
                 {installing && <ProgressBar progress={progress} label="Downloading Upscayl"/>}
             </section>
 
+            {outdated.length > 0 && !changed && (
+                <div className="row">
+                    <span className="warning">{count(outdated.length, 'order uses', 'orders use')} older settings of this profile: {outdatedNames}.</span>
+                    <button disabled={running !== undefined} onClick={() => onUpdateOrders(outdated.map(order => ({ ...order, profile })))}>
+                        <RefreshCw/>Update {outdated.length === 1 ? 'it' : 'them'}
+                    </button>
+                </div>
+            )}
+
             <div className="row">
-                <button className="primary" disabled={busy || !changed} onClick={() => void save()}><Save/>Save profile</button>
+                <button className="primary" disabled={busy || !changed || nameProblem !== undefined} onClick={() => void save()}><Save/>Save profile</button>
                 {canDelete && <button className="quiet danger" disabled={busy} onClick={() => void remove()}><Trash/>Delete profile</button>}
                 {status?.message && <span className={`status ${status.error ? 'error' : ''}`}>{status.message}</span>}
             </div>

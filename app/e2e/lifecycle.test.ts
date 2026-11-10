@@ -23,6 +23,10 @@ before(async () => {
 
     app = await electron.launch({ args: [MAIN], cwd: root });
     window = await app.firstWindow();
+    // A default shop lives in the shared browser storage of the app and would skip the choice of shop, so earlier runs must not leak in.
+    await window.locator('.rail').waitFor();
+    await window.evaluate(() => localStorage.clear());
+    await window.reload();
     await window.locator('.splash').waitFor();
     await window.keyboard.press('Escape');
     await window.locator('.shop-picker').getByRole('button', { name: 'meinspiel.de' }).click();
@@ -36,6 +40,19 @@ test('an order file that cannot be read is named and left as it is, and the othe
     await window.getByRole('alert').filter({ hasText: 'broken.json' }).waitFor();
     await window.getByRole('button', { name: /^good/ }).waitFor();
     assert.equal(await fs.readFile(path.join(root, 'config', 'orders', 'broken.json'), 'utf-8'), '{"name":');
+});
+
+test('a shop without orders offers to create the first one', async () => {
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await window.locator('.shop-picker').getByRole('button', { name: 'printerstudio.de' }).click();
+    await window.getByRole('heading', { name: 'Start your first order' }).waitFor();
+    await window.getByRole('button', { name: 'Create your first order' }).click();
+    await window.locator('input[placeholder="Order name"]:focus').waitFor();
+
+    await window.locator('.rail').getByRole('button', { name: 'Cancel' }).click();
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await window.locator('.shop-picker').getByRole('button', { name: 'meinspiel.de' }).click();
+    await window.getByRole('heading', { name: 'Pick an order on the left' }).waitFor();
 });
 
 // Last, since it quits the app.

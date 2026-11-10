@@ -1,6 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import {
-    AppWindow, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
+    AppWindow, ArrowLeft, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
     ListPlus, Maximize2, Package, Printer, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
 } from "lucide-react";
 import { CARD_SIZES, DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
@@ -37,6 +37,7 @@ interface Props {
     order: Order;
     update(change: (order: Order) => Order): void;
     onFlush(): Promise<void>;
+    onSetup(): void;
 }
 
 type Status = { version: string, files: Record<string, number> };
@@ -47,7 +48,7 @@ const ZOOM_MIN = 70;
 const ZOOM_MAX = 320;
 const ZOOM_STEP = 30;
 
-export function PrintTab({ order, update, onFlush }: Props) {
+export function PrintTab({ order, update, onFlush, onSetup }: Props) {
     const [status, setStatus] = useState<Status>({ version: '', files: {} });
     // 0 fits the sheet to the window.
     const [zoom, setZoom] = useStoredState('print-zoom', 0);
@@ -162,6 +163,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
             <div className="empty">
                 <h2>Nothing to print yet</h2>
                 <p>Import the decks on the Setup tab first.</p>
+                <button className="primary" data-guide="setup" onClick={onSetup}><ArrowLeft/>Go to Setup</button>
             </div>
         );
     }
@@ -181,7 +183,8 @@ export function PrintTab({ order, update, onFlush }: Props) {
                     <h2><WandSparkles/>Process the card images</h2>
                     <p className="muted">{processed} of {needed.size} images are ready ({describeProcessing(order.profile)}).</p>
                     <div className="row">
-                        <button className={order.shop === 'meinspiel' ? '' : 'primary'} disabled={running !== undefined || allProcessed} onClick={() => void processImages()}>
+                        <button className={order.shop === 'meinspiel' ? '' : 'primary'} data-guide={order.shop !== 'meinspiel' && !allProcessed ? 'handover' : undefined}
+                                disabled={running !== undefined || allProcessed} onClick={() => void processImages()}>
                             {allProcessed ? <><Check/>All images are ready</> : <><WandSparkles/>Process images</>}
                         </button>
                         {job?.kind === 'process' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
@@ -204,10 +207,10 @@ export function PrintTab({ order, update, onFlush }: Props) {
                     </p>
                     <div className="row">
                         {skip > 0 ? <>
-                            <button className="primary" disabled={running !== undefined} onClick={() => upload(order.uploaded!.games)}><CloudUpload/>Continue with pack {skip + 1}</button>
+                            <button className="primary" data-guide="handover" disabled={running !== undefined} onClick={() => upload(order.uploaded!.games)}><CloudUpload/>Continue with pack {skip + 1}</button>
                             <button disabled={running !== undefined} onClick={() => upload([])}><RotateCw/>Upload all again</button>
                         </> : (
-                            <button className={order.uploaded ? '' : 'primary'} disabled={running !== undefined || needed.size === 0} onClick={() => upload([])}>
+                            <button className={order.uploaded ? '' : 'primary'} data-guide="handover" disabled={running !== undefined || needed.size === 0} onClick={() => upload([])}>
                                 <CloudUpload/>{allProcessed ? 'Upload' : 'Process images and upload'}
                             </button>
                         )}
@@ -242,7 +245,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                             brightness or contrast of their own go there as links, the others are uploaded. You choose the options and order there yourself; an account is not needed.
                         </p>
                         <div className="row">
-                            <button className={allProcessed && !browser ? 'primary' : ''} disabled={running !== undefined || !allProcessed} onClick={() => void sendToNotmpc()}><CloudUpload/>Send to notmpc.eu</button>
+                            <button className={allProcessed && !browser ? 'primary' : ''} data-guide={allProcessed ? 'handover' : undefined} disabled={running !== undefined || !allProcessed} onClick={() => void sendToNotmpc()}><CloudUpload/>Send to notmpc.eu</button>
                             {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
                             {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
                         </div>
@@ -257,7 +260,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                             as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at {CARD_SIZES[order.tcg].width} × {CARD_SIZES[order.tcg].height} mm.
                         </p>
                         <div className="row">
-                            <button className={allProcessed ? 'primary' : ''} disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={printPages}>
+                            <button className={allProcessed ? 'primary' : ''} data-guide={allProcessed ? 'handover' : undefined} disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={printPages}>
                                 <Printer/>{homeBusy === 'print' ? 'Printing…' : 'Print…'}
                             </button>
                             <button disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={savePdf}>
@@ -276,7 +279,7 @@ export function PrintTab({ order, update, onFlush }: Props) {
                             check it, confirm the copyright and put the deck into the cart yourself.
                         </p>
                         <div className="row">
-                            <button className={allProcessed && !browser ? 'primary' : ''} disabled={running !== undefined || !allProcessed} onClick={() => void sendToPrinterstudio()}><CloudUpload/>Send to printerstudio.de</button>
+                            <button className={allProcessed && !browser ? 'primary' : ''} data-guide={allProcessed ? 'handover' : undefined} disabled={running !== undefined || !allProcessed} onClick={() => void sendToPrinterstudio()}><CloudUpload/>Send to printerstudio.de</button>
                             {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
                             {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
                         </div>

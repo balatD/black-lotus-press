@@ -158,6 +158,24 @@ input[type="checkbox"] { accent-color: var(--cyan); }
 
 .rail form { display: flex; flex-direction: column; gap: 0.35rem; padding: 0 0.5rem; }
 .rail .footer { margin-top: auto; }
+
+/* The guide of a first order, and the controls its step is about. */
+.guide-slot { display: contents; }
+.guide { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0.75rem; border-left: 3px solid var(--cyan); border-radius: var(--radius); background: var(--raised); font-size: var(--step--1); }
+.guide-step { display: inline-flex; align-items: center; gap: 0.4em; color: var(--cyan); font-weight: 600; }
+.rail .guide h2 { padding: 0; font-size: var(--step-0); font-weight: 600; color: var(--text); }
+@keyframes guide-pulse { 50% { outline-offset: 6px; } }
+:root:has(.guide[data-target="create"]) [data-guide="create"],
+:root:has(.guide[data-target="name"]) [data-guide="name"],
+:root:has(.guide[data-target="deck"]) [data-guide="deck"],
+:root:has(.guide[data-target="importing"]) [data-guide="importing"],
+:root:has(.guide[data-target="setup"]) [data-guide="setup"],
+:root:has(.guide[data-target="next"]) [data-guide="next"],
+:root:has(.guide[data-target="handover"]) [data-guide="handover"] {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+    animation: guide-pulse 1.6s ease-in-out infinite;
+}
 .rail .tasks { margin-top: auto; }
 .rail .tasks + .footer { margin-top: 0; }
 .task { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; padding: 0.5rem; border-left: 3px solid var(--yellow); border-radius: var(--radius); background: var(--raised); font-size: var(--step--1); }
@@ -210,14 +228,35 @@ input[type="checkbox"] { accent-color: var(--cyan); }
     background: linear-gradient(90deg, var(--ink-c) 0 25%, var(--ink-m) 25% 50%, var(--ink-y) 50% 75%, var(--text) 75%) bottom / 100% 2px no-repeat;
 }
 
+/* The tabs of an order are its steps, numbered in the order of the job. */
+.step-tabs { counter-reset: step; }
+.step-tabs button { counter-increment: step; }
+.step-tabs button::before {
+    content: counter(step);
+    display: inline-grid;
+    place-content: center;
+    width: 1.5em;
+    height: 1.5em;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: var(--step--1);
+}
+.step-tabs .step-done { color: var(--cyan); }
+
 .screen-body { flex: 1; padding: 1.5rem 1.75rem 2.5rem; overflow-y: auto; }
+
+.next-step { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; padding: 0.75rem 1.75rem; border-top: 1px solid var(--line); background: var(--panel); }
+.next-step p { color: var(--muted); }
 
 .empty { display: grid; place-content: center; justify-items: center; gap: 0.5rem; height: 100%; text-align: center; color: var(--muted); }
 .empty-mark { margin-bottom: 0.75rem; color: var(--line); }
+.empty > button { margin-top: 0.75rem; }
 
 /* The choice of print shop between the splash and the app. */
 .shop-picker { position: fixed; inset: 0; z-index: 90; display: grid; place-content: center; justify-items: center; gap: 1.5rem; background: var(--booth) var(--halftone); animation: reveal 0.6s ease-out both; }
 .shops { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
+.default-shop { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); }
+.default-shop input:checked + span { color: var(--text); }
 .shop { flex-direction: column; gap: 0.75rem; width: 20rem; padding: 1.25rem; background: var(--panel); text-align: center; }
 .shop:hover:not(:disabled) { border-color: var(--cyan); }
 .shop .proof { display: block; }
@@ -273,6 +312,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 /* Decks */
 .deck { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
 .deck .name { font-weight: 600; }
+.new-deck { display: flex; flex-direction: column; gap: 0.6rem; }
 .boards { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; }
 .boards label { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); }
 .boards input:checked + span { color: var(--text); }
@@ -356,7 +396,7 @@ details[open] > summary { margin-bottom: 0.75rem; }
 .transfer-option input { width: 100%; }
 .cardback-dialog { width: min(72rem, 92vw); }
 .cardback-dialog input[type="search"] { width: 100%; }
-.token-dialog input[type="search"] { flex: 1; }
+.scryfall-dialog input[type="search"] { flex: 1; }
 .thumb.unavailable { display: grid; place-content: center; border: 1px dashed var(--line); color: var(--muted); font-size: var(--step--1); }
 .review-dialog:focus { outline: none; }
 .review-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }

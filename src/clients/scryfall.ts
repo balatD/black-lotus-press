@@ -163,6 +163,18 @@ export async function searchTokens(name: string): Promise<ScryfallCard[]> {
     return (await response.json() as { data: Record<string, unknown>[] }).data.map(toPrinting);
 }
 
+// Paper cards whose name has the words, one per card, by name; tokens have their own search.
+export async function searchCards(name: string): Promise<ScryfallCard[]> {
+    const query = `-t:token game:paper ${name}`;
+    const response = await scryfallFetch(scryfallSearchBottleneck,
+        `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=name`, { headers: jsonHeaders });
+    if (response.status === 404) return [];
+    if (!response.ok) {
+        throw new Error(`Scryfall search for cards named ${name} failed (${response.status}): ${await response.text()}`);
+    }
+    return (await response.json() as { data: Record<string, unknown>[] }).data.map(toPrinting);
+}
+
 export async function fetchScryfallImage(url: string): Promise<Buffer> {
     const response = await scryfallImageBottleneck.schedule(() => fetch(url, {
         headers: {

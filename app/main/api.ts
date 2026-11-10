@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from "electron";
 import type { Browser, BrowserContext } from "playwright";
 import { copyOrder, deleteOrder, exportOrder, importOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "../../src/config/orderConfigManager.js";
-import { deleteProcessingProfile, loadProcessingProfiles, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
+import { deleteProcessingProfile, loadProcessingProfiles, renameProcessingProfile, saveProcessingProfile } from "../../src/config/processingProfileManager.js";
 import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
 import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js";
@@ -12,7 +12,7 @@ import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "
 import { DEFAULT_HOME_PRINT, deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
 import { importDeck } from "../../src/pipeline/importDecks.js";
 import { importDeckList, searchTcgCards } from "../../src/pipeline/deckLists.js";
-import { searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
+import { searchCards, searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
 import { uploadToMeinspiel } from "../../src/clients/meinspiel.js";
 import { sendToNotmpc } from "../../src/clients/notmpc.js";
@@ -121,6 +121,12 @@ export function registerApi(window: BrowserWindow) {
             return { profiles: [profile], unreadable };
         },
         saveProfile: saveProcessingProfile,
+        async renameProfile(from, profile) {
+            await renameProcessingProfile(from, profile);
+            for (const order of await loadOrders()) {
+                if (order.profile.name === from) await saveOrder({ ...order, profile: { ...order.profile, name: profile.name } });
+            }
+        },
         deleteProfile: deleteProcessingProfile,
         installUpscayl: (binaryFile, modelsDirectory) => runJob({ kind: 'upscayl', title: 'Installing Upscayl', stoppable: false }, async onProgress => {
             onProgress({ type: 'progress', done: 0, total: 0, message: 'Downloading the Upscayl program from GitHub' });
@@ -284,6 +290,7 @@ export function registerApi(window: BrowserWindow) {
 
         searchPrintings,
         searchTokens,
+        searchCards,
         searchTcgCards,
         searchMpcfill: findMpcfillImages,
         loadPrintingScans,

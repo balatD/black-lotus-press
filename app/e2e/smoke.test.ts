@@ -344,11 +344,88 @@ test('the setup tab shows the deck', async () => {
     assert.equal(await window.getByLabel('MPC Autofill card back ID').inputValue(), '');
 });
 
+test('the steps of an imported order are ticked, and the bar below them leads on to printing', async () => {
+    assert.equal(await window.locator('[role="tab"] .step-done').count(), 2);
+    await window.getByRole('button', { name: 'Next: Cards' }).click();
+    await window.locator('.summary').waitFor();
+    await window.getByText('Next, process the images and upload them to meinspiel.de.').waitFor();
+    await window.getByRole('button', { name: 'Next: Print' }).click();
+    await window.getByText(/of \d+ images are ready/).waitFor();
+    assert.equal(await window.locator('.next-step').count(), 0);
+});
+
+test('a new order starts at its decks, offers the boards of the pasted deck, and its empty steps lead back there', async () => {
+    await window.getByRole('button', { name: 'New order' }).click();
+    await window.getByPlaceholder('Order name').fill('guided');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await window.getByRole('heading', { name: 'guided' }).waitFor();
+    assert.equal(await window.locator('[role="tab"] .step-done').count(), 0);
+    assert.equal(await window.locator('.next-step').count(), 0);
+
+    await window.getByPlaceholder(/moxfield\.com/).fill('https://archidekt.com/decks/1');
+    assert.deepEqual(await window.locator('.new-deck .boards label').allInnerTexts(), ['Main board', 'Sideboard', 'Tokens', 'Considering']);
+    await window.getByRole('button', { name: 'Add and import' }).waitFor();
+
+    for (const step of ['Cards', 'Print']) {
+        await window.getByRole('tab', { name: step }).click();
+        await window.getByRole('button', { name: 'Go to Setup' }).click();
+        await window.getByRole('heading', { name: 'Decks' }).waitFor();
+    }
+});
+
 test('the profiles screen lists the profile', async () => {
     await window.getByRole('button', { name: 'Processing profiles' }).click();
 
     await window.getByRole('tab', { name: 'default' }).waitFor();
     assert.equal(await window.getByLabel('Resolution', { exact: true }).inputValue(), '300');
+});
+
+test('a profile opens from an order, is copied and renamed with the order on it, asks before unsaved changes are dropped, and updates the order', async () => {
+    const answer = (accept: boolean) => {
+        const asked = new Promise<string>(resolve => window.once('dialog', dialog => {
+            resolve(dialog.message());
+            void (accept ? dialog.accept() : dialog.dismiss());
+        }));
+        return asked;
+    };
+    await window.locator('.rail').getByRole('button', { name: /travel deck/ }).click();
+    await window.getByRole('tab', { name: 'Setup' }).click();
+    await window.getByText('300 dpi, no upscaling, copyright line kept.', { exact: false }).waitFor();
+    await window.getByRole('button', { name: 'Edit profile' }).click();
+    await window.getByRole('tab', { name: 'default', selected: true }).waitFor();
+
+    await window.getByRole('button', { name: 'Copy profile' }).click();
+    await window.getByLabel('Name of the copy').fill('Default');
+    await window.getByText('A profile with this name exists already.').waitFor();
+    await window.getByLabel('Name of the copy').fill('crisp');
+    await window.getByRole('button', { name: 'Copy', exact: true }).click();
+    await window.getByRole('tab', { name: 'crisp', selected: true }).waitFor();
+    await window.getByRole('button', { name: 'Back to travel deck' }).click();
+    await window.getByLabel('Processing profile').selectOption('crisp');
+
+    await window.getByRole('button', { name: 'Edit profile' }).click();
+    await window.getByLabel('Name', { exact: true }).fill('sharp');
+    await window.getByRole('button', { name: 'Save profile' }).click();
+    await window.getByRole('tab', { name: 'sharp', selected: true }).waitFor();
+    assert.equal(await window.getByRole('tab', { name: 'crisp' }).count(), 0);
+    assert.deepEqual((await fs.readdir(path.join(root, 'config', 'profiles'))).sort(), ['default.json', 'sharp.json']);
+    assert.equal(JSON.parse(await fs.readFile(path.join(root, 'config', 'orders', 'travel deck.json'), 'utf-8')).profile.name, 'sharp');
+
+    await window.getByLabel('Resolution', { exact: true }).fill('600');
+    const dropping = answer(false);
+    await window.getByRole('tab', { name: 'default' }).click();
+    assert.match(await dropping, /^Drop the unsaved changes of the profile "sharp"\?/);
+    const leaving = answer(false);
+    await window.locator('.rail').getByRole('button', { name: /travel deck/ }).click();
+    assert.match(await leaving, /^Leave the processing profile without saving/);
+    await window.getByRole('tab', { name: 'sharp', selected: true }).waitFor();
+
+    await window.getByRole('button', { name: 'Save profile' }).click();
+    await window.getByText('1 order uses older settings of this profile: travel deck.').waitFor();
+    await window.getByRole('button', { name: 'Update it' }).click();
+    await window.getByText('older settings of this profile').waitFor({ state: 'detached' });
+    await window.getByRole('button', { name: 'Back to travel deck' }).click();
+    await window.getByText('600 dpi, no upscaling, copyright line kept.', { exact: false }).waitFor();
 });
 
 test('notmpc.eu cannot be chosen while it is not available, and its orders stay out of sight', async () => {
@@ -586,6 +663,36 @@ test('a card added in the app can be removed from the order, an imported card on
     assert.deepEqual(await window.locator('.card-row .card-name .name').allTextContents(), ['Card a']);
 });
 
+test('a card is added from Scryfall to an order without cards and opens in the card editor with its printings', async () => {
+    await app.evaluate(({ }, solRing) => {
+        const real = globalThis.fetch;
+        globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
+            String(input).startsWith('https://api.scryfall.com/cards/search') ? Response.json({ data: [solRing], has_more: false }) : real(input, init)) as typeof fetch;
+    }, { ...pricedPrinting('sol-ring', '1.00'), name: 'Sol Ring', oracle_id: 'oracle-sol-ring' });
+    await window.getByRole('button', { name: 'New order' }).click();
+    await window.getByPlaceholder('Order name').fill('singles');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await window.getByRole('heading', { name: 'singles' }).waitFor();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'Add a card…' }).click();
+
+    const finder = window.getByRole('dialog', { name: 'Cards from Scryfall' });
+    await finder.getByRole('searchbox', { name: 'Name of the card' }).fill('sol ring');
+    await finder.getByRole('button', { name: 'Search' }).click();
+    await finder.getByRole('button', { name: 'Sol Ring' }).click();
+
+    const editor = window.locator('.card-editor');
+    await editor.getByRole('heading', { name: 'Sol Ring' }).waitFor();
+    assert.equal(await editor.getByRole('button', { name: 'Printings', exact: true }).getAttribute('aria-pressed'), 'true');
+    await editor.locator('.candidates .printing').first().waitFor();
+    assert.ok(await editor.getByRole('button', { name: 'MPC Autofill', exact: true }).isEnabled());
+    assert.equal(await window.getByRole('dialog', { name: 'Cards from Scryfall' }).count(), 0);
+    await editor.getByRole('button', { name: 'Close' }).click();
+
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    await window.locator('.card-row', { hasText: 'Sol Ring' }).getByText('Added here').waitFor();
+});
+
 test('one click fills all blank slots of the pack with copies of the tokens', async () => {
     await window.getByRole('button', { name: /fill deck/ }).click();
     await window.getByRole('tab', { name: 'Cards' }).click();
@@ -643,10 +750,10 @@ test('Yu-Gi-Oh orders print at home only, from a pasted deck list, at 59 × 86 m
     await window.getByRole('heading', { name: 'Deck lists' }).waitFor();
     assert.equal(await window.getByRole('heading', { name: 'Card back' }).count(), 0);
     await window.getByLabel('New deck list').fill(`ydke://${passcodes.toString('base64')}!!!`);
-    await window.getByRole('button', { name: 'Add deck list' }).click();
-    await window.getByRole('button', { name: 'Import', exact: true }).click();
+    assert.deepEqual(await window.locator('.new-deck .boards label').allInnerTexts(), ['Main deck', 'Extra deck', 'Side deck']);
+    await window.getByRole('button', { name: 'Add and import' }).click();
     await window.locator('.deck').getByText('2 cards').waitFor();
-    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'Next: Cards' }).click();
     await window.getByText('Kuriboh').first().waitFor();
     assert.equal(await window.getByRole('button', { name: 'Use the sharpest MPC Autofill images' }).count(), 0);
 
@@ -751,6 +858,60 @@ test('the print tab goes on with the next pack after an upload that stopped, or 
     await window.getByRole('button', { name: 'Continue with pack 2' }).waitFor();
     await window.getByRole('button', { name: 'Upload all again' }).waitFor();
     await window.getByRole('link', { name: 'resume deck - Deck 1/2' }).waitFor();
+});
+
+test('the guide leads through a first order and highlights the control of each step, until it is finished', async () => {
+    const guide = window.locator('.guide');
+    const outline = (target: string) => window.locator(`[data-guide="${target}"]`).first().evaluate(element => element.ownerDocument.defaultView!.getComputedStyle(element).outlineStyle);
+    // The orders of the tests were there on the first start, so the guide starts off.
+    assert.equal(await guide.count(), 0);
+    await window.getByRole('button', { name: 'Show the guide' }).click();
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await guide.getByText('Step 1 of 4').waitFor();
+    assert.equal(await outline('create'), 'solid');
+
+    await window.getByRole('button', { name: 'New order' }).click();
+    await guide.getByText(/^Give it a name/).waitFor();
+    await window.getByPlaceholder('Order name').fill('first steps');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await guide.getByText('Step 2 of 4').waitFor();
+    assert.equal(await outline('deck'), 'solid');
+    assert.equal(await outline('create'), 'none');
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await guide.getByText('The decks go in on the Setup tab.').waitFor();
+    assert.equal(await outline('setup'), 'solid');
+
+    await window.getByRole('button', { name: /^test/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await guide.getByText('Step 3 of 4').waitFor();
+    assert.equal(await outline('next'), 'solid');
+    await window.getByRole('button', { name: 'Next: Print' }).click();
+    await guide.getByText('Step 4 of 4').waitFor();
+    assert.equal(await outline('handover'), 'solid');
+    await guide.getByRole('button', { name: 'Finish the guide' }).click();
+    assert.equal(await guide.count(), 0);
+    await window.getByRole('button', { name: 'Show the guide' }).waitFor();
+});
+
+test('a default shop opens on the next start without asking, until it is unticked', async () => {
+    const asDefault = window.getByLabel('Always start with the shop I pick');
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    assert.equal(await asDefault.isChecked(), false);
+    await asDefault.check();
+    await chooseShop('printerstudio.de');
+    await window.reload();
+    await skipSplash();
+    await window.locator('.rail').getByText('Print files for printerstudio.de').waitFor();
+    assert.equal(await window.locator('.shop-picker').count(), 0);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    assert.equal(await asDefault.isChecked(), true);
+    await asDefault.uncheck();
+    await chooseShop('meinspiel.de');
+    await window.reload();
+    await skipSplash();
+    await chooseShop('meinspiel.de');
 });
 
 test('the window logged no errors', () => {

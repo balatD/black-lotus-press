@@ -1,4 +1,4 @@
-import type { OrderCard } from "../../../src/model.js";
+import type { OrderCard, ProcessingProfile } from "../../../src/model.js";
 
 const euro = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' });
 
@@ -26,6 +26,15 @@ export function describeProcessing(profile: { postProcessing: { dpi: number }, u
     const dpi = profile.postProcessing.dpi;
     if (!profile.upscaling.enabled) return `${dpi} dpi, no upscaling`;
     return dpi > 300 ? `${dpi} dpi, upscaled with Upscayl` : `${dpi} dpi; Upscayl is on but only runs above 300 dpi`;
+}
+
+export function describeCopyright({ copyrightBehavior, copyrightText }: ProcessingProfile['postProcessing']) {
+    switch (copyrightBehavior) {
+        case 'keep': return 'copyright line kept';
+        case 'blur': return 'copyright line blurred';
+        case 'proxy': return 'copyright line blurred, with "Proxy – not for sale"';
+        case 'custom': return `copyright line blurred, with "${copyrightText ?? ''}"`;
+    }
 }
 
 export function describePrinting(card: OrderCard) {
