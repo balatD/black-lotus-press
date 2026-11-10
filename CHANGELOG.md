@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.6.0
+
+A guided first order, a default shop, single cards from Scryfall, and processing profiles that are easier to handle.
 
 - Single cards from Scryfall: *Add a card…* on the *Cards* tab searches Scryfall for any card by name and adds it to the order, also to one without decks. Its card editor opens right away, to pick the printing and the MPC Autofill image.
 - Processing profiles are easier to handle: a profile can be renamed, and its orders stay on it; *Copy profile* asks for the name of the copy. After saving, a profile lists the orders that still use its older settings and updates them in one click. An order's *Setup* tab shows its profile's resolution, upscaling and copyright line, with *Edit profile* to open it and a way back. Unsaved changes of a profile are no longer dropped without asking when you switch to another profile or leave the screen.
