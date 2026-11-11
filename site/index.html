@@ -12,10 +12,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" type="image/png" href="img/icon-64.png">
     <link rel="preload" href="fonts/barlow-semi-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="img/lotus.webp" as="image">
     <link rel="stylesheet" href="style.css">
-    <!-- Hides the hero card until hero.js has printed it. -->
-    <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -37,11 +34,11 @@
 
 <main id="main">
     <section class="hero">
-        <div>
-            <h1><span>Your deck,</span> <span>printed.</span></h1>
+        <h1><span>Your deck,</span> <span>printed.</span></h1>
+        <div class="hero-text">
             <p class="lead">
-                Paste a Moxfield or Archidekt link. Black Lotus Press takes the exact printings, cleans up the scans, upscales them up to 1200 dpi
-                and sends the cards to meinspiel.de or printerstudio.de, or lays them out for your own printer.
+                Paste a Moxfield or Archidekt link and get print-ready cards for meinspiel.de, printerstudio.de or your own printer:
+                the exact printings, cleaned up and upscaled.
             </p>
             <div class="downloads" id="downloads">
                 <a class="button" data-os="mac" href="https://github.com/balatD/black-lotus-press/releases/latest/download/Black-Lotus-Press-mac-arm64.dmg">
@@ -61,22 +58,21 @@
                 Free and open source under the MIT license. Portable ZIPs, the command-line tool and release notes are on the
                 <a href="https://github.com/balatD/black-lotus-press/releases/latest">release page</a>.
             </p>
-            <div class="note mac-note">
-                <p><strong>On a Mac:</strong> the app is not signed with an Apple certificate, so macOS says it "is damaged" or that Apple "could not verify" it. It is neither. Drag it into Applications, then run this once in Terminal:</p>
+            <details class="mac-note">
+                <summary>macOS says the app "is damaged"?</summary>
+                <p>It is not: the app is not signed with an Apple certificate. Drag it into Applications, then run this once in Terminal:</p>
                 <div class="command"><code>xattr -cr "/Applications/Black Lotus Press.app"</code><button type="button" class="copy" data-copy='xattr -cr "/Applications/Black Lotus Press.app"'>Copy</button></div>
-            </div>
+            </details>
         </div>
-
-        <figure class="hero-card">
-            <button type="button" class="press-card proof" aria-label="Print the card again">
-                <span class="card-tilt">
-                    <img class="card-face" src="img/lotus.webp" width="745" height="1040" alt="">
-                    <span class="foil" aria-hidden="true"></span>
-                </span>
-            </button>
-            <figcaption>Black Lotus, printed in cyan, magenta, yellow and black. Click it to print it again.</figcaption>
-        </figure>
     </section>
+
+    <!-- Filled by hero.js; without it the band stays hidden. -->
+    <div class="card-band" hidden>
+        <div class="card-window"><ul class="card-track" aria-hidden="true"></ul></div>
+        <div class="band-foot">
+            <button type="button" class="band-pause" aria-pressed="false">Pause</button>
+        </div>
+    </div>
 
     <div class="strip">
         <ul>
@@ -323,8 +319,6 @@
         }, { threshold: 0.4 }).observe(tour);
     }
 </script>
-<!-- Without hero.js the card shows as it is. -->
-<script type="module" src="hero.js" onerror="document.querySelector('.hero-card').classList.add('printed')"></script>
-<script nomodule>document.querySelector('.hero-card').classList.add('printed');</script>
+<script type="module" src="hero.js"></script>
 </body>
 </html>
