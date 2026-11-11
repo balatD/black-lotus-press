@@ -104,10 +104,10 @@ test('copyOrder saves a copy for another shop with the base images, without the 
     await saveOrder(order);
     await processedImages(order);
 
-    await copyOrder(order, 'notmpc', 'sauron eu');
+    await copyOrder(order, 'printerstudio', 'sauron studio');
 
     const [original, copy] = await loadOrders();
-    assert.deepEqual([copy?.name, copy?.shop, copy?.uploaded], ['sauron eu', 'notmpc', undefined]);
+    assert.deepEqual([copy?.name, copy?.shop, copy?.uploaded], ['sauron studio', 'printerstudio', undefined]);
     assert.deepEqual([original?.name, original?.shop, original?.uploaded], ['sauron', 'meinspiel', order.uploaded]);
     assert.deepEqual(await files(copy!), ['base-scryfall-a-front.jpg', 'cache.json']);
     assert.equal((await files(order)).length, 5, 'the original keeps all its images');
@@ -117,11 +117,11 @@ test('copyOrder refuses a name that is taken or invalid', async () => {
     await tempRoot();
     const order: Order = { ...DefaultOrder, name: 'sauron' };
     await saveOrder(order);
-    await saveOrder({ ...order, name: 'urza', shop: 'notmpc' });
+    await saveOrder({ ...order, name: 'urza', shop: 'printerstudio' });
 
     await assert.rejects(copyOrder(order, 'printerstudio', 'urza'), /exists already/);
     await assert.rejects(copyOrder(order, 'printerstudio', '../urza'), /Invalid order name/);
-    assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['sauron', 'meinspiel'], ['urza', 'notmpc']]);
+    assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['sauron', 'meinspiel'], ['urza', 'printerstudio']]);
 });
 
 test('renameOrder takes the images, the PDFs and the last upload along to the new name', async () => {
@@ -146,7 +146,7 @@ test('renameOrder refuses a name that is taken, invalid or the name of a folder 
     await tempRoot();
     const order: Order = { ...DefaultOrder, name: 'sauron' };
     await saveOrder(order);
-    await saveOrder({ ...order, name: 'urza', shop: 'notmpc' });
+    await saveOrder({ ...order, name: 'urza', shop: 'printerstudio' });
     await fs.mkdir(orderDir({ ...order, name: 'deleted' }), { recursive: true });
 
     await assert.rejects(renameOrder(order, 'urza'), /exists already/);
@@ -180,9 +180,19 @@ test('Yu-Gi-Oh and Pokémon orders cannot be moved, copied or imported to a shop
 
     await assert.rejects(moveOrder(order, 'meinspiel'), /Yu-Gi-Oh orders only print at home/);
     await assert.rejects(copyOrder(order, 'printerstudio', 'kaiba copy'), /Yu-Gi-Oh orders only print at home/);
-    const doctored = await exported({ ...order, name: 'ash', tcg: 'pokemon', shop: 'notmpc' }, false);
+    const doctored = await exported({ ...order, name: 'ash', tcg: 'pokemon', shop: 'printerstudio' }, false);
     await assert.rejects(importOrder(doctored, [DefaultProfile]), /Pokémon orders only print at home/);
     assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['kaiba', 'home']]);
+});
+
+test('orders made for notmpc.eu, which closed, load and import as orders for printerstudio.de with its deck sizes', async () => {
+    await tempRoot();
+    const old = { ...DefaultOrder, name: 'eu deck', shop: 'notmpc' } as unknown as Order;
+    await saveOrder(old);
+
+    assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['eu deck', 'printerstudio']]);
+    const imported = await importOrder(await exported({ ...old, name: 'shared eu deck' }, false), [DefaultProfile]);
+    assert.equal(imported.shop, 'printerstudio');
 });
 
 const OWN_IMAGE = '0123456789abcdef.png';

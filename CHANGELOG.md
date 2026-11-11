@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- notmpc.eu is gone, as the shop closed: the app, the command-line tool, the website and the documentation no longer offer it. Orders made for it carry on at printerstudio.de, which prints the same decks of 18 to 612 cards; *Process images* makes their images once more in its size.
+
 ## 2.6.0
 
 A guided first order, a default shop, single cards from Scryfall, and processing profiles that are easier to handle.

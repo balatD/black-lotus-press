@@ -15,7 +15,9 @@ function orderFile(name: string) {
 // Orders saved by older versions carry `states` instead of `cards`; their decks get imported again.
 function fromJson(json: unknown): Order {
     const { states: _states, ...order } = json as Partial<Order> & { states?: unknown };
-    return { ...DefaultOrder, ...order, cards: order.cards ?? [] };
+    // notmpc.eu closed; its orders carry on at printerstudio.de, which takes the same decks of 18 to 612 cards.
+    const shop = (order.shop as string | undefined) === 'notmpc' ? 'printerstudio' : order.shop ?? DefaultOrder.shop;
+    return { ...DefaultOrder, ...order, shop, cards: order.cards ?? [] };
 }
 
 export async function loadOrders(onUnreadable?: (file: string) => void): Promise<Order[]> {

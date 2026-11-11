@@ -71,14 +71,6 @@ test('processImages names files after the printing and adds blanks and the card 
     assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
 });
 
-test('processImages makes sRGB print images for notmpc', async () => {
-    const target = { ...order([card('a', 1)]), shop: 'notmpc' as const };
-
-    await processImages(target);
-
-    assert.equal((await sharp(path.join(cardsDir(target), 'scryfall-a-front-b110-c100.jpg')).metadata()).space, 'srgb');
-});
-
 test('processImages makes sRGB print images of at least 816 × 1110 pixels for printerstudio', async () => {
     const target = { ...order([card('a', 1)], 300), shop: 'printerstudio' as const };
 

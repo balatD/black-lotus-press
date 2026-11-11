@@ -4,13 +4,7 @@ export const CARDS_PER_PACK = 55;
 export const PACK_PRICE_EUR = 19.95;
 export const BLANK_FILE = 'blank.jpg';
 
-// notmpc.eu sells decks of up to these many cards; the prices are those for one to five identical decks.
-export const NOTMPC_DECKS: [size: number, eur: number][] = [
-    [18, 10.85], [36, 14.09], [55, 16.88], [72, 21.69], [90, 25.88], [108, 29.97], [126, 35.78], [144, 41.58],
-    [162, 45.77], [180, 49.95], [198, 54.09], [216, 58.28], [234, 64.08], [396, 98.28], [504, 121.37], [612, 144.54]
-];
-
-// printerstudio.de's decks on Standard (glatt) stock, likewise for one to five identical decks.
+// printerstudio.de's decks on Standard (glatt) stock; the prices are those for one to five identical decks.
 export const PRINTERSTUDIO_DECKS: [size: number, eur: number][] = [
     [18, 10.95], [36, 14.75], [54, 18.10], [72, 21.70], [90, 26.50], [108, 31.30], [126, 36.15], [144, 40.95],
     [162, 45.75], [180, 50.55], [198, 55.35], [216, 60.15], [234, 64.95], [396, 98.25], [504, 120.90], [612, 143.45]
@@ -19,7 +13,7 @@ export const PRINTERSTUDIO_DECKS: [size: number, eur: number][] = [
 // The shops that print decks of several sizes instead of meinspiel's packs.
 export type DeckShop = Exclude<Shop, 'meinspiel' | 'home'>;
 
-const DECKS: Record<DeckShop, [size: number, eur: number][]> = { notmpc: NOTMPC_DECKS, printerstudio: PRINTERSTUDIO_DECKS };
+const DECKS: Record<DeckShop, [size: number, eur: number][]> = { printerstudio: PRINTERSTUDIO_DECKS };
 
 export interface Slot {
     front: string;
@@ -163,7 +157,7 @@ export function buildPacks(order: PackOrder): { packs: Slot[][], droppedTokens: 
         packs.push(slots.slice(i, i + largest));
     }
 
-    // notmpc and printerstudio take decks with fewer cards than their size, meinspiel's packs always have 55.
+    // printerstudio takes decks with fewer cards than their size, meinspiel's packs always have 55.
     const lastPack = packs.at(-1);
     while (order.shop === 'meinspiel' && lastPack && lastPack.length < CARDS_PER_PACK) {
         lastPack.push({ front: BLANK_FILE, back: cardBackFace(order).file });

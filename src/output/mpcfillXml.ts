@@ -2,7 +2,6 @@ import path from "node:path";
 import { cardsDir } from "../config/paths.js";
 import type { Order } from "../model.js";
 import { buildPacks, cardBackFace, cardFaces, driveId, type Face, faceName } from "../pipeline/packs.js";
-import { escapeXml } from "./notmpcXml.js";
 
 // The stock MPC Autofill's desktop tool takes when none is given; it only knows the stocks by these names.
 const STOCK = '(S30) Standard Smooth';
@@ -65,4 +64,8 @@ ${cards(fronts)}  </fronts>
 ${backs.length > 0 ? `  <backs>\n${cards(backs)}  </backs>\n` : ''}  <cardback>${escapeXml(order.cardBack)}</cardback>
 </order>
 `;
+}
+
+function escapeXml(text: string) {
+    return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }

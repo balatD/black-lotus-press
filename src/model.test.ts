@@ -133,7 +133,7 @@ test('updateDeckCards follows the artwork of a deck list unless another artwork 
 });
 
 test('printsAt lets Magic print at every shop and the other card games only at home', () => {
-    assert.ok((['meinspiel', 'notmpc', 'printerstudio', 'home'] as const).every(shop => printsAt('magic', shop)));
+    assert.ok((['meinspiel', 'printerstudio', 'home'] as const).every(shop => printsAt('magic', shop)));
     assert.ok(printsAt('yugioh', 'home') && printsAt('pokemon', 'home'));
     assert.ok(!printsAt('yugioh', 'meinspiel') && !printsAt('pokemon', 'printerstudio'));
 });

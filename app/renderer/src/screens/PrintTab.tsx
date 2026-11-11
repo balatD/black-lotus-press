@@ -140,7 +140,6 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
             if (result.error) setError(result.error);
         });
     };
-    const sendToNotmpc = () => run(() => api.sendToNotmpc(order));
     const sendToPrinterstudio = () => {
         handOver();
         void run(() => api.sendToPrinterstudio(order));
@@ -236,21 +235,6 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
                         </>
                     )}
                 </li>
-                )}
-                {order.shop === 'notmpc' && (
-                    <li>
-                        <h2><CloudUpload/>Send to notmpc.eu</h2>
-                        <p className="muted">
-                            The browser opens notmpc.eu's designer with every card in its slot, one tab per deck. MPC Autofill images without
-                            brightness or contrast of their own go there as links, the others are uploaded. You choose the options and order there yourself; an account is not needed.
-                        </p>
-                        <div className="row">
-                            <button className={allProcessed && !browser ? 'primary' : ''} data-guide={allProcessed ? 'handover' : undefined} disabled={running !== undefined || !allProcessed} onClick={() => void sendToNotmpc()}><CloudUpload/>Send to notmpc.eu</button>
-                            {job?.kind === 'upload' && <button className="quiet" onClick={() => void api.stopTask(job.id)}><CircleStop/>Cancel</button>}
-                            {browser && <button className="quiet" onClick={() => void api.stopTask(browser.id)}><AppWindow/>Close browser</button>}
-                        </div>
-                        {job?.kind === 'upload' && <ProgressBar progress={progress} label="Opening the browser"/>}
-                    </li>
                 )}
                 {order.shop === 'home' && (
                     <li>

@@ -107,25 +107,19 @@ test('buildPacks keeps the order of the card list', () => {
     assert.deepEqual(packs[0]!.slice(0, 2).map(slot => slot.cardId), ['b', 'a']);
 });
 
-test('buildPacks puts notmpc cards into the smallest deck size that holds them, without blanks', () => {
-    const { packs } = buildPacks(order([card('island', 60)], 'notmpc'));
+test('buildPacks puts printerstudio cards into the smallest deck size that holds them, without blanks', () => {
+    const { packs } = buildPacks(order([card('island', 60)], 'printerstudio'));
 
     assert.equal(packs.length, 1);
     assert.equal(packs[0]!.length, 60);
     assert.ok(packs[0]!.every(slot => slot.cardId === 'island'));
 });
 
-test('buildPacks fills the free slots of the notmpc deck size with tokens, but never a larger deck size', () => {
-    const { packs, droppedTokens } = buildPacks(order([card('island', 60), ...tokens(15)], 'notmpc'));
+test('buildPacks fills the free slots of the printerstudio deck size with tokens, but never a larger deck size', () => {
+    const { packs, droppedTokens } = buildPacks(order([card('island', 60), ...tokens(15)], 'printerstudio'));
 
     assert.equal(packs[0]!.length, 72);
     assert.deepEqual(droppedTokens.map(token => token.card.id), ['token13', 'token14', 'token15']);
-});
-
-test('buildPacks splits notmpc orders into decks of 612', () => {
-    const { packs } = buildPacks(order([card('island', 700)], 'notmpc'));
-
-    assert.deepEqual(packs.map(pack => pack.length), [612, 88]);
 });
 
 test('buildPacks puts printerstudio cards into its deck sizes, where 55 cards already need a deck of 72', () => {
@@ -136,11 +130,8 @@ test('buildPacks puts printerstudio cards into its deck sizes, where 55 cards al
     assert.deepEqual(buildPacks(order([card('island', 700)], 'printerstudio')).packs.map(pack => pack.length), [612, 88]);
 });
 
-test('packPrice is the pack price at meinspiel and the price of the smallest fitting deck size at notmpc and printerstudio', () => {
+test('packPrice is the pack price at meinspiel and the price of the smallest fitting deck size at printerstudio', () => {
     assert.equal(packPrice('meinspiel', 55), 19.95);
-    assert.equal(packPrice('notmpc', 18), 10.85);
-    assert.equal(packPrice('notmpc', 60), 21.69);
-    assert.equal(packPrice('notmpc', 612), 144.54);
     assert.equal(packPrice('printerstudio', 54), 18.10);
     assert.equal(packPrice('printerstudio', 100), 31.30);
     assert.equal(packPrice('printerstudio', 612), 143.45);

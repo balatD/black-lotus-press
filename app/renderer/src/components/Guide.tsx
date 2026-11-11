@@ -12,7 +12,6 @@ export interface GuideStep {
 
 const HANDOVER: Record<Shop, string> = {
     meinspiel: 'Process images and upload makes the print images and uploads them. Log in to meinspiel.de in the window that opens; the app never sees your password. Then choose the box and order there.',
-    notmpc: 'Process the images, then Send to notmpc.eu fills their designer, where you choose the options and order.',
     printerstudio: 'Process the images, then Send to printerstudio.de fills their designer. Log in there, check the preview and put the decks into the cart.',
     home: 'Process the images, then Print… or Save PDF. Print at actual size (100 %), not fit to page, so the cards come out at their real size.'
 };

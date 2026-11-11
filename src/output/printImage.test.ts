@@ -21,7 +21,6 @@ test('print images for printerstudio have the 2.72 × 3.70 inches of MPC, a pixe
     assert.deepEqual(printSizeInPixels('printerstudio', 300), { width: 816, height: 1110 });
     assert.deepEqual(printSizeInPixels('printerstudio', 800), { width: 2176, height: 2960 });
     assert.deepEqual(printSizeInPixels('meinspiel', 300), pageSizeInPixels(300));
-    assert.deepEqual(printSizeInPixels('notmpc', 300), pageSizeInPixels(300));
 });
 
 test('toPrintJpeg writes an exact-size sRGB JPEG without an embedded profile', async () => {

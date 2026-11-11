@@ -176,7 +176,7 @@ section.hero {
 .step-text li + li { margin-top: 0.3rem; }
 
 /* The print shops side by side, each under its ink like the strip. */
-.shop-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 2.5rem 0 0; padding: 0; list-style: none; }
+.shop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 2.5rem 0 0; padding: 0; list-style: none; }
 .shop-grid li { padding: 1.2rem 1.25rem 1.3rem; border: 1px solid var(--line); border-top: 6px solid var(--ink); border-radius: var(--radius); background: var(--panel); }
 .shop-grid h3 { font-size: 1.5rem; }
 .shop-grid h3 a { color: var(--text); text-decoration: none; }

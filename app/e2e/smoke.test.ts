@@ -48,6 +48,7 @@ before(async () => {
     await fs.mkdir(path.join(root, 'config', 'orders'), { recursive: true });
     await fs.mkdir(path.join(root, 'config', 'profiles'), { recursive: true });
     await fs.writeFile(path.join(root, 'config', 'orders', 'test.json'), JSON.stringify(order));
+    // Made for notmpc.eu, which closed.
     const notmpcOrder = { ...DefaultOrder, name: 'eu deck', shop: 'notmpc', cardBack: '', cards: [card('a', 60)] };
     await fs.writeFile(path.join(root, 'config', 'orders', 'eu deck.json'), JSON.stringify(notmpcOrder));
     const printerstudioOrder = { ...DefaultOrder, name: 'studio deck', shop: 'printerstudio', cardBack: '', cards: [card('a', 55)] };
@@ -428,16 +429,18 @@ test('a profile opens from an order, is copied and renamed with the order on it,
     await window.getByText('600 dpi, no upscaling, copyright line kept.', { exact: false }).waitFor();
 });
 
-test('notmpc.eu cannot be chosen while it is not available, and its orders stay out of sight', async () => {
+test('the shops are meinspiel.de, printerstudio.de and the home printer, and an order made for notmpc.eu carries on at printerstudio.de', async () => {
     await window.getByRole('button', { name: 'Switch print shop' }).click();
-    const notmpc = window.locator('.shop-picker').getByRole('button', { name: /notmpc\.eu/ });
+    assert.deepEqual(await window.locator('.shop-picker .shop img').evaluateAll(logos => logos.map(logo => logo.getAttribute('alt'))),
+        ['meinspiel.de', 'printerstudio.de', 'Home printer']);
 
-    assert.equal(await notmpc.isDisabled(), true);
-    assert.match(await notmpc.innerText(), /Not available at the moment/);
+    await chooseShop('printerstudio.de');
+    await window.getByRole('button', { name: /eu deck/ }).click();
+    await window.getByText(/60 cards fill 1 deck of up to 72/).waitFor();
 
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');
     await window.getByRole('button', { name: /^test/ }).waitFor();
-    assert.equal(await window.getByRole('button', { name: /eu deck/ }).count(), 0);
 });
 
 test('printerstudio.de orders come in its deck sizes, with the way to send them', async () => {
@@ -448,7 +451,8 @@ test('printerstudio.de orders come in its deck sizes, with the way to send them'
     await window.getByText(/55 cards fill 1 deck of up to 72/).waitFor();
     await window.getByRole('tab', { name: 'Print' }).click();
     await window.getByRole('button', { name: 'Send to printerstudio.de' }).waitFor();
-    assert.equal(await window.getByRole('button', { name: /eu deck/ }).count(), 0);
+    // The orders of the other shops stay in their lists.
+    assert.equal(await window.getByRole('button', { name: /one click deck/ }).count(), 0);
 
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');
@@ -543,7 +547,6 @@ test('an order moves to another shop and is copied back, and opens there each ti
 
     await window.getByRole('button', { name: 'Order actions' }).click();
     await window.getByRole('button', { name: 'Move or copy' }).click();
-    assert.equal(await dialog.getByRole('button', { name: 'notmpc.eu', exact: true }).count(), 0, 'notmpc.eu is not available');
     await dialog.getByRole('button', { name: 'Move to printerstudio.de' }).click();
     await dialog.waitFor({ state: 'detached' });
     await window.getByText('Print files for printerstudio.de').waitFor();
@@ -553,7 +556,7 @@ test('an order moves to another shop and is copied back, and opens there each ti
     await window.getByRole('button', { name: 'Move or copy' }).click();
     assert.equal(await dialog.getByLabel('Name of the copy').inputValue(), 'travel deck meinspiel.de');
     await dialog.getByLabel('Name of the copy').fill('eu deck');
-    await dialog.getByText('An order with this name exists already for notmpc.eu.').waitFor();
+    await dialog.getByText('An order with this name exists already for printerstudio.de.').waitFor();
     await dialog.getByLabel('Name of the copy').fill('travel copy');
     await dialog.getByRole('button', { name: 'Copy to meinspiel.de' }).click();
     await window.getByText('Print files for meinspiel.de').waitFor();

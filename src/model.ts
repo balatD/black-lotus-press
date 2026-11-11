@@ -183,7 +183,7 @@ export interface ImportedState {
     printingId?: string;
 }
 
-export type Shop = 'meinspiel' | 'notmpc' | 'printerstudio' | 'home';
+export type Shop = 'meinspiel' | 'printerstudio' | 'home';
 
 export type Tcg = 'magic' | 'yugioh' | 'pokemon';
 

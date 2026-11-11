@@ -26,8 +26,8 @@ export function App() {
     const [splash, setSplash] = useState(true);
     const endSplash = useCallback(() => setSplash(false), []);
     const [defaultShop, setDefaultShop] = useStoredState<Shop | null>('default-shop', null);
-    // Asked on every start, after the splash, unless a default shop was chosen that is still available.
-    const [shop, setShop] = useState<Shop | undefined>(() => defaultShop !== null && SHOPS[defaultShop]?.available ? defaultShop : undefined);
+    // Asked on every start, after the splash, unless a default shop was chosen.
+    const [shop, setShop] = useState<Shop | undefined>(defaultShop ?? undefined);
     // The form for a new order in the sidebar, which the empty screen opens as well.
     const [creating, setCreating] = useState(false);
     // Decided when the orders first load: the guide is for a first order, so it starts on only when there are none.

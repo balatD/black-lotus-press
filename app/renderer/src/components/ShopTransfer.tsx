@@ -17,7 +17,7 @@ interface Props {
 
 export function ShopTransfer({ order, orders, onMove, onCopy, onClose }: Props) {
     const dialog = useRef<HTMLDialogElement>(null);
-    const others = (Object.keys(SHOPS) as Shop[]).filter(shop => shop !== order.shop && SHOPS[shop].available);
+    const others = (Object.keys(SHOPS) as Shop[]).filter(shop => shop !== order.shop);
     const [shop, setShop] = useState(others[0]!);
     // Until a name is typed, the copy is named after its shop.
     const [typed, setTyped] = useState<string>();

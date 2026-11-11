@@ -15,7 +15,6 @@ import { importDeckList, searchTcgCards } from "../../src/pipeline/deckLists.js"
 import { searchCards, searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
 import { uploadToMeinspiel } from "../../src/clients/meinspiel.js";
-import { sendToNotmpc } from "../../src/clients/notmpc.js";
 import { sendToPrinterstudio } from "../../src/clients/printerstudio.js";
 import { showShopWindow } from "../../src/clients/shopWindow.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
@@ -258,12 +257,6 @@ export function registerApi(window: BrowserWindow) {
                 // Cancelling keeps the games made until then, without an error to show.
                 return error === undefined || signal.aborted ? { games } : { games, error: error instanceof Error ? error.message : String(error) };
             }, result => result.error ?? 'Done.'),
-        sendToNotmpc: order => runJob(
-            { kind: 'upload', title: `Sending ${order.name} to notmpc.eu`, order: order.name, stoppable: true },
-            async (onProgress, signal) => {
-                await closeUploadBrowser();
-                keepBrowser(await sendToNotmpc(order, onProgress, signal), `notmpc.eu with the decks of ${order.name}`, order.name);
-            }),
         sendToPrinterstudio: order => runJob(
             { kind: 'upload', title: `Sending ${order.name} to printerstudio.de`, order: order.name, stoppable: true },
             async (onProgress, signal) => {

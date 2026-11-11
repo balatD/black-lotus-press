@@ -64,8 +64,6 @@ export interface Api {
     // A game per pack, with an image per card side. The browser stays open after the upload while a game is not saved; it stays a task until closed.
     // Goes on after the games of the packs done before. A pack that fails returns the games made until then, with the error.
     uploadPacks(order: Order, done: UploadedGame[]): Promise<{ games: UploadedGame[], error?: string }>;
-    // Uploads the print images and fills a notmpc.eu designer per deck; the browser stays open like after uploadPacks.
-    sendToNotmpc(order: Order): Promise<void>;
     // Fills a printerstudio.de designer per deck up to its preview; the browser stays open like after uploadPacks.
     sendToPrinterstudio(order: Order): Promise<void>;
     // The sharpest MPC Autofill images that show the printings, by card id, for the cards without an own or MPC Autofill image.
@@ -102,7 +100,7 @@ export interface Api {
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'renameProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
     'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'saveHomePdf', 'printHome', 'exportOrder', 'importOrder', 'openOrderFolder',
-    'importDeck', 'importDeckList', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToNotmpc', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
+    'importDeck', 'importDeckList', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
     'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchCards', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
