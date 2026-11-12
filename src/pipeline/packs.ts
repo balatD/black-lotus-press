@@ -77,7 +77,7 @@ function adjustedFace(stem: string, source: FaceSource, adjustments: Adjustments
     // At home the print images are the finest JPEGs in their own resolution, under names apart from those of older versions.
     const finest = shop === 'home' ? '-finest' : '';
     return {
-        file: `${stem}-b${percent(adjustments.brightness)}-c${percent(adjustments.contrast)}${finest}.jpg`,
+        file: `${stem}-b${percent(adjustments.brightness)}-c${percent(adjustments.contrast)}${adjustments.edges ? `-e${percent(adjustments.edges)}` : ''}${finest}.jpg`,
         base: `base-${stem}.jpg`,
         source,
         adjustments
@@ -89,6 +89,8 @@ export function cardBackFace(order: Pick<Order, 'cardBack' | 'adjustments' | 'sh
     return adjustedFace(`cardback-${order.cardBack}`, { type: 'cardback', driveId: order.cardBack }, combineAdjustments(order.adjustments, undefined), order.shop);
 }
 
+const TCG_FILE_PREFIXES: Record<TcgCard['tcg'], string> = { yugioh: 'ygo', pokemon: 'ptcg', lorcana: 'lorcana', onepiece: 'op' };
+
 // Undefined when the card has neither a printing nor an own image, i.e. it cannot be printed.
 export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adjustments' | 'shop'>): { front: Face, back: Face } | undefined {
     const printing = card.printing;
@@ -98,7 +100,7 @@ export function cardFaces(card: OrderCard, order: Pick<Order, 'cardBack' | 'adju
     // "full" since they keep their own resolution: images of older versions, scaled down to the profile's, are made anew.
     const mpcfill = (id: string) => adjustedFace(`mpcfill-full-${id}`, { type: 'mpcfill', id }, adjustments, order.shop);
     // TCGdex ids can have dots, which file names of order files may not.
-    const tcg = (tcgCard: TcgCard) => adjustedFace(tcgCard.tcg === 'yugioh' ? `ygo-${tcgCard.id}` : `ptcg-${tcgCardKey(tcgCard).replace(/[^\w-]/g, '_')}`, { type: 'tcg', card: tcgCard }, adjustments, order.shop);
+    const tcg = (tcgCard: TcgCard) => adjustedFace(`${TCG_FILE_PREFIXES[tcgCard.tcg]}-${tcgCardKey(tcgCard).replace(/[^\w-]/g, '_')}`, { type: 'tcg', card: tcgCard }, adjustments, order.shop);
 
     const front = card.customImage
         ? custom(card.customImage.front)
@@ -175,7 +177,7 @@ function homePages(order: PackOrder): Slot[][] {
     for (const card of order.cards) {
         const faces = cardFaces(card, order);
         if (card.excluded || !faces || !isPickedForHome(card, order)) continue;
-        for (let i = 0; i < card.quantity; i++) (card.isToken ? tokens : cards).push(homeSlots(card, faces));
+        for (let i = 0; i < card.quantity; i++) (card.isToken ? tokens : cards).push(homeSlots(card, faces, order));
     }
 
     // The sides of a double-faced card share a page: a single card from further on takes the slot left at the end of one.
@@ -193,10 +195,11 @@ function homePages(order: PackOrder): Slot[][] {
     return pages;
 }
 
-// Fronts only: both sides of a double-faced card print as cards of their own.
-function homeSlots(card: OrderCard, faces: { front: Face, back: Face }): Slot[] {
+// Fronts only, both sides of a double-faced card print as cards of their own; with both sides it is one card again.
+function homeSlots(card: OrderCard, faces: { front: Face, back: Face }, order: PackOrder): Slot[] {
     const front = { front: faces.front.file, back: faces.back.file, cardId: card.id };
-    return faces.back.source.type === 'cardback' ? [front] : [front, { front: faces.back.file, back: faces.front.file, cardId: card.id }];
+    if (order.homePrint?.sides === 'both' || faces.back.source.type === 'cardback') return [front];
+    return [front, { front: faces.back.file, back: faces.front.file, cardId: card.id }];
 }
 
 function isPickedForHome(card: OrderCard, order: PackOrder) {
@@ -209,7 +212,7 @@ function isPickedForHome(card: OrderCard, order: PackOrder) {
 export function fillingTokens(order: PackOrder): OrderCard[] {
     return order.cards.filter(card => {
         const faces = card.isToken && !card.excluded ? cardFaces(card, order) : undefined;
-        return faces !== undefined && isPickedForHome(card, order) && (order.shop !== 'home' || homeSlots(card, faces).length === 1);
+        return faces !== undefined && isPickedForHome(card, order) && (order.shop !== 'home' || homeSlots(card, faces, order).length === 1);
     });
 }
 

@@ -1,13 +1,15 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Columns2, ImagePlus, ImageUp, Trash2, Undo2, X } from "lucide-react";
-import { CARD_SIZES, changePrinting, chooseMpcfillImage, combineAdjustments, type Order, type OrderCard, type ScryfallCard, type TcgCard, tcgCardKey } from "../../../../src/model.js";
+import { Check, ChevronLeft, ChevronRight, Columns2, ImagePlus, ImageUp, Sparkles, Trash2, Undo2, WandSparkles, X } from "lucide-react";
+import { cardSize, changePrinting, chooseMpcfillImage, combineAdjustments, type Order, type OrderCard, type ScryfallCard, TCG_SOURCES, type TcgCard, tcgCardKey } from "../../../../src/model.js";
 import { IMAGE_BLEED_MM } from "../../../../src/output/sheetLayout.js";
 import type { MpcfillCard } from "../../../../src/clients/mpcfill.js";
 import { cardFaces, faceImageUris, mpcfillImage } from "../../../../src/pipeline/packs.js";
-import { api, errorMessage } from "../api.js";
+import { api, errorMessage, wasStopped } from "../api.js";
 import { adjustmentFilter, percent } from "../adjust.js";
-import { boardName, count, describePrinting } from "../format.js";
+import { boardName, count, describePrinting, describeTcgCard } from "../format.js";
+import { useProgress } from "../useProgress.js";
 import { useStoredState } from "../useStoredState.js";
+import { ProgressBar } from "./ProgressBar.js";
 import { AdjustmentSliders } from "./AdjustmentSliders.js";
 import { ImageStage, type Pane } from "./ImageStage.js";
 import { MpcfillCandidates, mpcfillSearchKey } from "./MpcfillCandidates.js";
@@ -55,6 +57,15 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
     const [copies, setCopies] = useState<number>();
     const [error, setError] = useState<string>();
     const [tileWidth, setTileWidth] = useStoredState('editor-tile-width', 150);
+    const [status, setStatus] = useState<{ version: string, files: Record<string, number> }>();
+    // Shows the card's processed image, upscaled where the profile upscales, next to the Scryfall scan or the image it came from.
+    const [processed, setProcessed] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const progress = useProgress(processing);
+
+    useEffect(() => {
+        api.imageStatus(order).then(setStatus, () => setStatus(undefined));
+    }, [order.name]);
 
     useEffect(() => {
         dialog.current?.showModal();
@@ -64,10 +75,12 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
 
     if (!card) return null;
 
-    const tabs: [Tab, string][] = order.tcg === 'magic' ? TABS : [['printings', order.tcg === 'yugioh' ? 'Artworks' : 'Printings'], ['own', 'Own image']];
-    const backToImage = order.tcg === 'magic' ? 'Use Scryfall again' : order.tcg === 'yugioh' ? 'Use the artwork again' : 'Use the printing again';
+    const artworks = order.tcg === 'yugioh' || order.tcg === 'onepiece';
+    // Other cards are their own images.
+    const tabs: [Tab, string][] = order.tcg === 'magic' ? TABS : order.tcg === 'other' ? [['own', 'Own image']] : [['printings', artworks ? 'Artworks' : 'Printings'], ['own', 'Own image']];
+    const backToImage = order.tcg === 'magic' ? 'Use Scryfall again' : artworks ? 'Use the artwork again' : 'Use the printing again';
     const index = ids.indexOf(card.id);
-    const activeTab = tab === 'mpcfill' && !card.printing ? 'printings' : tab;
+    const activeTab = order.tcg === 'other' ? 'own' : tab === 'mpcfill' && !card.printing ? 'printings' : tab;
     const hasBack = (card.printing !== undefined && faceImageUris(card.printing, 'back') !== undefined) || card.customImage?.back !== undefined || card.mpcfill?.back !== undefined;
     const current = currentCandidate(card, order, face);
     const shown = selected ?? current;
@@ -76,7 +89,19 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
     const changing = Math.min(copies ?? card.quantity, card.quantity);
     const filter = adjustmentFilter(combineAdjustments(order.adjustments, card.adjustments));
     const deckName = order.decks.find(deck => deck.url === card.deck)?.name ?? (card.deck || 'Added here');
-    const panes = [shown && candidatePane(shown, face), reference && scryfallPane(reference, face)].filter(pane => pane !== undefined);
+    const printFace = cardFaces(card, order)?.[face];
+    const base = printFace?.base && status?.files[printFace.base] !== undefined ? printFace.base : undefined;
+    const processedPane: Pane | undefined = base && status ? {
+        preview: `preview://order/${encodeURIComponent(order.name)}/${encodeURIComponent(base)}?v=${status.version}-${status.files[base]}`,
+        full: `preview://order/${encodeURIComponent(order.name)}/${encodeURIComponent(base)}?v=${status.version}-${status.files[base]}&full`,
+        bleed: true,
+        caption: order.profile.upscaling.enabled ? `Upscaled, at least ${order.profile.postProcessing.dpi} dpi` : `Processed, ${order.profile.postProcessing.dpi} dpi`
+    } : undefined;
+    const original = reference ? scryfallPane(reference, face) : current && candidatePane(current, face);
+    const panes = processed && processedPane && !selected
+        ? [processedPane, original].filter(pane => pane !== undefined)
+        : [shown && candidatePane(shown, face), reference && scryfallPane(reference, face)].filter(pane => pane !== undefined);
+    const processWord = order.profile.upscaling.enabled ? 'Upscale' : 'Process';
 
     function changeCard(change: (card: OrderCard) => OrderCard) {
         update(current => ({ ...current, cards: current.cards.map(c => c.id === card!.id ? change(c) : c) }));
@@ -89,9 +114,25 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
         dialog.current?.close();
     }
 
+    async function processCard() {
+        setError(undefined);
+        setProcessing(true);
+        try {
+            await api.processCard(order, card!.id);
+            setStatus(await api.imageStatus(order));
+            setSelected(undefined);
+            setProcessed(true);
+        } catch (e) {
+            if (!wasStopped(e)) setError(errorMessage(e));
+        } finally {
+            setProcessing(false);
+        }
+    }
+
     function open(next: string | undefined) {
         if (next === undefined) return;
         setId(next);
+        setProcessed(false);
         setFace('front');
         setSelected(undefined);
         setCopies(undefined);
@@ -178,7 +219,14 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                 <button aria-pressed={face === 'back'} onClick={() => chooseFace('back')}>Back</button>
             </div>
         )}
-        {order.tcg === 'magic' && (
+        {processedPane
+            ? <button aria-pressed={processed && !selected} title={`Shows the processed image next to the ${reference ? 'Scryfall scan' : 'image it came from'}`}
+                      onClick={() => {
+                          setSelected(undefined);
+                          setProcessed(!processed);
+                      }}><Sparkles/>{order.profile.upscaling.enabled ? 'Upscaled' : 'Processed'}</button>
+            : printFace?.base && <button disabled={processing} onClick={() => void processCard()}><WandSparkles/>{processWord} this card</button>}
+        {order.tcg === 'magic' && !(processed && processedPane && !selected) && (
             <button aria-pressed={comparing && reference !== undefined} disabled={!reference}
                     title={reference ? 'Shows the Scryfall scan next to the image (C)' : shown?.type === 'scryfall' ? 'This is the Scryfall scan of the current printing' : 'The card has no Scryfall printing'}
                     onClick={() => setComparing(!comparing)}><Columns2/>Compare with Scryfall</button>
@@ -203,12 +251,13 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
             <div className="editor-body">
                 <section className="editor-stage">
                     {panes.length > 0
-                        ? <ImageStage key={`${card.id} ${face}`} panes={comparing ? panes : panes.slice(0, 1)} filter={filter}>{toolbar}</ImageStage>
+                        ? <ImageStage key={`${card.id} ${face}`} panes={comparing || (processed && !selected) ? panes : panes.slice(0, 1)} filter={filter}>{toolbar}</ImageStage>
                         : <div className="stage-column">
                             <div className="row stage-tools">{toolbar}</div>
                             <div className="stage-empty">{face === 'back' ? 'The back is printed with the order\'s card back.' : 'No image. Pick a printing or an own image.'}</div>
                         </div>}
 
+                    {processing && <ProgressBar progress={progress} label={`${processWord.replace(/e$/, '')}ing ${card.name}`}/>}
                     <div className="row use-row">
                         <span className="status grow">{explain(selected, current, card, face, changing, backToImage)}</span>
                         {selected?.type === 'scryfall' && usable && card.quantity > 1 && (
@@ -242,10 +291,10 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                         </div>
                         <div className="row">
                             <span className="status grow">
-                                {card.customImage ? 'Printed from your own image.' : card.tcgCard ? `Printed from the ${card.tcgCard.tcg === 'yugioh' ? 'YGOPRODeck artwork' : 'TCGdex image'}.` : card.mpcfill ? 'Printed from the MPC Autofill image picked for this printing.' : card.printing ? 'Printed from the Scryfall scan of this printing.' : 'Not printed, as Scryfall has no printing of this card.'}
+                                {card.customImage ? 'Printed from your own image.' : card.tcgCard ? `Printed from the ${TCG_SOURCES[card.tcgCard.tcg]} image.` : card.mpcfill ? 'Printed from the MPC Autofill image picked for this printing.' : card.printing ? 'Printed from the Scryfall scan of this printing.' : 'Not printed, as Scryfall has no printing of this card.'}
                                 {' '}Brightness and contrast apply on top of the order's {percent(order.adjustments.brightness)} and {percent(order.adjustments.contrast)}; the preview shows them approximately.
                             </span>
-                            {(card.customImage || card.mpcfill) && <button className="quiet danger" onClick={() => changeCard(({ customImage: _, mpcfill: __, ...rest }) => rest)}><Undo2/>{backToImage}</button>}
+                            {(card.customImage || card.mpcfill) && order.tcg !== 'other' && <button className="quiet danger" onClick={() => changeCard(({ customImage: _, mpcfill: __, ...rest }) => rest)}><Undo2/>{backToImage}</button>}
                             {card.deck === '' && <button className="quiet danger" onClick={remove}><Trash2/>Remove from the order</button>}
                         </div>
                     </div>
@@ -290,7 +339,7 @@ export function CardEditor({ order, update, ids, start, tab: startTab, face: sta
                         {activeTab === 'own' && (
                             <div className="own-image">
                                 <p className="status">
-                                    Your own image is printed instead of the printing's. Images in the page format of {CARD_SIZES[order.tcg].width + 2 * IMAGE_BLEED_MM} × {CARD_SIZES[order.tcg].height + 2 * IMAGE_BLEED_MM} mm already contain the bleed,
+                                    Your own image is printed instead of the printing's. Images in the page format of {cardSize(order).width + 2 * IMAGE_BLEED_MM} × {cardSize(order).height + 2 * IMAGE_BLEED_MM} mm already contain the bleed,
                                     card-sized images get a mirrored 3 mm bleed. PNG, JPEG and WebP images work; landscape images are turned down.
                                 </p>
                                 <div className="row">
@@ -335,7 +384,7 @@ function referencePrinting(candidate: Candidate, card: OrderCard, face: Face) {
 function candidatePane(candidate: Candidate, face: Face): Pane | undefined {
     if (candidate.type === 'scryfall') return scryfallPane(candidate.printing, face);
     if (candidate.type === 'custom') return { preview: `preview://image/${encodeURIComponent(candidate.image)}`, bleed: false, caption: 'Your own image, as a 700 px preview' };
-    if (candidate.type === 'tcg') return { preview: tcgPreview(candidate.card), bleed: false, caption: candidate.card.tcg === 'yugioh' ? `YGOPRODeck artwork ${candidate.card.id}` : `TCGdex ${candidate.card.id} (${candidate.card.lang})` };
+    if (candidate.type === 'tcg') return { preview: tcgPreview(candidate.card), bleed: false, caption: describeTcgCard(candidate.card) };
     const { id, image } = candidate;
     return {
         preview: mpcfillImage(id, 'large'),
@@ -356,7 +405,7 @@ function scryfallPane(printing: ScryfallCard, face: Face): Pane | undefined {
 function explain(selected: Candidate | undefined, current: Candidate | undefined, card: OrderCard, face: Face, copies: number, backToImage: string) {
     if (!selected || isCurrent(selected, card, face)) return current ? 'This is the image the card prints from now. Pick another one on the right to compare it.' : '';
     const ownWins = card.customImage ? ` Your own image is still printed until you ${backToImage.charAt(0).toLowerCase()}${backToImage.slice(1)}.` : '';
-    if (selected.type === 'tcg') return `Prints all ${count(card.quantity, 'copy', 'copies')} from this ${selected.card.tcg === 'yugioh' ? 'artwork' : 'printing'}.${ownWins}`;
+    if (selected.type === 'tcg') return `Prints all ${count(card.quantity, 'copy', 'copies')} from this ${selected.card.tcg === 'yugioh' || selected.card.tcg === 'onepiece' ? 'artwork' : 'printing'}.${ownWins}`;
     if (selected.type === 'scryfall') {
         const others = copies < card.quantity ? ` The other ${count(card.quantity - copies, 'copy', 'copies')} keep their printing.` : '';
         const dropped = card.mpcfill ? ' The MPC Autofill image of the old printing is dropped.' : '';

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
-import { DefaultOrder, DefaultProfile, isValidOrderName, type Order, printsAt, type ProcessingProfile, type Shop, TCG_NAMES } from "../model.js";
+import { DEFAULT_HOME_PRINT, DefaultOrder, DefaultProfile, isValidOrderName, type Order, printsAt, type ProcessingProfile, type Shop, TCG_NAMES } from "../model.js";
 import { cardsDir, customImagePath, dataPath, orderDir } from "./paths.js";
 import { readJsonFiles, writeJsonFile } from "./jsonStore.js";
 import { copyBaseImages, forgetPrintImages, usedBaseImages } from "../pipeline/processImages.js";
@@ -13,11 +13,12 @@ function orderFile(name: string) {
 }
 
 // Orders saved by older versions carry `states` instead of `cards`; their decks get imported again.
+// Their home print settings lack the guides' look, which then stays as it was.
 function fromJson(json: unknown): Order {
     const { states: _states, ...order } = json as Partial<Order> & { states?: unknown };
     // notmpc.eu closed; its orders carry on at printerstudio.de, which takes the same decks of 18 to 612 cards.
     const shop = (order.shop as string | undefined) === 'notmpc' ? 'printerstudio' : order.shop ?? DefaultOrder.shop;
-    return { ...DefaultOrder, ...order, shop, cards: order.cards ?? [] };
+    return { ...DefaultOrder, ...order, shop, cards: order.cards ?? [], ...(order.homePrint && { homePrint: { ...DEFAULT_HOME_PRINT, ...order.homePrint } }) };
 }
 
 export async function loadOrders(onUnreadable?: (file: string) => void): Promise<Order[]> {

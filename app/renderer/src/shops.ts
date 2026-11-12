@@ -9,8 +9,12 @@ export const SHOPS: Record<Shop, { name: string, logo: string, offer: string }> 
     home: { name: 'Home printer', logo: homeLogo, offer: 'A PDF of the card fronts on A4 or Letter pages with cut guides, for your own printer' }
 };
 
-// Yu-Gi-Oh and Pokémon images go through the app's cache, as YGOPRODeck asks for its images not to be loaded from its server every time.
+// The images go through the app's cache, as YGOPRODeck asks for its images not to be loaded from its server every time.
+// optcgapi.com has one size only.
 export function tcgPreview(card: TcgCard, small = false) {
-    const url = !small ? card.image : card.tcg === 'pokemon' ? card.image.replace(/\/high\.png$/, '/low.png') : card.image.replace('/images/cards/', '/images/cards_small/');
+    const url = !small || card.tcg === 'onepiece' ? card.image
+        : card.tcg === 'pokemon' ? card.image.replace(/\/high\.png$/, '/low.png')
+        : card.tcg === 'lorcana' ? card.image.replace('/digital/large/', '/digital/small/')
+        : card.image.replace('/images/cards/', '/images/cards_small/');
     return `preview://tcg/image?url=${encodeURIComponent(url)}`;
 }

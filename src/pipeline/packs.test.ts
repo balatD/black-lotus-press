@@ -149,6 +149,22 @@ test('cardFaces prefers the own back over the double-faced back over the card ba
     assert.deepEqual(files({ printing: printing('island'), customImage: { front: 'abc.png' } }), ['custom-abc-b100-c100.jpg', BACK]);
 });
 
+test('cardFaces names the darkening of the edges in the file names, the card back included, only when there is some', () => {
+    const darkened = { ...order([]), adjustments: { brightness: 1, contrast: 1, edges: 0.5 } };
+
+    const faces = cardFaces(card('island', 1, { printing: printing('island') }), darkened)!;
+
+    assert.deepEqual([faces.front.file, faces.back.file], ['scryfall-island-front-b100-c100-e50.jpg', 'cardback-drive1-b100-c100-e50.jpg']);
+    assert.equal(faces.front.adjustments?.edges, 0.5);
+});
+
+test('cardFaces names the images of Lorcana and One Piece cards after their source and id', () => {
+    const file = (tcgCard: OrderCard['tcgCard']) => cardFaces(card('x', 1, { tcgCard: tcgCard! }), order([]))!.front.file;
+
+    assert.equal(file({ tcg: 'lorcana', id: 'crd_1', image: 'https://cards.lorcast.io/card/digital/large/crd_1.avif' }), 'lorcana-crd_1-b100-c100.jpg');
+    assert.equal(file({ tcg: 'onepiece', id: 'OP01-001_p1', image: 'https://optcgapi.com/media/static/Card_Images/OP01-001_p1.jpg' }), 'op-OP01-001_p1-b100-c100.jpg');
+});
+
 test('cardFaces prefers own images over MPC Autofill images over Scryfall', () => {
     const dfc = printing('dfc', true);
     const faces = (options: Partial<OrderCard>) => cardFaces(card('dfc', 1, { printing: dfc, ...options }), order([]))!;
@@ -212,6 +228,12 @@ test('buildPacks prints both sides of a double-faced card at home as cards next 
 
     assert.deepEqual(packs[0]!.map(slot => slot.front), [...Array(8).fill(front('a')), front('b')]);
     assert.deepEqual(packs[1]!.slice(0, 3).map(slot => slot.front), [front('dfc'), front('dfc', 'back'), BLANK_FILE]);
+});
+
+test('buildPacks keeps a double-faced card one card at home when both sides print, its back on the back', () => {
+    const { packs } = buildPacks(homeOrder([card('dfc', 1, { printing: printing('dfc', true) }), card('a', 1)], { sides: 'both' }));
+
+    assert.deepEqual(packs[0]!.slice(0, 2).map(slot => [slot.front, slot.back]), [[front('dfc'), front('dfc', 'back')], [front('a'), 'cardback-drive1-b100-c100-finest.jpg']]);
 });
 
 test('buildPacks prints only the tokens or the cards of one deck at home when only those are picked', () => {

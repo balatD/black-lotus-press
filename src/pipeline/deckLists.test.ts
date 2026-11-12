@@ -1,7 +1,7 @@
 import { afterEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { type DeckConfig, DeckData } from "../model.js";
-import { importDeckList, parsePtcgl, parseYgoList } from "./deckLists.js";
+import { importDeckList, parseLorcanaList, parseOnePieceList, parsePtcgl, parseYgoList, searchTcgCards } from "./deckLists.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -119,4 +119,58 @@ test('importDeckList finds the cards of a Pokémon list by set and number in the
         'TCGdex does not know Mystery Card XYZ 9.'
     ]);
     assert.equal(urls.filter(url => url.includes('eq:OBF')).length, 1, 'each set is looked up once');
+});
+
+test('parseLorcanaList reads the lines of Dreamborn and Inkdecks exports and adds up repeated cards', () => {
+    const { entries, unknown } = parseLorcanaList('4 Elsa - Snow Queen\n2x Be Our Guest\n\n1 elsa - Snow Queen\nnot a card');
+
+    assert.deepEqual(entries, [{ quantity: 5, name: 'Elsa - Snow Queen' }, { quantity: 2, name: 'Be Our Guest' }]);
+    assert.deepEqual(unknown, ['not a card']);
+});
+
+test('parseOnePieceList reads the ids of OPTCGSim and Limitless exports, also of starter decks and promos, without the names after them', () => {
+    const { entries, unknown } = parseOnePieceList('1xOP01-001\n4x op01-016 Nami\n4 ST01-012\n2xP-001\nLeader');
+
+    assert.deepEqual(entries.map(entry => [entry.quantity, entry.name]), [[1, 'OP01-001'], [4, 'OP01-016'], [4, 'ST01-012'], [2, 'P-001']]);
+    assert.deepEqual(unknown, ['Leader']);
+});
+
+const deck: DeckConfig = { url: 'list:1', data: [DeckData.MainBoard] };
+
+const lorcast = (id: string, name: string, version: string | null, set: string) =>
+    ({ id, name, version, collector_number: '1', set: { code: set, name: set }, image_uris: { digital: { large: `https://cards.lorcast.io/card/digital/large/${id}.avif` } } });
+
+test('importDeckList takes the first printing Lorcast has of each Lorcana card and names the cards it does not know', async t => {
+    const asked: string[] = [];
+    t.mock.method(globalThis, 'fetch', async (url: string) => {
+        const query = new URL(url).searchParams.get('q')!;
+        asked.push(query);
+        return query.includes('Snow Queen')
+            ? Response.json({ results: [lorcast('crd_1', 'Elsa', 'Snow Queen', '1'), lorcast('crd_2', 'Elsa', 'Snow Queen', '9'), lorcast('crd_3', 'Elsa', 'Snow Queen Again', '9')] })
+            : Response.json({ results: [] });
+    });
+
+    const { cards, notes } = await importDeckList({ ...deck, list: '4 Elsa - Snow Queen\n2 Unknown Card' }, 'lorcana', 'en');
+
+    assert.deepEqual(asked, ['name:"Elsa" version:"Snow Queen"', 'name:"Unknown Card"']);
+    assert.deepEqual(cards.map(card => [card.name, card.quantity, card.tcgCard]), [['Elsa - Snow Queen', 4, { tcg: 'lorcana', id: 'crd_1', image: 'https://cards.lorcast.io/card/digital/large/crd_1.avif' }]]);
+    assert.deepEqual(notes, ['Lorcast does not know Unknown Card.']);
+    assert.deepEqual((await searchTcgCards('lorcana', 'Elsa - Snow Queen', 'en')).map(card => card.id), ['crd_1', 'crd_2']);
+});
+
+test('importDeckList takes the regular artwork of each One Piece card from optcgapi.com, where starter decks and promos have paths of their own', async t => {
+    const asked: string[] = [];
+    const card = (id: string, name: string) => ({ card_name: name, card_set_id: id.replace(/_.*/, ''), card_image_id: id, card_image: `https://optcgapi.com/media/static/Card_Images/${id}.jpg` });
+    t.mock.method(globalThis, 'fetch', async (url: string) => {
+        asked.push(url);
+        if (url.endsWith('/sets/card/OP01-001/')) return Response.json([card('OP01-001_p1', 'Roronoa Zoro (001) (Parallel)'), card('OP01-001', 'Roronoa Zoro (001)')]);
+        if (url.endsWith('/decks/card/ST01-001/')) return Response.json([card('ST01-001', 'Monkey.D.Luffy (001)')]);
+        return new Response('[]', { status: 404 });
+    });
+
+    const { cards, notes } = await importDeckList({ ...deck, list: '1xOP01-001\n4xST01-001\n2xP-999' }, 'onepiece', 'en');
+
+    assert.deepEqual(asked.map(url => url.replace('https://optcgapi.com/api', '')), ['/sets/card/OP01-001/', '/decks/card/ST01-001/', '/promos/card/P-999/']);
+    assert.deepEqual(cards.map(c => [c.name, c.quantity, c.tcgCard?.id]), [['Roronoa Zoro', 1, 'OP01-001'], ['Monkey.D.Luffy', 4, 'ST01-001']]);
+    assert.deepEqual(notes, ['optcgapi.com does not know P-999.']);
 });

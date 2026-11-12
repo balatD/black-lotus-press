@@ -30,6 +30,12 @@ function scryfallFetch(limiter: Bottleneck, url: string, init: RequestInit): Pro
     });
 }
 
+// Lookups of a printing by its set and number; Scryfall asks for no more than ten requests a second.
+const scryfallCardBottleneck = new Bottleneck({
+    maxConcurrent: 1,
+    minTime: 120
+});
+
 // The image files on *.scryfall.io have no rate limit.
 const scryfallImageBottleneck = new Bottleneck({
     maxConcurrent: 10
@@ -128,10 +134,11 @@ async function findByName(card: CardToLookUp): Promise<Record<string, unknown> |
 }
 
 // All printings of the card, newest first. Tokens and other extras are included.
-export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]> {
+// Without a language, or in English, they are the English printings and those only printed in another language.
+export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>, language?: string): Promise<ScryfallCard[]> {
     // Reversible cards only carry the oracle id on their faces.
     const oracleId = card.printing?.oracle_id ?? card.printing?.card_faces?.[0]?.oracle_id;
-    const query = oracleId ? `oracleid:${oracleId}` : `!"${card.name}"`;
+    const query = (oracleId ? `oracleid:${oracleId}` : `!"${card.name}"`) + (language && language !== 'en' ? ` lang:${language}` : '');
 
     const printings: ScryfallCard[] = [];
     let url: string | undefined = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=prints&order=released&dir=desc&include_extras=true`;
@@ -149,6 +156,18 @@ export async function searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>
     }
 
     return printings;
+}
+
+// The same printing in another language, if Scryfall has it with a scan; low-resolution scans count.
+export async function findPrintingInLanguage(printing: Pick<ScryfallCard, 'set' | 'collector_number'>, language: string): Promise<ScryfallCard | undefined> {
+    const response = await scryfallFetch(scryfallCardBottleneck,
+        `https://api.scryfall.com/cards/${printing.set}/${encodeURIComponent(printing.collector_number)}/${language}`, { headers: jsonHeaders });
+    if (response.status === 404) return undefined;
+    if (!response.ok) {
+        throw new Error(`Scryfall lookup of ${printing.set.toUpperCase()} #${printing.collector_number} in ${language} failed (${response.status}): ${await response.text()}`);
+    }
+    const found = toPrinting(await response.json() as Record<string, unknown>);
+    return found.image_status === 'missing' || found.image_status === 'placeholder' ? undefined : found;
 }
 
 // Paper tokens whose name has the words, one per artwork, newest first; the first page of results is plenty to choose from.

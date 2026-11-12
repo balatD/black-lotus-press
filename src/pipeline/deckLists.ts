@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { findYgoCards, searchYgoArtworks } from "../clients/ygoprodeck.js";
 import { findTcgdexSet, searchTcgdexCards, type TcgdexCard, tcgdexSetCards } from "../clients/tcgdex.js";
-import { type DeckConfig, DeckData, type OnProgress, type OrderCard, POKEMON_LANGUAGES, type Tcg, type TcgCard, tcgCardKey } from "../model.js";
+import { lorcanaName, searchLorcanaPrintings } from "../clients/lorcast.js";
+import { findOnePieceCards, onePieceName } from "../clients/optcg.js";
+import { type DeckConfig, DeckData, type ListTcg, type OnProgress, type OrderCard, POKEMON_LANGUAGES, type TcgCard, tcgCardKey } from "../model.js";
 
 export interface YgoEntry {
     board: DeckData;
@@ -90,6 +92,40 @@ export function parsePtcgl(text: string): Parsed<PtcglEntry> {
     return { entries, unknown };
 }
 
+// A line of a Lorcana list as Dreamborn and Inkdecks export them, like "4 Elsa - Snow Queen", or of a One Piece list
+// as OPTCGSim and Limitless export them, like "4xOP01-016"; the same card on several lines adds up.
+export interface CountedEntry {
+    quantity: number;
+    name: string;
+}
+
+function parseCounted(text: string, line: RegExp, key: (name: string) => string): Parsed<CountedEntry> {
+    const entries: CountedEntry[] = [];
+    const unknown: string[] = [];
+    for (const row of text.split(/\r?\n/).map(row => row.trim())) {
+        if (row === '' || row.startsWith('#') || row.startsWith('//')) continue;
+        const match = row.match(line);
+        if (!match) {
+            unknown.push(row);
+            continue;
+        }
+        const entry = { quantity: Number(match[1]), name: key(match[2]!.trim()) };
+        const existing = entries.find(other => other.name.toLowerCase() === entry.name.toLowerCase());
+        if (existing) existing.quantity += entry.quantity;
+        else entries.push(entry);
+    }
+    return { entries, unknown };
+}
+
+export function parseLorcanaList(text: string): Parsed<CountedEntry> {
+    return parseCounted(text, /^(\d+)\s*x?\s+(.+)$/i, name => name);
+}
+
+// The id is the card's, like OP01-016, ST01-001, EB01-003 or P-001; a name after it is left out.
+export function parseOnePieceList(text: string): Parsed<CountedEntry> {
+    return parseCounted(text, /^(\d+)\s*x?\s*([A-Z]+\d*-\d{3})\b/i, id => id.toUpperCase());
+}
+
 // The id of the entry in the list stands in for the Moxfield id, so updating the list keeps the edits made here.
 function listCard(deck: DeckConfig, board: string, name: string, quantity: number, entry: string, tcgCard: TcgCard): OrderCard {
     return {
@@ -98,9 +134,51 @@ function listCard(deck: DeckConfig, board: string, name: string, quantity: numbe
     };
 }
 
-// The cards of a pasted Yu-Gi-Oh or Pokémon list, and notes on the lines that were not found or print from another image.
-export async function importDeckList(deck: DeckConfig, tcg: Tcg, language: string, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ cards: OrderCard[], notes: string[] }> {
-    return tcg === 'yugioh' ? await importYgoList(deck, onProgress, signal) : await importPokemonList(deck, language, onProgress, signal);
+// The cards of a pasted deck list, and notes on the lines that were not found or print from another image.
+export async function importDeckList(deck: DeckConfig, tcg: ListTcg, language: string, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ cards: OrderCard[], notes: string[] }> {
+    switch (tcg) {
+        case 'yugioh': return await importYgoList(deck, onProgress, signal);
+        case 'pokemon': return await importPokemonList(deck, language, onProgress, signal);
+        case 'lorcana': return await importLorcanaList(deck, onProgress, signal);
+        case 'onepiece': return await importOnePieceList(deck, onProgress, signal);
+    }
+}
+
+// The first printing Lorcast has of each card, the one of its first set.
+async function importLorcanaList(deck: DeckConfig, onProgress?: OnProgress, signal?: AbortSignal) {
+    const { entries, unknown } = parseLorcanaList(deck.list ?? '');
+    const notes = unknown.map(line => `The line "${line}" is no card.`);
+    const cards: OrderCard[] = [];
+    for (const [done, entry] of entries.entries()) {
+        signal?.throwIfAborted();
+        onProgress?.({ type: 'progress', done, total: entries.length, message: `Looking up ${entry.name} on Lorcast` });
+        const printing = (await searchLorcanaPrintings(entry.name))[0];
+        if (!printing) {
+            notes.push(`Lorcast does not know ${entry.name}.`);
+            continue;
+        }
+        cards.push(listCard(deck, DeckData.MainBoard, lorcanaName(printing), entry.quantity, entry.name.toLowerCase(),
+            { tcg: 'lorcana', id: printing.id, image: printing.image_uris!.digital!.large! }));
+    }
+    return { cards, notes };
+}
+
+// The regular artwork of each card; the parallel arts are on the card editor's Artworks tab.
+async function importOnePieceList(deck: DeckConfig, onProgress?: OnProgress, signal?: AbortSignal) {
+    const { entries, unknown } = parseOnePieceList(deck.list ?? '');
+    const notes = unknown.map(line => `The line "${line}" is no card.`);
+    const cards: OrderCard[] = [];
+    for (const [done, entry] of entries.entries()) {
+        signal?.throwIfAborted();
+        onProgress?.({ type: 'progress', done, total: entries.length, message: `Looking up ${entry.name} on optcgapi.com` });
+        const card = (await findOnePieceCards(entry.name))[0];
+        if (!card) {
+            notes.push(`optcgapi.com does not know ${entry.name}.`);
+            continue;
+        }
+        cards.push(listCard(deck, DeckData.MainBoard, onePieceName(card), entry.quantity, entry.name, { tcg: 'onepiece', id: card.card_image_id, image: card.card_image }));
+    }
+    return { cards, notes };
 }
 
 async function importYgoList(deck: DeckConfig, onProgress?: OnProgress, signal?: AbortSignal) {
@@ -171,9 +249,12 @@ async function importPokemonList(deck: DeckConfig, language: string, onProgress?
     return { cards, notes };
 }
 
-// The other artworks of a Yu-Gi-Oh card, or the printings of a Pokémon card in a language, by the card's name.
-export async function searchTcgCards(tcg: Tcg, name: string, language: string): Promise<TcgCard[]> {
+// The other artworks of a Yu-Gi-Oh card, the printings of a Pokémon card in a language or of a Lorcana card, by the card's name,
+// or the artworks of a One Piece card, by its id.
+export async function searchTcgCards(tcg: ListTcg, name: string, language: string): Promise<TcgCard[]> {
     if (tcg === 'yugioh') return await searchYgoArtworks(name);
+    if (tcg === 'lorcana') return (await searchLorcanaPrintings(name)).map(card => ({ tcg: 'lorcana' as const, id: card.id, image: card.image_uris!.digital!.large! }));
+    if (tcg === 'onepiece') return (await findOnePieceCards(name)).map(card => ({ tcg: 'onepiece' as const, id: card.card_image_id, image: card.card_image }));
     return (await searchTcgdexCards(language, name))
         .filter(card => card.image)
         .map(card => ({ tcg: 'pokemon' as const, id: card.id, lang: language, image: `${card.image}/high.png` }));

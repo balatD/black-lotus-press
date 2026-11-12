@@ -1,9 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import {
-    AppWindow, ArrowLeft, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FolderOpen, Gauge, Image as ImageIcon,
-    ListPlus, Maximize2, Package, Printer, RectangleVertical, RotateCw, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut
-} from "lucide-react";
-import { CARD_SIZES, DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
+import { AppWindow, ArrowLeft, Check, ChevronLeft, ChevronRight, CircleStop, CloudUpload, ExternalLink, FileCode, FileDown, FlipHorizontal2, FolderOpen, Gauge, Image as ImageIcon, ListPlus, Maximize2, Package, Printer, RectangleVertical, RotateCw, Scissors, Sun, Thermometer, WandSparkles, X, ZoomIn, ZoomOut } from "lucide-react";
+import { cardSize, DEFAULT_ADJUSTMENTS, DEFAULT_HOME_PRINT, type GpuStats, type Handover, type HomePrint, type Order, type OrderCard, packsToSkip, type UploadedGame } from "../../../../src/model.js";
 import {
     BLANK_FACE,
     buildPacks,
@@ -18,7 +15,7 @@ import {
     packsFingerprint,
     type Slot
 } from "../../../../src/pipeline/packs.js";
-import { fittingGrids, GUIDE_COLOR, IMAGE_BLEED_MM, PAPERS, sheetLayout, withFittingGrid } from "../../../../src/output/sheetLayout.js";
+import { backSlots, fittingGrids, GUIDE_COLORS, guidePath, IMAGE_BLEED_MM, PAPERS, sheetLayout, withFittingGrid } from "../../../../src/output/sheetLayout.js";
 import { adjustmentFilter, percent } from "../adjust.js";
 import { AdjustmentSliders } from "../components/AdjustmentSliders.js";
 import { useStoredState } from "../useStoredState.js";
@@ -90,8 +87,9 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
 
     const { packs, droppedTokens } = buildPacks(order);
     const cards = new Map(order.cards.map(card => [card.id, card]));
-    // Home prints the fronts of the cards only.
-    const needed = new Set(packs.flat().flatMap(slot => order.shop !== 'home' ? [slot.front, slot.back] : slot.cardId === undefined ? [] : [slot.front]));
+    // Home prints the fronts of the cards only, unless it prints both sides.
+    const backsAtHome = order.homePrint?.sides === 'both';
+    const needed = new Set(packs.flat().flatMap(slot => order.shop !== 'home' ? [slot.front, slot.back] : slot.cardId === undefined ? [] : backsAtHome ? [slot.front, slot.back] : [slot.front]));
     const processed = [...needed].filter(file => status.files[file] !== undefined).length;
     const allProcessed = needed.size > 0 && processed === needed.size;
     const failedFiles = [...needed].filter(file => failed[file] !== undefined);
@@ -155,6 +153,7 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
         const file = await api.saveHomePdf(order);
         return file && `Saved as ${file}`;
     });
+    const saveCutFile = () => void run(() => api.saveCutFile(order), file => file && setHomeResult(`Saved the cut file as ${file}`));
 
     // At home the settings stay in reach when the cards picked there are none.
     if (packs.length === 0 && (order.shop !== 'home' || homePrint.cards === 'all')) {
@@ -241,7 +240,7 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
                         <h2><Printer/>Print the cards</h2>
                         <p className="muted">
                             The fronts of the cards on {PAPERS[homePrint.paper].name} pages, laid out as set below. Print opens your system's print dialog, Save PDF saves the pages
-                            as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at {CARD_SIZES[order.tcg].width} × {CARD_SIZES[order.tcg].height} mm.
+                            as a PDF and opens it. Print at actual size (100 %), not fit to page, so the cards come out at {cardSize(order).width} × {cardSize(order).height} mm.
                         </p>
                         <div className="row">
                             <button className={allProcessed ? 'primary' : ''} data-guide={allProcessed ? 'handover' : undefined} disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={printPages}>
@@ -250,7 +249,16 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
                             <button disabled={running !== undefined || !allProcessed || homeBusy !== undefined} onClick={savePdf}>
                                 <FileDown/>{homeBusy === 'save' ? 'Saving the PDF…' : 'Save PDF'}
                             </button>
+                            {homePrint.cutter === 'silhouette' && <button onClick={saveCutFile}><Scissors/>Save cut file</button>}
                         </div>
+                        {homePrint.cutter === 'silhouette' && (
+                            <p className="status">
+                                Print the pages, then open the cut file in Silhouette Studio, page size {PAPERS[homePrint.paper].name}{homePrint.landscape ? ' landscape' : ''}, and use
+                                Center to Page. Turn on the registration marks with length {homePrint.regLength} mm, thickness {homePrint.regThickness} mm and inset {homePrint.regInset} mm,
+                                as printed. Basic Edition opens the DXF, Designer Edition and up the SVG too. Try one page first: the marks follow silhouette-card-maker and are not tested
+                                with every machine.
+                            </p>
+                        )}
                         {homeResult && <span className="status">{homeResult}</span>}
                     </li>
                 )}
@@ -290,17 +298,19 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
             </section>}
 
             <section className="adjust-section">
-                <h2><Sun/>Brightness and contrast</h2>
+                <h2><Sun/>Brightness, contrast and edges</h2>
                 <AdjustmentSliders
+                    withEdges
                     adjustments={order.adjustments}
                     onChange={adjustments => update(current => ({ ...current, adjustments }))}
                     onReset={() => update(current => ({ ...current, adjustments: DEFAULT_ADJUSTMENTS }))}
                     resetLabel={`Back to ${percent(DEFAULT_ADJUSTMENTS.brightness)} and ${percent(DEFAULT_ADJUSTMENTS.contrast)}`}
-                    canReset={order.adjustments.brightness !== DEFAULT_ADJUSTMENTS.brightness || order.adjustments.contrast !== DEFAULT_ADJUSTMENTS.contrast}/>
+                    canReset={order.adjustments.brightness !== DEFAULT_ADJUSTMENTS.brightness || order.adjustments.contrast !== DEFAULT_ADJUSTMENTS.contrast || order.adjustments.edges !== undefined}/>
                 <p className="status">
                     For every card of this order; single cards can get their own on top in the Cards tab. Print comes out darker than the screen,
                     which is why it starts at {percent(DEFAULT_ADJUSTMENTS.brightness)}. The sheet below shows changes right away. Process the images afterwards:
-                    that only takes seconds, because the upscaled images are kept.
+                    that only takes seconds, because the upscaled images are kept. Darken edges darkens the bleed and border of every card, so black borders print
+                    deep black and a cut a little off shows no grey edge; white borders stay white. It shows in the processed images, not on the sheet.
                 </p>
             </section>
 
@@ -361,6 +371,13 @@ export function PrintTab({ order, update, onFlush, onSetup }: Props) {
 
 const GAPS = [0, 1, 2, 3, 5];
 const BLEEDS = [0, 0.5, 1, 1.5, 2, 3];
+const GUIDE_WIDTHS = [0.25, 0.5, 1, 2];
+const MARK_LENGTHS = [2, 4, 6, 8];
+const MARK_OFFSETS = [0, 1, 2, 3];
+const CARD_GUIDE_LENGTHS = [3, 6, 10];
+const REG_LENGTHS = [5, 10, 15, 20];
+const REG_THICKNESSES = [0.5, 1];
+const REG_INSETS = [10, 12.5, 15];
 
 // A text field, so that a minus sign or a comma on its own can be typed; the value changes once it is a number.
 function Millimetres({ id, value, onChange }: { id: string, value: number, onChange(value: number): void }) {
@@ -384,14 +401,16 @@ function HomeSheet({ order, update, pages, cards, status }: {
     order: Order, update(change: (order: Order) => Order): void, pages: Slot[][], cards: Map<string, OrderCard>, status: Status
 }) {
     const [pageIndex, setPageIndex] = useState(0);
+    const [showBacks, setShowBacks] = useState(false);
     const settings = order.homePrint ?? DEFAULT_HOME_PRINT;
+    const side = settings.sides === 'both' && showBacks ? 'back' : 'front';
     const page = Math.min(pageIndex, pages.length - 1);
     const blank = pages.at(-1)?.filter(slot => slot.cardId === undefined).length ?? 0;
     const tokens = fillingTokens(order);
     const decks = order.decks.filter(deck => order.cards.some(card => card.deck === deck.url));
-    const grids = fittingGrids(settings, CARD_SIZES[order.tcg]);
+    const grids = fittingGrids(settings, cardSize(order));
     const gridKey = (grid: Pick<HomePrint, 'landscape' | 'columns' | 'rows'>) => `${grid.columns}x${grid.rows}${grid.landscape ? '-landscape' : ''}`;
-    const set = (change: Partial<HomePrint>) => update(current => ({ ...current, homePrint: withFittingGrid({ ...(current.homePrint ?? DEFAULT_HOME_PRINT), ...change }, CARD_SIZES[current.tcg]) }));
+    const set = (change: Partial<HomePrint>) => update(current => ({ ...current, homePrint: withFittingGrid({ ...(current.homePrint ?? DEFAULT_HOME_PRINT), ...change }, cardSize(current)) }));
 
     return (
         <section className="home-section">
@@ -422,6 +441,33 @@ function HomeSheet({ order, update, pages, cards, status }: {
                     </select>
                 </div>
                 <div className="field">
+                    <label htmlFor="home-sides">Sides</label>
+                    <select id="home-sides" value={settings.sides} onChange={e => set({ sides: e.target.value as HomePrint['sides'] })}>
+                        <option value="fronts">Fronts only</option>
+                        <option value="both">Fronts and backs, to print on both sides</option>
+                    </select>
+                    {settings.sides === 'both' && <p className="hint">Every page of fronts is followed by the page of their backs. Double-faced cards get their back face, the others the card back of the Setup tab. Turn on two-sided printing in the print dialog.</p>}
+                </div>
+                {settings.sides === 'both' && <>
+                    <div className="field">
+                        <label htmlFor="home-flip">Turn the paper over on</label>
+                        <select id="home-flip" value={settings.flip} onChange={e => set({ flip: e.target.value as HomePrint['flip'] })}>
+                            <option value="long">The long edge</option>
+                            <option value="short">The short edge</option>
+                        </select>
+                        <p className="hint">As set for two-sided printing in the print dialog, often called long-edge or short-edge binding.</p>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-back-offset-y">Move the backs down</label>
+                        <Millimetres id="home-back-offset-y" value={settings.backOffsetY} onChange={backOffsetY => set({ backOffsetY })}/>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-back-offset-x">Move the backs right</label>
+                        <Millimetres id="home-back-offset-x" value={settings.backOffsetX} onChange={backOffsetX => set({ backOffsetX })}/>
+                        <p className="hint">When the backs come out a little off the fronts: hold a printed page against the light and move the backs by as much as they are off, as seen on the backs.</p>
+                    </div>
+                </>}
+                <div className="field">
                     <label htmlFor="home-copies">Copies</label>
                     <input id="home-copies" type="number" min={1} max={99} value={settings.copies} style={{ width: '7rem' }}
                            onChange={e => set({ copies: Math.min(99, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}/>
@@ -440,22 +486,133 @@ function HomeSheet({ order, update, pages, cards, status }: {
                     <p className="hint">More of the image around each card, so a cut a little off leaves no white edge. Each card then needs cuts of its own.</p>
                 </div>
                 <div className="field">
-                    <label htmlFor="home-guides">Guides</label>
+                    <label htmlFor="home-guides">Page guides</label>
                     <select id="home-guides" value={settings.guides} onChange={e => set({ guides: e.target.value as HomePrint['guides'] })}>
                         <option value="crop-marks">Crop marks in the margins</option>
+                        <option value="edges">Lines from the paper edges to the cards</option>
+                        <option value="cut-lines-outside">Cut lines outside the cards</option>
                         <option value="cut-lines">Cut lines across the page</option>
                         <option value="none">None</option>
                     </select>
                 </div>
+                {settings.guides === 'crop-marks' && <>
+                    <div className="field">
+                        <label htmlFor="home-mark-length">Crop mark length</label>
+                        <select id="home-mark-length" value={settings.markLength} onChange={e => set({ markLength: Number(e.target.value) })}>
+                            {MARK_LENGTHS.map(length => <option key={length} value={length}>{length} mm</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-mark-offset">Space between cards and crop marks</label>
+                        <select id="home-mark-offset" value={settings.markOffset} onChange={e => set({ markOffset: Number(e.target.value) })}>
+                            {MARK_OFFSETS.map(offset => <option key={offset} value={offset}>{offset === 0 ? 'None, the marks touch the cards' : `${offset} mm`}</option>)}
+                        </select>
+                    </div>
+                </>}
                 <div className="field">
-                    <label htmlFor="home-offset-y">Move the cards down</label>
-                    <Millimetres id="home-offset-y" value={settings.offsetY ?? 0} onChange={offsetY => set({ offsetY })}/>
+                    <label htmlFor="home-card-guides">Card guides</label>
+                    <select id="home-card-guides" value={settings.cardGuides} onChange={e => set({ cardGuides: e.target.value as HomePrint['cardGuides'] })}>
+                        <option value="none">None</option>
+                        <option value="corners">At the corners of every card</option>
+                        <option value="full">All around every card</option>
+                    </select>
                 </div>
+                {settings.cardGuides !== 'none' && <>
+                    <div className="field">
+                        <label htmlFor="home-card-guide-corners">Card guide corners</label>
+                        <select id="home-card-guide-corners" value={settings.cardGuideCorners} onChange={e => set({ cardGuideCorners: e.target.value as HomePrint['cardGuideCorners'] })}>
+                            <option value="square">Square</option>
+                            <option value="round">Round, like the card</option>
+                        </select>
+                    </div>
+                    {settings.cardGuides === 'corners' && (
+                        <div className="field">
+                            <label htmlFor="home-card-guide-length">Card guide length</label>
+                            <select id="home-card-guide-length" value={settings.cardGuideLength} onChange={e => set({ cardGuideLength: Number(e.target.value) })}>
+                                {CARD_GUIDE_LENGTHS.map(length => <option key={length} value={length}>{length} mm along each edge</option>)}
+                            </select>
+                            <p className="hint">Short guides are easier to cut away when a cut is a little off.</p>
+                        </div>
+                    )}
+                    <div className="field">
+                        <label htmlFor="home-card-guide-placement">Card guide placement</label>
+                        <select id="home-card-guide-placement" value={settings.cardGuidePlacement} onChange={e => set({ cardGuidePlacement: e.target.value as HomePrint['cardGuidePlacement'] })}>
+                            <option value="outside">Outside the cut, in the bleed</option>
+                            <option value="center">On the cut</option>
+                            <option value="inside">Inside the cut, on the card</option>
+                        </select>
+                    </div>
+                </>}
+                {(settings.guides !== 'none' || settings.cardGuides !== 'none') && <>
+                    <div className="field">
+                        <label htmlFor="home-guide-color">Guide colour</label>
+                        <select id="home-guide-color" value={settings.guideColor} onChange={e => set({ guideColor: e.target.value as HomePrint['guideColor'] })}>
+                            {Object.entries(GUIDE_COLORS).map(([color, { name }]) => <option key={color} value={color}>{name}</option>)}
+                        </select>
+                        <p className="hint">Magenta shows on black, white and coloured card borders alike.</p>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-guide-width">Guide width</label>
+                        <select id="home-guide-width" value={settings.guideWidth} onChange={e => set({ guideWidth: Number(e.target.value) })}>
+                            {GUIDE_WIDTHS.map(width => <option key={width} value={width}>{width} pt</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-guide-style">Guide style</label>
+                        <select id="home-guide-style" value={settings.guideStyle} onChange={e => set({ guideStyle: e.target.value as HomePrint['guideStyle'] })}>
+                            <option value="solid">Solid</option>
+                            <option value="dashed">Dashed</option>
+                            <option value="dotted">Dotted</option>
+                        </select>
+                    </div>
+                </>}
                 <div className="field">
-                    <label htmlFor="home-offset-x">Move the cards right</label>
-                    <Millimetres id="home-offset-x" value={settings.offsetX ?? 0} onChange={offsetX => set({ offsetX })}/>
-                    <p className="hint">For a printer that pulls the paper in early or late: when the top row comes out cut off, move the cards down by as much as is missing. Negative numbers move them up or left.</p>
+                    <label htmlFor="home-cutter">Cutter</label>
+                    <select id="home-cutter" value={settings.cutter} onChange={e => set({ cutter: e.target.value as HomePrint['cutter'] })}>
+                        <option value="none">None, the cards are cut by hand</option>
+                        <option value="silhouette">Silhouette Cameo or Portrait, print and cut</option>
+                    </select>
+                    {settings.cutter === 'silhouette' && <p className="hint">The pages get the three registration marks of Silhouette Studio, and the cards stay inside them. Page guides and moving the cards are left out: the cutter finds the cards by the marks.</p>}
                 </div>
+                {settings.cutter === 'silhouette' && <>
+                    <div className="field">
+                        <label htmlFor="home-reg-length">Registration mark length</label>
+                        <select id="home-reg-length" value={settings.regLength} onChange={e => set({ regLength: Number(e.target.value) })}>
+                            {REG_LENGTHS.map(length => <option key={length} value={length}>{length} mm</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-reg-thickness">Registration mark thickness</label>
+                        <select id="home-reg-thickness" value={settings.regThickness} onChange={e => set({ regThickness: Number(e.target.value) })}>
+                            {REG_THICKNESSES.map(thickness => <option key={thickness} value={thickness}>{thickness} mm</option>)}
+                        </select>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-reg-inset">Registration mark inset</label>
+                        <select id="home-reg-inset" value={settings.regInset} onChange={e => set({ regInset: Number(e.target.value) })}>
+                            {REG_INSETS.map(inset => <option key={inset} value={inset}>{inset} mm from the paper's edge</option>)}
+                        </select>
+                        <p className="hint">Set the same three values for the registration marks in Silhouette Studio.</p>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-cut-corners">Cut corners</label>
+                        <select id="home-cut-corners" value={settings.cutCorners} onChange={e => set({ cutCorners: e.target.value as HomePrint['cutCorners'] })}>
+                            <option value="round">Round, like the card</option>
+                            <option value="square">Square</option>
+                        </select>
+                    </div>
+                </>}
+                {settings.cutter !== 'silhouette' && <>
+                    <div className="field">
+                        <label htmlFor="home-offset-y">Move the cards down</label>
+                        <Millimetres id="home-offset-y" value={settings.offsetY ?? 0} onChange={offsetY => set({ offsetY })}/>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="home-offset-x">Move the cards right</label>
+                        <Millimetres id="home-offset-x" value={settings.offsetX ?? 0} onChange={offsetX => set({ offsetX })}/>
+                        <p className="hint">For a printer that pulls the paper in early or late: when the top row comes out cut off, move the cards down by as much as is missing. Negative numbers move them up or left.</p>
+                    </div>
+                </>}
             </div>
             <div className="home-preview">
                 {pages.length === 0 ? <p className="status">None of the cards are picked to print. Choose other cards in the settings.</p> : <>
@@ -463,6 +620,7 @@ function HomeSheet({ order, update, pages, cards, status }: {
                         <button className="quiet" aria-label="Previous page" disabled={page === 0} onClick={() => setPageIndex(page - 1)}><ChevronLeft/></button>
                         <span className="status">Page {page + 1} of {pages.length}{settings.copies > 1 ? `, all printed ${settings.copies} times` : ''}</span>
                         <button className="quiet" aria-label="Next page" disabled={page === pages.length - 1} onClick={() => setPageIndex(page + 1)}><ChevronRight/></button>
+                        {settings.sides === 'both' && <button className="quiet" aria-pressed={showBacks} onClick={() => setShowBacks(!showBacks)}><FlipHorizontal2/>Backs</button>}
                     </div>
                     {blank > 0 && (
                         <div className="row">
@@ -473,15 +631,18 @@ function HomeSheet({ order, update, pages, cards, status }: {
                             {order.tcg === 'magic' && tokens.length > 0 && <button onClick={() => update(current => ({ ...current, cards: fillFreeSlots(current) }))}><ListPlus/>Fill with tokens</button>}
                         </div>
                     )}
-                    <HomePage settings={settings} slots={pages[page]!} cards={cards} order={order} status={status}/>
+                    <HomePage settings={settings} side={side} slots={pages[page]!} cards={cards} order={order} status={status}/>
                 </>}
             </div>
         </section>
     );
 }
 
-function HomePage({ settings, slots, cards, order, status }: { settings: HomePrint, slots: Slot[], cards: Map<string, OrderCard>, order: Order, status: Status }) {
-    const layout = sheetLayout(settings, CARD_SIZES[order.tcg]);
+function HomePage({ settings, side, slots, cards, order, status }: {
+    settings: HomePrint, side: 'front' | 'back', slots: Slot[], cards: Map<string, OrderCard>, order: Order, status: Status
+}) {
+    const layout = sheetLayout(settings, cardSize(order));
+    const boxes = side === 'back' ? backSlots(layout, settings) : layout.slots;
     const percent = (value: number, of: number) => `${value / of * 100}%`;
     // The print images are larger than the slots by the bleed they have and the slots do not.
     const overhang = IMAGE_BLEED_MM - settings.bleed;
@@ -489,10 +650,10 @@ function HomePage({ settings, slots, cards, order, status }: { settings: HomePri
     return (
         <div className="home-page" style={{ aspectRatio: `${layout.width} / ${layout.height}` }}>
             {slots.map((slot, index) => {
-                const box = layout.slots[index]!;
+                const box = boxes[index]!;
                 const card = slot.cardId === undefined ? undefined : cards.get(slot.cardId);
                 const faces = card && cardFaces(card, order);
-                const face = faces && (faces.back.file === slot.front ? faces.back : faces.front);
+                const face = faces && (faces.back.file === slot[side] ? faces.back : faces.front);
                 const image = face && slotImage(face, order, status);
                 return (
                     <div key={index} className={`home-slot${card ? '' : ' blank'}`} title={card?.name ?? 'Empty, room for a token'}
@@ -505,9 +666,13 @@ function HomePage({ settings, slots, cards, order, status }: { settings: HomePri
                     </div>
                 );
             })}
-            <svg className="home-guides" viewBox={`0 0 ${layout.width} ${layout.height}`} stroke={GUIDE_COLOR} aria-hidden="true">
-                {layout.guides.map((line, index) => <line key={index} {...line}/>)}
-            </svg>
+            {side === 'front' && (
+                <svg className="home-guides" viewBox={`0 0 ${layout.width} ${layout.height}`} aria-hidden="true" fill="none" stroke={layout.stroke.color}
+                     strokeWidth={layout.stroke.width} strokeDasharray={layout.stroke.dash.join(' ') || 'none'} strokeLinecap={layout.stroke.cap}>
+                    <path d={guidePath(layout, slots.map(slot => slot.cardId !== undefined))}/>
+                    {layout.marks.map((mark, index) => <rect key={index} {...mark} fill="#000" stroke="none"/>)}
+                </svg>
+            )}
         </div>
     );
 }

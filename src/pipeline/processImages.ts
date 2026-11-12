@@ -4,7 +4,7 @@ import path from "node:path";
 import Bottleneck from "bottleneck";
 import sharp from "sharp";
 import { cardsDir, customImagePath } from "../config/paths.js";
-import { CARD_SIZES, type OnProgress, type Order, type ProcessingProfile } from "../model.js";
+import { CARD_SIZES, cardSize, type OnProgress, type Order, type ProcessingProfile, TCG_SOURCES } from "../model.js";
 import { BLANK_FACE, buildPacks, cardBackFace, cardFaces, type Face, faceImageUris, type FaceSource } from "./packs.js";
 import { fetchScryfallImage } from "../clients/scryfall.js";
 import { downloadDriveImage } from "../clients/googleDrive.js";
@@ -28,10 +28,12 @@ export function settingsFingerprint(profile: ProcessingProfile) {
     return JSON.stringify([PIPELINE_VERSION, p.dpi, p.cardWidth, p.cornerRadius, p.bleedWidth, p.borderCrop, p.copyrightBehavior, p.blurStrength, u.enabled, u.model, ...text]);
 }
 
-// Yu-Gi-Oh cards are narrower. The card width sets their bleed and upscaling, and as part of the fingerprint keeps their images apart.
-export function cardProfile(order: Pick<Order, 'tcg' | 'profile'>): ProcessingProfile {
-    if (order.tcg !== 'yugioh') return order.profile;
-    return { ...order.profile, postProcessing: { ...order.profile.postProcessing, cardWidth: CARD_SIZES.yugioh.width / 25.4 } };
+// Yu-Gi-Oh cards are narrower, other cards may have any width. The card width sets their bleed and upscaling, and as part of the
+// fingerprint keeps their images apart.
+export function cardProfile(order: Pick<Order, 'tcg' | 'cardSize' | 'profile'>): ProcessingProfile {
+    const { width } = cardSize(order);
+    if (width === CARD_SIZES.magic.width) return order.profile;
+    return { ...order.profile, postProcessing: { ...order.profile.postProcessing, cardWidth: width / 25.4 } };
 }
 
 // Only the faces that end up in a pack, so excluded cards and dropped tokens cost nothing.
@@ -43,9 +45,10 @@ export function faceJobs(order: Order): Map<string, Face> {
     for (const slot of buildPacks(order).packs.flat()) {
         const card = slot.cardId === undefined ? undefined : cards.get(slot.cardId);
         const faces = card && cardFaces(card, order);
-        // Home prints the fronts; the back of a double-faced card is the front of a slot of its own there.
+        // Home prints the fronts, the back of a double-faced card as the front of a slot of its own, unless it prints both sides.
         if (order.shop === 'home') {
             if (faces) add(faces.back.file === slot.front ? faces.back : faces.front);
+            if (faces && order.homePrint?.sides === 'both') add(faces.back);
         } else if (faces) {
             add(faces.front);
             add(faces.back);
@@ -58,16 +61,17 @@ export function faceJobs(order: Order): Map<string, Face> {
     return jobs;
 }
 
-export async function processImages(order: Order, onProgress?: OnProgress, signal?: AbortSignal) {
+// Given faces, only those are made, and the images of the other cards stay.
+export async function processImages(order: Order, onProgress?: OnProgress, signal?: AbortSignal, faces?: Face[]) {
     const dir = cardsDir(order);
     const tmpDir = path.join(dir, '.tmp');
     const profile = cardProfile(order);
-    const size = printSizeInPixels(order.shop, profile.postProcessing.dpi, CARD_SIZES[order.tcg]);
+    const size = printSizeInPixels(order.shop, profile.postProcessing.dpi, cardSize(order));
     await prepareCache(dir, settingsFingerprint(profile));
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.mkdir(tmpDir, { recursive: true });
 
-    const jobs = [...faceJobs(order).values()];
+    const jobs = faces ?? [...faceJobs(order).values()];
     const pending: Face[] = [];
     for (const face of jobs) {
         if (!await exists(path.join(dir, face.file))) pending.push(face);
@@ -82,7 +86,7 @@ export async function processImages(order: Order, onProgress?: OnProgress, signa
     const ensureBase = (face: Face, base: string) => {
         let job = bases.get(base);
         if (!job) {
-            job = renderBase(face.source, base, dir, tmpDir, profile, CARD_SIZES[order.tcg], signal)
+            job = renderBase(face.source, base, dir, tmpDir, profile, cardSize(order), signal)
                 .then(async () => onProgress?.({ type: 'face-ready', file: base, bytes: (await fs.stat(path.join(dir, base))).size }));
             bases.set(base, job);
         }
@@ -126,13 +130,13 @@ export async function processImages(order: Order, onProgress?: OnProgress, signa
         throw new Error(`${failures.length} card image(s) could not be processed:\n${failures.join('\n')}`);
     }
 
-    await removeUnusedPrintImages(dir, new Set(jobs.map(face => face.file)));
+    if (!faces) await removeUnusedPrintImages(dir, new Set(jobs.map(face => face.file)));
 }
 
 // The profile's resolution is the least: a base image with more, like most MPC Autofill images, keeps its own.
 async function ownPrintSize(order: Order, base: string) {
     const { width, height } = await sharp(base).metadata();
-    const card = CARD_SIZES[order.tcg];
+    const card = cardSize(order);
     const own = Math.min(width / (card.width + 2 * BLEED_MM), height / (card.height + 2 * BLEED_MM)) * 25.4;
     return printSizeInPixels(order.shop, Math.max(order.profile.postProcessing.dpi, own), card);
 }
@@ -266,8 +270,8 @@ async function baseImage(source: FaceSource, tmpFile: string, profile: Processin
             return await upscale(await prepareCustomImage(await downloadDriveImage(source.id), profile.postProcessing, card), tmpFile, profile, signal);
         case 'tcg': {
             let image: Buffer = await fs.readFile(await cacheTcgImage(source.card.image));
-            // TCGdex scans have transparent rounded corners and are a little wider than the card.
-            if (source.card.tcg === 'pokemon') {
+            // TCGdex scans have transparent rounded corners and are a little wider than the card; optcgapi.com images have such corners too.
+            if (source.card.tcg === 'pokemon' || source.card.tcg === 'onepiece') {
                 const { width } = await sharp(image).metadata();
                 image = await sharp(await fixCorners(image, profile.postProcessing)).resize(width, Math.round(width * card.height / card.width), { fit: 'fill' }).png().toBuffer();
             }
@@ -303,7 +307,7 @@ function describe(source: FaceSource) {
         case 'cardback':
             return `card back ${source.driveId}`;
         case 'tcg':
-            return `${source.card.tcg === 'yugioh' ? 'YGOPRODeck' : 'TCGdex'} card ${source.card.id}`;
+            return `${TCG_SOURCES[source.card.tcg]} card ${source.card.id}`;
         case 'blank':
             return 'blank card';
     }

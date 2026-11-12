@@ -20,7 +20,7 @@ export function registerPreviewScheme() {
     protocol.registerSchemesAsPrivileged([{ scheme: 'preview', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 }
 
-// preview://order/<order name>/<file> shows a processed card, preview://image/<file> an own image,
+// preview://order/<order name>/<file> shows a processed card, in full with ?full, preview://image/<file> an own image,
 // preview://mpcfill/<Drive id> an MPC Autofill image in high resolution, preview://tcg/image?url=<image URL> a Yu-Gi-Oh or Pokémon card image.
 export function handlePreviews() {
     protocol.handle('preview', async request => {
@@ -32,6 +32,8 @@ export function handlePreviews() {
 
             const source = await previewSource(url);
             if (!source) return new Response('Not found', { status: 404 });
+            // A processed image in full, to compare it pixel by pixel.
+            if (url.host === 'order' && url.searchParams.has('full')) return net.fetch(pathToFileURL(source).toString());
 
             const preview = path.join(path.dirname(source), PREVIEW_DIR, `${path.parse(source).name}.jpg`);
             await ensurePreview(source, preview);

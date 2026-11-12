@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import AdmZip from "adm-zip";
 import { copyOrder, deleteOrder, exportOrder, importOrder, loadOrders, moveOrder, renameOrder, saveOrder } from "./orderConfigManager.js";
-import { DefaultOrder, DefaultProfile, type Order, type OrderCard, PlaywrightChannel, type ProcessingProfile } from "../model.js";
+import { DEFAULT_HOME_PRINT, DefaultOrder, DefaultProfile, type HomePrint, type Order, type OrderCard, PlaywrightChannel, type ProcessingProfile } from "../model.js";
 import { cardsDir, customImagePath, orderDir, setDataRoot } from "./paths.js";
 import { PREVIEW_DIR } from "../output/printImage.js";
 import { cardFaces } from "../pipeline/packs.js";
@@ -193,6 +193,18 @@ test('orders made for notmpc.eu, which closed, load and import as orders for pri
     assert.deepEqual((await loadOrders()).map(saved => [saved.name, saved.shop]), [['eu deck', 'printerstudio']]);
     const imported = await importOrder(await exported({ ...old, name: 'shared eu deck' }, false), [DefaultProfile]);
     assert.equal(imported.shop, 'printerstudio');
+});
+
+test('home print settings saved before the guides could be styled load with the guides as they were', async () => {
+    await tempRoot();
+    const {
+        cardGuides: _cardGuides, cardGuideCorners: _corners, cardGuideLength: _cardLength, cardGuidePlacement: _placement,
+        guideColor: _color, guideWidth: _width, guideStyle: _style, markLength: _length, markOffset: _offset, ...before
+    } = { ...DEFAULT_HOME_PRINT, guides: 'cut-lines' as const };
+    await saveOrder({ ...DefaultOrder, name: 'old home deck', shop: 'home', homePrint: before as HomePrint });
+
+    const [loaded] = await loadOrders();
+    assert.deepEqual(loaded!.homePrint, { ...DEFAULT_HOME_PRINT, guides: 'cut-lines' });
 });
 
 const OWN_IMAGE = '0123456789abcdef.png';

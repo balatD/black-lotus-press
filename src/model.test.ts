@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changePrinting, chooseMpcfillImage, DeckData, deckSite, DefaultOrder, isArchidektDeckUrl, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, printsAt, replaceDeckCards, type ScryfallCard, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
+import { changePrinting, chooseMpcfillImage, DeckData, deckSite, DefaultOrder, isArchidektDeckUrl, isMoxfieldDeckUrl, isValidOrderName, type OrderCard, packsToSkip, printsAt, replaceDeckCards, type ScryfallCard, switchPrintings, updateDeckCards, type UploadedGame, withDecks } from "./model.js";
 
 function card(id: string, deck: string): OrderCard {
     return { id, deck, board: 'mainboard', name: id, quantity: 1, isToken: false, excluded: false };
@@ -222,6 +222,21 @@ test('chooseMpcfillImage sets the image of a face and switches to the printing t
 
     const switched = chooseMpcfillImage(card, 'back', 'back-b', printing('B'));
     assert.deepEqual([switched.printing?.id, switched.mpcfill], ['B', { back: 'back-b' }], 'the front image belonged to printing A');
+});
+
+test('switchPrintings gives the cards the printings for theirs and drops the images picked for the old ones', () => {
+    const fromDeck = { ...imported('sol', 1), mpcfill: { front: 'drive-sol' } };
+    const pickedHere = { ...imported('mox', 1), printing: printing('mox-picked') };
+    const other = imported('bolt', 1);
+
+    const cards = switchPrintings([fromDeck, pickedHere, other], { 'sol-print': printing('sol-de'), 'mox-picked': printing('mox-de') });
+
+    assert.deepEqual(cards.map(c => [c.printing?.id, c.mpcfill, c.imported?.printingId]), [
+        ['sol-de', undefined, 'sol-de'],
+        ['mox-de', undefined, 'mox-print'],
+        ['bolt-print', undefined, 'bolt-print']
+    ]);
+    assert.equal(cards[2], other);
 });
 
 test('updateDeckCards drops the MPC Autofill image when Moxfield changes the printing', () => {

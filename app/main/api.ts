@@ -9,8 +9,9 @@ import { orderDir } from "../../src/config/paths.js";
 import { downloadDriveImage } from "../../src/clients/googleDrive.js";
 import { mpcfillFileNames, searchCardbacks } from "../../src/clients/mpcfill.js";
 import { downloadUpscaylBinary, downloadUpscaylModels, getUpscaylModels } from "../../src/pipeline/upscayl.js";
-import { DEFAULT_HOME_PRINT, deckSite, DefaultProfile, type OnProgress } from "../../src/model.js";
-import { importDeck } from "../../src/pipeline/importDecks.js";
+import { DEFAULT_HOME_PRINT, deckSite, DefaultProfile, MAGIC_LANGUAGES, type OnProgress, TCG_SOURCES } from "../../src/model.js";
+import { cardFaces } from "../../src/pipeline/packs.js";
+import { importDeck, translatePrintings } from "../../src/pipeline/importDecks.js";
 import { importDeckList, searchTcgCards } from "../../src/pipeline/deckLists.js";
 import { searchCards, searchPrintings, searchTokens } from "../../src/clients/scryfall.js";
 import { findMpcfillImages, loadPrintingScans, pickSharpestMpcfillImages, recogniseMpcfillImages } from "../../src/mpcfill/recognise.js";
@@ -19,7 +20,7 @@ import { sendToPrinterstudio } from "../../src/clients/printerstudio.js";
 import { showShopWindow } from "../../src/clients/shopWindow.js";
 import { forgetImages, imageStatus, processImages } from "../../src/pipeline/processImages.js";
 import { mpcfillImages, mpcfillXml } from "../../src/output/mpcfillXml.js";
-import { homePrintHtml, writeHomePdf } from "../../src/output/homePrint.js";
+import { cutFile, homePrintHtml, writeHomePdf } from "../../src/output/homePrint.js";
 import { exists } from "../../src/utils/fs.js";
 import { importCustomImage } from "../../src/pipeline/customImage.js";
 import { gpuStatsReader } from "../../src/utils/gpuStats.js";
@@ -192,6 +193,15 @@ export function registerApi(window: BrowserWindow) {
             await shell.openPath(result.filePath);
             return result.filePath;
         },
+        async saveCutFile(order) {
+            const result = await dialog.showSaveDialog(window, {
+                defaultPath: path.join(orderDir(order), `${order.name} cut.dxf`),
+                filters: [{ name: 'DXF, for every Silhouette Studio', extensions: ['dxf'] }, { name: 'SVG, for Designer Edition and up', extensions: ['svg'] }]
+            });
+            if (result.canceled || !result.filePath) return undefined;
+            await fs.writeFile(result.filePath, cutFile(order, result.filePath.toLowerCase().endsWith('.svg') ? 'svg' : 'dxf'));
+            return result.filePath;
+        },
         // Electron cannot print a PDF file, so a hidden window prints the same pages as a web page.
         async printHome(order) {
             assertIdle(order.name);
@@ -233,15 +243,27 @@ export function registerApi(window: BrowserWindow) {
             await shell.openPath(folder);
         },
 
-        importDeck: (deck, channel) => runJob(
+        importDeck: (deck, channel, language) => runJob(
             { kind: 'import', title: `Loading ${deck.name ?? 'a deck'} from ${deckSite(deck.url)}`, deck: deck.url, stoppable: true },
-            (onProgress, signal) => importDeck(deck, channel, onProgress, signal)),
+            (onProgress, signal) => importDeck(deck, channel, language, onProgress, signal)),
+        translatePrintings: (order, language) => runJob(
+            { kind: 'import', title: `Looking up the cards of ${order.name} in ${MAGIC_LANGUAGES.find(([code]) => code === language)?.[1] ?? language}`, order: order.name, stoppable: true },
+            (onProgress, signal) => translatePrintings(order.cards, language, onProgress, signal)),
         importDeckList: (deck, tcg, language) => runJob(
-            { kind: 'import', title: `Looking up ${deck.name ?? 'a deck list'} on ${tcg === 'yugioh' ? 'YGOPRODeck' : 'TCGdex'}`, deck: deck.url, stoppable: true },
+            { kind: 'import', title: `Looking up ${deck.name ?? 'a deck list'} on ${TCG_SOURCES[tcg]}`, deck: deck.url, stoppable: true },
             (onProgress, signal) => importDeckList(deck, tcg, language, onProgress, signal)),
         processImages: order => runJob(
             { kind: 'process', title: `Processing the images of ${order.name}`, order: order.name, stoppable: true },
             (onProgress, signal) => processImages(order, onProgress, signal)),
+        processCard: (order, cardId) => {
+            const card = order.cards.find(c => c.id === cardId);
+            const faces = card && cardFaces(card, order);
+            if (!card || !faces) throw new Error('The card has no image to process.');
+            // The card back is shared by all cards and comes with the others.
+            return runJob(
+                { kind: 'process', title: `Processing the images of ${card.name}`, order: order.name, stoppable: true },
+                (onProgress, signal) => processImages(order, onProgress, signal, faces.back.source.type === 'cardback' ? [faces.front] : [faces.front, faces.back]));
+        },
         reprocessImages: (order, files) => runJob(
             { kind: 'process', title: `Processing images of ${order.name} again`, order: order.name, stoppable: true },
             async (onProgress, signal) => {
@@ -295,6 +317,15 @@ export function registerApi(window: BrowserWindow) {
             });
             const file = result.filePaths[0];
             return file ? await importCustomImage(file) : undefined;
+        },
+        async pickCardImages() {
+            const result = await dialog.showOpenDialog(window, {
+                properties: ['openFile', 'multiSelections'],
+                filters: [{ name: 'Card images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+            });
+            const images = [];
+            for (const file of result.filePaths) images.push({ file: await importCustomImage(file, true), name: path.parse(file).name });
+            return images;
         },
 
         async updateStatus() {

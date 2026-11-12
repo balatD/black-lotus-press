@@ -8,10 +8,11 @@ import { BLEED_MM } from "../output/printImage.js";
 import { exists } from "../utils/fs.js";
 
 // Stored by content, so the same image is kept once and a changed image gets a new name.
-export async function importCustomImage(sourcePath: string): Promise<string> {
+// Other cards may be landscape, like business cards.
+export async function importCustomImage(sourcePath: string, landscape = false): Promise<string> {
     const image = await fs.readFile(sourcePath);
     const { width, height, format } = await sharp(image).metadata();
-    if (width > height) {
+    if (width > height && !landscape) {
         throw new Error('Landscape images are not supported, use a portrait card image.');
     }
 

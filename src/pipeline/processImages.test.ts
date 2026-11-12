@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { DefaultOrder, DefaultProfile, type Order, type OrderCard, type ScryfallCard } from "../model.js";
+import { DEFAULT_HOME_PRINT, DefaultOrder, DefaultProfile, type HomePrint, NO_ADJUSTMENTS, type Order, type OrderCard, type ScryfallCard } from "../model.js";
 import { cardsDir, customImagePath, setDataRoot } from "../config/paths.js";
 import { cardProfile, faceJobs, forgetImages, imageStatus, processImages, settingsFingerprint, usedBaseImages, writePrintPng } from "./processImages.js";
 import { moveOrder, saveOrder } from "../config/orderConfigManager.js";
@@ -237,6 +237,13 @@ test('imageStatus lists the processed images and their sizes for the current set
     assert.deepEqual(await imageStatus(order([card('a', 1)], 160)), { version: '', files: {} });
 });
 
+test('faceJobs makes the backs at home only when both sides print', () => {
+    const home = (sides: HomePrint['sides']) => ({ ...order([card('a', 1)]), shop: 'home' as const, adjustments: NO_ADJUSTMENTS, homePrint: { ...DEFAULT_HOME_PRINT, sides } });
+
+    assert.deepEqual([...faceJobs(home('fronts')).keys()], ['scryfall-a-front-b100-c100-finest.jpg']);
+    assert.deepEqual([...faceJobs(home('both')).keys()], ['scryfall-a-front-b100-c100-finest.jpg', 'cardback-drive1-b100-c100-finest.jpg']);
+});
+
 test('writePrintPng makes the PNG of a face from its base image in the resolution of the base, and a white one for a blank card', async () => {
     const target = order([card('a', 1), card('m', 1, { mpcfill: { front: 'drive-m' } })]);
     await processImages(target);
@@ -326,4 +333,13 @@ test('forgetImages drops one face with its base and all its print images, so the
     assert.deepEqual(before.filter(file => !after.includes(file)).sort(), ['base-scryfall-b-front.jpg', 'scryfall-b-front-b110-c100.jpg', 'scryfall-b-front-b143-c100.jpg']);
     await processImages(withB);
     assert.deepEqual(fetched.map(url => url.replace(/^.*\//, '')), ['b.png']);
+});
+
+test('cardProfile takes the width of other cards for their bleed and upscaling, and leaves cards of 63 mm as they are', () => {
+    const tarot = { ...order([]), tcg: 'other' as const, cardSize: { width: 69.8, height: 120.7 } };
+
+    assert.equal(cardProfile(tarot).postProcessing.cardWidth, 69.8 / 25.4);
+    const lorcana = { ...order([]), tcg: 'lorcana' as const };
+    assert.equal(cardProfile(lorcana), lorcana.profile);
+    assert.notEqual(settingsFingerprint(cardProfile(tarot)), settingsFingerprint(order([]).profile));
 });

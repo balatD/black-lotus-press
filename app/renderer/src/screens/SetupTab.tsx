@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleStop, Download, Images, Layers, Plus, RectangleVertical, RefreshCw, SlidersHorizontal, Trash } from "lucide-react";
-import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, isDeckUrl, type Order, type OrderCard, POKEMON_LANGUAGES, type ProcessingProfile, replaceDeckCards, type Tcg, updateDeckCards, withDecks } from "../../../../src/model.js";
+import { CARD_SIZE_PRESETS, type CardSize, cardSize, type DeckConfig, DeckData, DEFAULT_HOME_PRINT, deckSite, isArchidektDeckUrl, isDeckUrl, type ListTcg, MAGIC_LANGUAGES, MAX_CARD_SIZE, MIN_CARD_SIZE, type Order, type OrderCard, POKEMON_LANGUAGES, type ProcessingProfile, replaceDeckCards, switchPrintings, type Tcg, TCG_SOURCES, updateDeckCards, withDecks } from "../../../../src/model.js";
+import { withFittingGrid } from "../../../../src/output/sheetLayout.js";
 import type { Task } from "../../../shared/api.js";
 import { api, errorMessage, wasStopped } from "../api.js";
 import { useProgress } from "../useProgress.js";
@@ -79,13 +80,16 @@ export function SetupTab({ order, profiles, update, onEditProfile }: Props) {
 
     return (
         <div className="form">
-            <section>
+            {order.tcg === 'other' && <CardSizeSection order={order} onChange={onChange}/>}
+            {order.tcg !== 'other' && <section>
                 <h2><Layers/>{order.tcg === 'magic' ? 'Decks' : 'Deck lists'}</h2>
                 <p className="muted">
                     {order.tcg === 'magic' ? order.decks.length === 0
                             ? 'Paste the link of a Moxfield deck that is public or unlisted, or of an Archidekt deck visible without logging in, tick the boards to print and click Add and import.'
                             : 'Update brings the deck\'s changes from Moxfield or Archidekt and keeps your edits. Changing the address or the boards of a deck removes its cards, so it gets imported again.'
                         : order.tcg === 'yugioh' ? 'Paste a .ydk file or a ydke:// link, as EDOPro, Dueling Nexus and YGOPRODeck export decks. The cards come from YGOPRODeck in the artwork the list names.'
+                        : order.tcg === 'lorcana' ? 'Paste the deck list Dreamborn or Inkdecks exports, with lines like "4 Elsa - Snow Queen". The cards come from Lorcast, each in its first printing.'
+                        : order.tcg === 'onepiece' ? 'Paste the deck list OPTCGSim or Limitless exports, with lines like "4xOP01-016", the leader included. The cards come from optcgapi.com in their regular artwork.'
                         : 'Paste the deck list Pokémon TCG Live or Limitless exports, with lines like "4 Charizard ex OBF 125". The cards come from TCGdex.'}
                     {order.tcg !== 'magic' && ' Update brings the changes of the list and keeps your edits.'}
                 </p>
@@ -98,6 +102,7 @@ export function SetupTab({ order, profiles, update, onEditProfile }: Props) {
                         <p className="hint">The language of the card images. Update the lists to switch their cards; cards without an image in the language print in English.</p>
                     </div>
                 )}
+                {order.tcg === 'magic' && <MagicLanguage order={order} running={running} update={update}/>}
                 {order.decks.map((deck, index) => (
                     <DeckRow
                         key={deck.url}
@@ -115,9 +120,9 @@ export function SetupTab({ order, profiles, update, onEditProfile }: Props) {
                 {order.tcg === 'magic'
                     ? <NewDeck existing={order.decks} running={running !== undefined} onAdd={(url, data) => addDeck({ url, data })}/>
                     : <NewDeckList tcg={order.tcg} running={running !== undefined} onAdd={(list, data) => addDeck(newDeckList(order, list, data))}/>}
-            </section>
+            </section>}
 
-            {order.tcg === 'magic' && <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>}
+            {(order.tcg === 'magic' || order.homePrint?.sides === 'both') && <CardBack driveId={order.cardBack} onChange={cardBack => onChange({ ...order, cardBack })}/>}
 
             <section>
                 <h2><SlidersHorizontal/>Profile</h2>
@@ -200,6 +205,110 @@ function CardBack({ driveId, onChange }: { driveId: string, onChange(driveId: st
     );
 }
 
+// Other cards are own images in a size of their own; the grid of the pages follows the size.
+function CardSizeSection({ order, onChange }: { order: Order, onChange(order: Order): void }) {
+    const size = cardSize(order);
+    const preset = CARD_SIZE_PRESETS.find(([, presetSize]) => presetSize.width === size.width && presetSize.height === size.height);
+    const [custom, setCustom] = useState(preset === undefined);
+    const resize = (next: CardSize) => onChange({ ...order, cardSize: next, homePrint: withFittingGrid({ ...(order.homePrint ?? DEFAULT_HOME_PRINT) }, next) });
+
+    return (
+        <section>
+            <h2><RectangleVertical/>Card size</h2>
+            <div className="field" data-guide="deck">
+                <label htmlFor="card-size">Size</label>
+                <select id="card-size" value={custom || !preset ? 'custom' : preset[0]} onChange={e => {
+                    const chosen = CARD_SIZE_PRESETS.find(([name]) => name === e.target.value);
+                    setCustom(chosen === undefined);
+                    if (chosen) resize(chosen[1]);
+                }}>
+                    {CARD_SIZE_PRESETS.map(([name, presetSize]) => <option key={name} value={name}>{name}, {presetSize.width} × {presetSize.height} mm</option>)}
+                    <option value="custom">Custom size</option>
+                </select>
+                <p className="hint">The cards are your own images, one card each, added on the Cards tab. They print at home, with a mirrored 3 mm bleed unless the images have one.</p>
+            </div>
+            {custom && <>
+                <SizeField id="card-width" label="Width" value={size.width} max={MAX_CARD_SIZE.width} onChange={width => resize({ ...size, width })}/>
+                <SizeField id="card-height" label="Height" value={size.height} max={MAX_CARD_SIZE.height} onChange={height => resize({ ...size, height })}/>
+            </>}
+        </section>
+    );
+}
+
+// Taken once it is left, so typing a number never stops at a value that is too small.
+function SizeField({ id, label, value, max, onChange }: { id: string, label: string, value: number, max: number, onChange(value: number): void }) {
+    const [draft, setDraft] = useState(String(value));
+    useEffect(() => setDraft(String(value)), [value]);
+
+    function commit() {
+        const number = Number(draft.replace(',', '.'));
+        const limited = Number.isFinite(number) ? Math.round(Math.min(max, Math.max(MIN_CARD_SIZE, number)) * 10) / 10 : value;
+        setDraft(String(limited));
+        if (limited !== value) onChange(limited);
+    }
+
+    return (
+        <div className="field">
+            <label htmlFor={id}>{label}</label>
+            <div className="row">
+                <input id={id} inputMode="decimal" value={draft} style={{ width: '7rem' }} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => e.key === 'Enter' && commit()}/>
+                <span className="muted">mm, {MIN_CARD_SIZE} to {max}</span>
+            </div>
+        </div>
+    );
+}
+
+// The language is set once its printings are looked up, so a cancelled lookup leaves the order as it was.
+function MagicLanguage({ order, running, update }: { order: Order, running: Task | undefined, update(change: (order: Order) => Order): void }) {
+    const [pending, setPending] = useState<string>();
+    const [notes, setNotes] = useState<string[]>([]);
+    const [error, setError] = useState<string>();
+    const translating = running?.kind === 'import' && running.order === order.name ? running : undefined;
+    const progress = useProgress(translating !== undefined);
+
+    async function choose(language: string) {
+        setNotes([]);
+        setError(undefined);
+        const withLanguage = (current: Order) => {
+            const { language: _, ...rest } = current;
+            return language ? { ...rest, language } : rest;
+        };
+        if (!language) return update(withLanguage);
+        setPending(language);
+        try {
+            const { printings, notes } = await api.translatePrintings(order, language);
+            update(current => ({ ...withLanguage(current), cards: switchPrintings(current.cards, printings) }));
+            setNotes(notes);
+        } catch (e) {
+            if (!wasStopped(e)) setError(errorMessage(e));
+        } finally {
+            setPending(undefined);
+        }
+    }
+
+    return (
+        <div className="field">
+            <label htmlFor="card-language">Card language</label>
+            <select id="card-language" value={pending ?? order.language ?? ''} disabled={running !== undefined} onChange={e => void choose(e.target.value)}>
+                <option value="">As the decks have them</option>
+                {MAGIC_LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+            </select>
+            <p className="hint">
+                A language switches every card to its printing in it where Scryfall has one, also as a low-resolution scan; the others stay as they are.
+                Decks then import and update in it. MPC Autofill images picked for a card are dropped when its printing switches.
+            </p>
+            {translating && (
+                <div className="row">
+                    <ProgressBar progress={progress} label="Looking up the printings on Scryfall"/>
+                    <button className="quiet" onClick={() => void api.stopTask(translating.id)}><CircleStop/>Cancel</button>
+                </div>
+            )}
+            {error && <span className="status error">{error}</span>}
+            {notes.map(note => <span key={note} className="warning">{note}</span>)}
+        </div>
+    );
+}
+
 interface DeckRowProps {
     deck: DeckConfig;
     order: Order;
@@ -233,12 +342,13 @@ function DeckRow({ deck, order, running, importNow, cardCount, onChange, onImpor
         setNotes([]);
         try {
             if (isList) {
-                const { cards, notes } = await api.importDeckList({ ...deck, list }, order.tcg, order.language ?? 'en');
+                const { cards, notes } = await api.importDeckList({ ...deck, list }, order.tcg as ListTcg, order.language ?? 'en');
                 setNotes(notes);
                 apply(deck.name ?? 'Deck list', cards);
                 return;
             }
-            const { name, cards } = await api.importDeck(deck, order.profile.playwrightChannel);
+            const { name, cards, notes } = await api.importDeck(deck, order.profile.playwrightChannel, order.language);
+            setNotes(notes);
             apply(name, cards);
         } catch (e) {
             if (!wasStopped(e)) setError(errorMessage(e));
@@ -289,7 +399,7 @@ function DeckRow({ deck, order, running, importNow, cardCount, onChange, onImpor
                     ? <button className="quiet" onClick={() => void api.stopTask(importing.id)}><CircleStop/>Cancel</button>
                     : <button className="quiet danger" onClick={remove}><Trash/>Remove</button>}
             </div>
-            {importing && <ProgressBar progress={progress} label={isList ? `Looking up the cards on ${order.tcg === 'yugioh' ? 'YGOPRODeck' : 'TCGdex'}` : archidekt ? 'Loading the deck from Archidekt' : 'Loading the deck from Moxfield in a browser window'}/>}
+            {importing && <ProgressBar progress={progress} label={isList ? `Looking up the cards on ${TCG_SOURCES[order.tcg as ListTcg]}` : archidekt ? 'Loading the deck from Archidekt' : 'Loading the deck from Moxfield in a browser window'}/>}
             {error && <span className="status error">{error}</span>}
             {result && <span className="status">{result}</span>}
             {notes.map(note => <span key={note} className="warning">{note}</span>)}
@@ -304,7 +414,7 @@ function DeckRow({ deck, order, running, importNow, cardCount, onChange, onImpor
 }
 
 function boardsOf(tcg: Tcg, url: string): [DeckData, string][] {
-    return tcg === 'yugioh' ? YGO_BOARDS : tcg === 'pokemon' ? [] : BOARDS.filter(([board]) => !isArchidektDeckUrl(url) || ARCHIDEKT_BOARDS.includes(board));
+    return tcg === 'yugioh' ? YGO_BOARDS : tcg !== 'magic' ? [] : BOARDS.filter(([board]) => !isArchidektDeckUrl(url) || ARCHIDEKT_BOARDS.includes(board));
 }
 
 function Boards({ boards, data, onChange }: { boards: [DeckData, string][], data: DeckData[], onChange(data: DeckData[]): void }) {

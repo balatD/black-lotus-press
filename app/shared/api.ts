@@ -1,4 +1,4 @@
-import type { DeckConfig, GpuStats, MpcfillImage, Order, OrderCard, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, Tcg, TcgCard, UploadedGame } from "../../src/model.js";
+import type { DeckConfig, GpuStats, ListTcg, MpcfillImage, Order, OrderCard, PlaywrightChannel, ProcessingProfile, ProgressEvent, ScryfallCard, Shop, TcgCard, UploadedGame } from "../../src/model.js";
 import type { MpcfillCard } from "../../src/clients/mpcfill.js";
 import type { Recognition } from "../../src/mpcfill/recognise.js";
 
@@ -46,6 +46,8 @@ export interface Api {
     saveMpcfillXml(order: Order): Promise<string | undefined>;
     // Asks where to save the PDF of a home order and opens it in the PDF viewer; the path, or undefined when the dialog was cancelled.
     saveHomePdf(order: Order): Promise<string | undefined>;
+    // An SVG or a DXF, as the file name chosen ends.
+    saveCutFile(order: Order): Promise<string | undefined>;
     // Opens the system's print dialog for the pages of a home order; false when the dialog was cancelled.
     printHome(order: Order): Promise<boolean>;
     // Asks where to save the order for another computer; the path, or undefined when the dialog was cancelled.
@@ -55,12 +57,17 @@ export interface Api {
     openOrderFolder(order: Order): Promise<void>;
 
     // Long-running jobs report through onProgress and show up in the tasks; only one runs at a time.
-    importDeck(deck: DeckConfig, channel: PlaywrightChannel): Promise<{ name: string, cards: OrderCard[] }>;
+    // In a language, the cards come in their printings in it where Scryfall has them, and the notes name the others.
+    importDeck(deck: DeckConfig, channel: PlaywrightChannel, language: string | undefined): Promise<{ name: string, cards: OrderCard[], notes: string[] }>;
     // A pasted Yu-Gi-Oh or Pokémon list; the notes name the lines that were not found and the cards that print from another image.
-    importDeckList(deck: DeckConfig, tcg: Tcg, language: string): Promise<{ cards: OrderCard[], notes: string[] }>;
+    importDeckList(deck: DeckConfig, tcg: ListTcg, language: string): Promise<{ cards: OrderCard[], notes: string[] }>;
+    // The printings of the order's Magic cards in the language, by the id of the printing each replaces.
+    translatePrintings(order: Order, language: string): Promise<{ printings: Record<string, ScryfallCard>, notes: string[] }>;
     processImages(order: Order): Promise<void>;
     // Makes these faces anew from the download on, then processes what is missing.
     reprocessImages(order: Order, files: string[]): Promise<void>;
+    // The faces of one card, without the shared card back; the other cards' images stay as they are.
+    processCard(order: Order, cardId: string): Promise<void>;
     // A game per pack, with an image per card side. The browser stays open after the upload while a game is not saved; it stays a task until closed.
     // Goes on after the games of the packs done before. A pack that fails returns the games made until then, with the error.
     uploadPacks(order: Order, done: UploadedGame[]): Promise<{ games: UploadedGame[], error?: string }>;
@@ -77,11 +84,11 @@ export interface Api {
     imageStatus(order: Order): Promise<{ version: string, files: Record<string, number> }>;
     gpuStats(): Promise<GpuStats>;
 
-    searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]>;
+    searchPrintings(card: Pick<OrderCard, 'name' | 'printing'>, language?: string): Promise<ScryfallCard[]>;
     searchTokens(name: string): Promise<ScryfallCard[]>;
     searchCards(name: string): Promise<ScryfallCard[]>;
     // The other artworks of a Yu-Gi-Oh card, or the printings of a Pokémon card in a language, by the card's name.
-    searchTcgCards(tcg: Tcg, name: string, language: string): Promise<TcgCard[]>;
+    searchTcgCards(tcg: ListTcg, name: string, language: string): Promise<TcgCard[]>;
     // The MPC Autofill images of a face of the card, in MPC Autofill's order.
     searchMpcfill(card: Pick<OrderCard, 'name' | 'printing' | 'isToken'>, face: 'front' | 'back'): Promise<MpcfillCard[]>;
     // Loads the Scryfall scans the comparison needs; the window asks for a few at a time to show the progress.
@@ -90,6 +97,8 @@ export interface Api {
     recogniseMpcfill(face: 'front' | 'back', printings: ScryfallCard[], images: MpcfillCard[]): Promise<Record<string, Recognition>>;
     // Returns the stored file name, or undefined when the dialog was cancelled.
     pickCustomImage(): Promise<string | undefined>;
+    // Images of other cards, one card each, in any orientation, named after their files.
+    pickCardImages(): Promise<{ file: string, name: string }[]>;
 
     // The newer release found since the start, if any; changes arrive through onUpdate.
     updateStatus(): Promise<Update | undefined>;
@@ -99,9 +108,9 @@ export interface Api {
 
 export const API_METHODS = [
     'listProfiles', 'saveProfile', 'renameProfile', 'deleteProfile', 'installUpscayl', 'listUpscaylModels', 'chooseFolder',
-    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'saveHomePdf', 'printHome', 'exportOrder', 'importOrder', 'openOrderFolder',
-    'importDeck', 'importDeckList', 'processImages', 'reprocessImages', 'uploadPacks', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
-    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchCards', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'updateStatus', 'installUpdate'
+    'listOrders', 'saveOrder', 'deleteOrder', 'moveOrder', 'copyOrder', 'renameOrder', 'listCardbacks', 'previewCardBack', 'saveMpcfillXml', 'saveHomePdf', 'saveCutFile', 'printHome', 'exportOrder', 'importOrder', 'openOrderFolder',
+    'importDeck', 'importDeckList', 'translatePrintings', 'processImages', 'reprocessImages', 'processCard', 'uploadPacks', 'sendToPrinterstudio', 'pickMpcfillImages', 'listTasks', 'showShopBrowser', 'stopTask',
+    'imageStatus', 'gpuStats', 'searchPrintings', 'searchTokens', 'searchCards', 'searchTcgCards', 'searchMpcfill', 'loadPrintingScans', 'recogniseMpcfill', 'pickCustomImage', 'pickCardImages', 'updateStatus', 'installUpdate'
 ] as const satisfies readonly (keyof Api)[];
 
 // Fails to compile when a method of Api is missing from API_METHODS.

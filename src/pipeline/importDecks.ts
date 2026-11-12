@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { type ArchidektCard, type ArchidektCategory, type ArchidektDeck, getArchidektDeck } from "../clients/archidekt.js";
 import { getMoxfieldDetails, type MoxfieldBoard, type MoxfieldCardDetails, type MoxfieldDeck } from "../clients/moxfield.js";
-import { findScryfallCards } from "../clients/scryfall.js";
-import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, type OnProgress, type OrderCard, type PlaywrightChannel } from "../model.js";
+import { findPrintingInLanguage, findScryfallCards } from "../clients/scryfall.js";
+import { type DeckConfig, DeckData, deckSite, isArchidektDeckUrl, MAGIC_LANGUAGES, type OnProgress, type OrderCard, type PlaywrightChannel, type ScryfallCard, switchPrintings } from "../model.js";
 
 type CardSource = Pick<MoxfieldCardDetails, 'id' | 'name' | 'set' | 'scryfall_id' | 'isToken'>;
 type DeckEntry = { board: string, quantity: number, source: CardSource, foil: boolean };
@@ -63,7 +63,38 @@ function toImportedCard(deck: DeckConfig, { board, quantity, source, foil }: Dec
     };
 }
 
-export async function importDeck(deck: DeckConfig, channel: PlaywrightChannel, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ name: string, cards: OrderCard[] }> {
+// In the language, the cards take their printings in it where Scryfall has them, and the notes name the others.
+export async function importDeck(deck: DeckConfig, channel: PlaywrightChannel, language: string | undefined, onProgress?: OnProgress, signal?: AbortSignal)
+    : Promise<{ name: string, cards: OrderCard[], notes: string[] }> {
+    const { name, cards } = await importDeckCards(deck, channel, onProgress, signal);
+    if (!language) return { name, cards, notes: [] };
+    const { printings, notes } = await translatePrintings(cards, language, onProgress, signal);
+    return { name, cards: switchPrintings(cards, printings), notes };
+}
+
+// The printings of the cards in the language, by the id of the printing each replaces; the note names the cards Scryfall has none for.
+export async function translatePrintings(cards: OrderCard[], language: string, onProgress?: OnProgress, signal?: AbortSignal)
+    : Promise<{ printings: Record<string, ScryfallCard>, notes: string[] }> {
+    const languageName = MAGIC_LANGUAGES.find(([code]) => code === language)?.[1] ?? language;
+    const others = [...new Map(cards.flatMap(card => card.printing && card.printing.lang !== language ? [[card.printing.id, card.printing] as const] : [])).values()];
+    const printings: Record<string, ScryfallCard> = {};
+    const missing = new Set<string>();
+    for (const [done, printing] of others.entries()) {
+        signal?.throwIfAborted();
+        onProgress?.({ type: 'progress', done, total: others.length, message: `Looking up ${printing.name} in ${languageName} on Scryfall` });
+        const found = await findPrintingInLanguage(printing, language);
+        if (found) printings[printing.id] = found;
+        else missing.add(printing.name);
+    }
+
+    const names = [...missing];
+    const notes = names.length === 0 ? []
+        : names.length === 1 ? [`${names[0]} has no ${languageName} printing on Scryfall and stays as it is.`]
+            : [`${names.length} cards have no ${languageName} printing on Scryfall and stay as they are: ${names.join(', ')}.`];
+    return { printings, notes };
+}
+
+async function importDeckCards(deck: DeckConfig, channel: PlaywrightChannel, onProgress?: OnProgress, signal?: AbortSignal): Promise<{ name: string, cards: OrderCard[] }> {
     onProgress?.({ type: 'progress', done: 0, total: 0, message: `Loading the deck from ${deckSite(deck.url)}` });
     if (!isArchidektDeckUrl(deck.url)) {
         const moxfield = await getMoxfieldDetails(deck, channel, signal);

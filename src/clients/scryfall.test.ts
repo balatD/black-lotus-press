@@ -2,7 +2,7 @@ import { afterEach, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import type { ScryfallCard } from "../model.js";
 import type { MoxfieldCardDetails } from "./moxfield.js";
-import { findScryfallCards, searchCards, searchPrintings, searchTokens } from "./scryfall.js";
+import { findPrintingInLanguage, findScryfallCards, searchCards, searchPrintings, searchTokens } from "./scryfall.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -149,4 +149,26 @@ test('findScryfallCards collects the tokens Scryfall relates to the cards once e
     const { tokens } = await findScryfallCards([card('a', KNOWN), card('b', '')]);
 
     assert.deepEqual(tokens.map(token => token.id), ['t1', 't2']);
+});
+
+test('searchPrintings asks for the printings in a language other than English', async () => {
+    const urls = mockPages({ 'cards/search': { data: [printing('de', { lang: 'de' })], has_more: false } });
+
+    await searchPrintings({ name: 'Sol Ring', printing: printing('a') }, 'de');
+    await searchPrintings({ name: 'Sol Ring', printing: printing('a') }, 'en');
+
+    assert.equal(new URL(urls[0]!).searchParams.get('q'), 'oracleid:oracle-1 lang:de');
+    assert.equal(new URL(urls[1]!).searchParams.get('q'), 'oracleid:oracle-1');
+});
+
+test('findPrintingInLanguage looks up the same set and number in the language, and finds nothing without a scan', async () => {
+    const urls = mockPages({
+        'cards/tst/1%E2%98%85/ja': printing('ja', { lang: 'ja', image_status: 'lowres' }),
+        'cards/tst/2/ja': printing('blank', { lang: 'ja', image_status: 'placeholder' })
+    });
+
+    assert.equal((await findPrintingInLanguage({ set: 'tst', collector_number: '1★' }, 'ja'))?.id, 'ja');
+    assert.equal(await findPrintingInLanguage({ set: 'tst', collector_number: '2' }, 'ja'), undefined);
+    assert.equal(await findPrintingInLanguage({ set: 'tst', collector_number: '3' }, 'ja'), undefined);
+    assert.equal(urls[0], 'https://api.scryfall.com/cards/tst/1%E2%98%85/ja');
 });

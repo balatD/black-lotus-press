@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import type { ArchidektDeck } from "../clients/archidekt.js";
 import type { MoxfieldDeck } from "../clients/moxfield.js";
 import { DeckData, PlaywrightChannel } from "../model.js";
-import { archidektToOrderCards, importDeck, toOrderCards } from "./importDecks.js";
+import { archidektToOrderCards, importDeck, toOrderCards, translatePrintings } from "./importDecks.js";
 
 const moxfield = JSON.parse(await fs.readFile(new URL('./fixtures/moxfield-deck.json', import.meta.url), 'utf-8')) as MoxfieldDeck;
 
@@ -123,7 +123,7 @@ test('importDeck adds the tokens Scryfall relates to the cards of an Archidekt d
         return Response.json({ data: ids.map(id => ({ id, name: id, set: 'tst', collector_number: '1', lang: 'en', all_parts: related[id] })) });
     });
 
-    const { name, cards } = await importDeck({ url: 'https://archidekt.com/decks/17558445/sauron', data: [DeckData.MainBoard, DeckData.Tokens] }, PlaywrightChannel.Chrome);
+    const { name, cards } = await importDeck({ url: 'https://archidekt.com/decks/17558445/sauron', data: [DeckData.MainBoard, DeckData.Tokens] }, PlaywrightChannel.Chrome, undefined);
 
     assert.equal(name, 'Sauron Nazgûl Discard');
     assert.deepEqual(cards.filter(card => card.board === 'tokens').map(card => [card.name, card.isToken, card.quantity, card.printing?.id]), [
@@ -131,4 +131,41 @@ test('importDeck adds the tokens Scryfall relates to the cards of an Archidekt d
         ['Orc Army', true, 1, ORC_ARMY]
     ]);
     assert.deepEqual(requested[1], [ORC_ARMY]);
+});
+
+const scryfallPrinting = (id: string, lang: string, extra: Record<string, unknown> = {}) =>
+    ({ id, name: `Card ${id}`, set: 'tst', collector_number: id, lang, full_art: false, frame: '2015', type_line: 'Artifact', layout: 'normal', ...extra });
+
+test('translatePrintings looks up every printing once in the language and names the cards Scryfall has none or no scan for', async t => {
+    const asked: string[] = [];
+    t.mock.method(globalThis, 'fetch', async (url: string) => {
+        asked.push(url);
+        const number = url.split('/').at(-2)!;
+        if (number === 'promo') return new Response('{"object":"error"}', { status: 404 });
+        return Response.json(scryfallPrinting(`${number}-de`, 'de', { image_status: number === 'blank' ? 'placeholder' : 'lowres' }));
+    });
+    const card = (id: string, printingId: string, lang = 'en') =>
+        ({ id, deck: 'deck', board: 'mainboard', name: `Card ${printingId}`, quantity: 1, isToken: false, excluded: false, printing: scryfallPrinting(printingId, lang) });
+
+    const { printings, notes } = await translatePrintings(
+        [card('a', 'sol'), card('b', 'sol'), card('c', 'promo'), card('d', 'blank'), card('e', 'bolt-de', 'de')], 'de');
+
+    assert.deepEqual(Object.fromEntries(Object.entries(printings).map(([id, printing]) => [id, [printing.id, printing.lang]])), { sol: ['sol-de', 'de'] });
+    assert.deepEqual(asked, ['sol', 'promo', 'blank'].map(number => `https://api.scryfall.com/cards/tst/${number}/de`));
+    assert.deepEqual(notes, ['2 cards have no German printing on Scryfall and stay as they are: Card promo, Card blank.']);
+});
+
+test('importDeck in a language gives the cards their printings in it, so an update may change them again', async t => {
+    t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+        if (url === 'https://archidekt.com/api/decks/17558445/') return Response.json(archidekt);
+        if (url.startsWith('https://api.scryfall.com/cards/tst/')) return Response.json(scryfallPrinting(`${url.split('/').at(-2)}-fr`, 'fr'));
+        const ids = (JSON.parse(String(init!.body)) as { identifiers: { id: string }[] }).identifiers.map(identifier => identifier.id);
+        return Response.json({ data: ids.map(id => scryfallPrinting(id, 'en')) });
+    });
+
+    const { cards, notes } = await importDeck({ url: 'https://archidekt.com/decks/17558445/sauron', data: [DeckData.MainBoard] }, PlaywrightChannel.Chrome, 'fr');
+
+    assert.ok(cards.length > 0);
+    assert.ok(cards.every(card => card.printing?.lang === 'fr' && card.imported?.printingId === card.printing.id));
+    assert.deepEqual(notes, []);
 });

@@ -100,3 +100,23 @@ test('writePreview writes a small sRGB copy of a CMYK print image', async () => 
     assert.equal(metadata.width, 700);
     assert.equal(metadata.space, 'srgb');
 });
+
+test('toPrintPng darkens the outer band of the card on request, leaving its middle and white borders as they are', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-image-'));
+    const size = pageSizeInPixels(300);
+    const pixel = async (file: string, x: number, y: number) => {
+        const { data } = await sharp(file).extract({ left: x, top: y, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
+        return data[0]!;
+    };
+    const grey = await sharp({ create: { ...size, channels: 3, background: { r: 60, g: 60, b: 60 } } }).png().toBuffer();
+    const white = await sharp({ create: { ...size, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    const darkened = path.join(dir, 'grey.png');
+    const whiteOut = path.join(dir, 'white.png');
+
+    await toPrintPng(grey, darkened, size, { ...NO_ADJUSTMENTS, edges: 1 });
+    await toPrintPng(white, whiteOut, size, { ...NO_ADJUSTMENTS, edges: 1 });
+
+    assert.equal(await pixel(darkened, 10, 10), 0, '60 is below the black point of 64');
+    assert.equal(await pixel(darkened, Math.round(size.width / 2), Math.round(size.height / 2)), 60);
+    assert.equal(await pixel(whiteOut, 10, 10), 255);
+});

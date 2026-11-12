@@ -1,5 +1,5 @@
 import { type CSSProperties, type DragEvent, type RefObject, useState } from "react";
-import { ArrowLeft, CircleStop, GripVertical, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, CircleStop, GripVertical, ImagePlus, Images, LayoutGrid, List, ListPlus, Plus, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { combineAdjustments, DEFAULT_HOME_PRINT, type Order, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
 import { buildPacks, CARDS_PER_PACK, faceImageUris, fillFreeSlots, fillingTokens, mpcfillImage, packPrice, shopDeck } from "../../../../src/pipeline/packs.js";
 import { PAPERS } from "../../../../src/output/sheetLayout.js";
@@ -53,7 +53,9 @@ export function CardsTab({ order, update, search, onSetup }: Props) {
     const [view, setView] = useStoredState<View>('cards-view', 'list');
     const [zoom, setZoom] = useStoredState('cards-zoom', 180);
     const [adding, setAdding] = useState(false);
-    const addButton = order.tcg === 'magic' && <button onClick={() => setAdding(true)}><Plus/>Add a card…</button>;
+    const [imageError, setImageError] = useState<string>();
+    const addButton = order.tcg === 'magic' ? <button onClick={() => setAdding(true)}><Plus/>Add a card…</button>
+        : order.tcg === 'other' && <button className={order.cards.length === 0 ? 'primary' : ''} data-guide="deck" onClick={() => void addImages()}><ImagePlus/>Add images…</button>;
     const picker = adding && <ScryfallPicker kind="card" onPick={addCard} onClose={() => setAdding(false)}/>;
 
     // A card added here belongs to no deck, so updating the decks keeps it. It opens in the editor, where its printing and image are chosen.
@@ -69,6 +71,34 @@ export function CardsTab({ order, update, search, onSetup }: Props) {
                 : [...current.cards, { id, deck: '', board: 'mainboard', name: printing.name, quantity: 1, isToken: false, excluded: false, printing }]
         }));
         setEditing({ id, ids: [id] });
+    }
+
+    // Other cards are their own images, one card each, named after the files.
+    async function addImages() {
+        setImageError(undefined);
+        try {
+            const images = await api.pickCardImages();
+            update(current => ({
+                ...current,
+                cards: [...current.cards, ...images.map(image => ({
+                    id: crypto.randomUUID(), deck: '', board: 'mainboard', name: image.name, quantity: 1, isToken: false, excluded: false, customImage: { front: image.file }
+                }))]
+            }));
+        } catch (e) {
+            setImageError(errorMessage(e));
+        }
+    }
+
+    if (order.cards.length === 0 && order.tcg === 'other') {
+        return (
+            <div className="empty">
+                <RegistrationMark size={56} className="empty-mark"/>
+                <h2>No cards yet</h2>
+                <p>Add the images of your cards, one card each. Their size is set on the Setup tab.</p>
+                <div className="row">{addButton}</div>
+                {imageError && <p className="status error">{imageError}</p>}
+            </div>
+        );
     }
 
     if (order.cards.length === 0) {
@@ -149,6 +179,7 @@ export function CardsTab({ order, update, search, onSetup }: Props) {
                     <button aria-pressed={view === 'cards'} onClick={() => setView('cards')}><LayoutGrid/>Cards</button>
                 </div>
                 {addButton}
+                {imageError && <span className="status error">{imageError}</span>}
                 {view === 'cards' && (
                     <div className="zoom">
                         <button className="quiet" aria-label="Smaller cards" disabled={zoom <= ZOOM_MIN} onClick={() => setZoom(Math.max(ZOOM_MIN, zoom - ZOOM_STEP))}><ZoomOut/></button>

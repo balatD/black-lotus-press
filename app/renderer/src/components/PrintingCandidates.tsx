@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowUpDown, Search } from "lucide-react";
-import type { OrderCard, ScryfallCard } from "../../../../src/model.js";
+import { ArrowUpDown, Languages, Search } from "lucide-react";
+import { MAGIC_LANGUAGES, type OrderCard, type ScryfallCard } from "../../../../src/model.js";
 import { faceImageUris } from "../../../../src/pipeline/packs.js";
 import { filterPrintings, type PrintingSort, type PrintingStyle, printingPrice, printingStyles, sortPrintings } from "../../../../src/printings.js";
 import { api, errorMessage } from "../api.js";
@@ -37,14 +37,17 @@ const STYLE_NAMES = new Map(STYLES);
 
 const searches = new Map<string, Promise<ScryfallCard[]>>();
 
-// Searched once per card name while the app runs; a failed search is tried again next time.
-// The search only finds English printings, so the card's own printing is added.
-export async function printingsOf(card: Pick<OrderCard, 'name' | 'printing'>): Promise<ScryfallCard[]> {
-    let search = searches.get(card.name);
+const LANGUAGE_NAMES = new Map(MAGIC_LANGUAGES);
+
+// Searched once per card name and language while the app runs; a failed search is tried again next time.
+// The search finds the printings in one language, so the card's own printing is added.
+export async function printingsOf(card: Pick<OrderCard, 'name' | 'printing'>, language = 'en'): Promise<ScryfallCard[]> {
+    const key = `${language} ${card.name}`;
+    let search = searches.get(key);
     if (!search) {
-        search = api.searchPrintings({ name: card.name, ...(card.printing ? { printing: card.printing } : {}) });
-        search.catch(() => searches.delete(card.name));
-        searches.set(card.name, search);
+        search = api.searchPrintings({ name: card.name, ...(card.printing ? { printing: card.printing } : {}) }, language);
+        search.catch(() => searches.delete(key));
+        searches.set(key, search);
     }
     const found = await search;
     return !card.printing || found.some(printing => printing.id === card.printing!.id) ? found : [card.printing, ...found];
@@ -59,14 +62,17 @@ export function PrintingCandidates({ card, face, selected, nonfoilOnly: startNon
     const [pricedOnly, setPricedOnly] = useState(false);
     const [nonfoilOnly, setNonfoilOnly] = useState(startNonfoilOnly);
     const [paperOnly, setPaperOnly] = useStoredState('printings-paper-only', true);
+    const [language, setLanguage] = useState(LANGUAGE_NAMES.has(card.printing?.lang ?? '') ? card.printing!.lang : 'en');
 
     useEffect(() => {
         let closed = false;
-        printingsOf(card).then(found => !closed && setPrintings(found), e => !closed && setError(errorMessage(e)));
+        setPrintings(undefined);
+        setError(undefined);
+        printingsOf(card, language).then(found => !closed && setPrintings(found), e => !closed && setError(errorMessage(e)));
         return () => {
             closed = true;
         };
-    }, [card.name]);
+    }, [card.name, language]);
 
     const found = printings ?? [];
     const current = found.find(p => p.id === card.printing?.id);
@@ -85,6 +91,12 @@ export function PrintingCandidates({ card, face, selected, nonfoilOnly: startNon
                 <label className="search">
                     <Search/>
                     <input type="search" placeholder="Set name or code" value={query} onChange={e => setQuery(e.target.value)}/>
+                </label>
+                <label className="row">
+                    <span className="muted with-icon"><Languages/>Language</span>
+                    <select value={language} onChange={e => setLanguage(e.target.value)}>
+                        {MAGIC_LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                    </select>
                 </label>
                 <label className="row">
                     <span className="muted with-icon"><ArrowUpDown/>Sort</span>
@@ -132,7 +144,7 @@ function PrintingTile({ printing, face, isCurrent, isSelected, onSelect, onUse }
             {image ? <img src={image} alt="" loading="lazy"/> : <span className="thumb missing"/>}
             {isCurrent && <span className="printing-current">Current printing</span>}
             <span className="printing-set">{printing.set_name ?? printing.set}</span>
-            <span className="meta">{printing.set.toUpperCase()} #{printing.collector_number}{year ? `, ${year}` : ''}</span>
+            <span className="meta">{printing.set.toUpperCase()} #{printing.collector_number}{year ? `, ${year}` : ''}{printing.lang !== 'en' ? `, ${LANGUAGE_NAMES.get(printing.lang) ?? printing.lang}` : ''}</span>
             {styles && <span className="meta">{styles}</span>}
             <span className="printing-price">{price ? `${formatPrice(price.amount, price.currency)}${price.foil ? ' foil' : ''}` : 'No price'}</span>
             {printing.image_status === 'lowres' && <span className="badge warning">Low-res scan</span>}

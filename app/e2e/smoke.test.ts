@@ -330,6 +330,29 @@ test('the images that failed to process are marked on the sheet and can be tried
     await window.getByRole('tab', { name: 'Fronts' }).click();
 });
 
+test('the card editor shows the processed image of a card next to the Scryfall scan, and processes a single card on request', async () => {
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'List', exact: true }).click();
+    await window.locator('.card-row', { hasText: 'Card a' }).locator('.card-name').click();
+    const editor = window.locator('.card-editor');
+    await editor.getByRole('button', { name: 'Processed', exact: true }).click();
+    await editor.locator('.stage-frame').nth(1).waitFor();
+    await editor.getByText('Processed, 300 dpi').waitFor();
+    await editor.getByText('Scryfall scan of TST #1').waitFor();
+    assert.match(await editor.locator('.stage-frame img').first().getAttribute('src') ?? '', /base-custom-a\.jpg/);
+    await editor.getByRole('button', { name: 'Close' }).click();
+
+    await window.getByRole('button', { name: /token deck/ }).click();
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.locator('.card-row', { hasText: 'Card a' }).locator('.card-name').click();
+    await editor.getByRole('button', { name: 'Process this card' }).click();
+    await editor.getByRole('button', { name: 'Processed', exact: true }).and(window.locator('[aria-pressed="true"]')).waitFor({ timeout: 60000 });
+    await editor.locator('.stage-frame').nth(1).waitFor();
+    await editor.getByRole('button', { name: 'Close' }).click();
+    await window.getByRole('button', { name: /^test/ }).click();
+    await window.getByRole('tab', { name: 'Print' }).click();
+});
+
 test('the print tab links the decks of the last upload on meinspiel.de', async () => {
     const link = window.getByRole('link', { name: 'test - Deck 1/1' });
 
@@ -479,6 +502,40 @@ test('home printer orders lay the fronts out on pages, ask for tokens to fill th
     assert.equal(await window.locator('.home-slot').count(), 9);
     assert.equal(await window.getByRole('button', { name: 'Save PDF' }).isDisabled(), true, 'the images are not processed');
     await window.getByText(/7 slots on the last page stay empty/).waitFor();
+
+    const guides = window.getByLabel('Page guides');
+    const drawing = window.locator('.home-guides path');
+    const drawn = (selector: string) => window.locator(`.home-guides path${selector}`).waitFor({ state: 'attached' });
+    await guides.selectOption({ label: 'Lines from the paper edges to the cards' });
+    assert.equal(await window.getByLabel('Crop mark length').count(), 0, 'only crop marks have a length');
+    await window.getByLabel('Guide colour').selectOption({ label: 'Black' });
+    await window.getByLabel('Guide style').selectOption({ label: 'Dashed' });
+    await window.locator('.home-guides[stroke="#000000"][stroke-dasharray="2 1"]').waitFor();
+    // The first edge line runs from the top edge of the paper down to the first card.
+    await drawn('[d^="M10.5 0L10.5 16.5"]');
+    await window.getByLabel('Card guides').selectOption({ label: 'At the corners of every card' });
+    await window.getByLabel('Card guide corners').selectOption({ label: 'Round, like the card' });
+    await window.getByLabel('Card guide placement').selectOption({ label: 'On the cut' });
+    await drawn('[d*="A2.5 2.5 0 0 1"]');
+    assert.equal((await drawing.getAttribute('d'))?.match(/A2\.5 2\.5/g)?.length, 9 * 4, 'every corner of the 9 cards is round');
+    await window.getByLabel('Card guides').selectOption({ label: 'None' });
+    await guides.selectOption({ label: 'Crop marks in the margins' });
+    await window.getByLabel('Crop mark length').selectOption({ label: '8 mm' });
+    await window.getByLabel('Space between cards and crop marks').selectOption({ label: 'None, the marks touch the cards' });
+    await window.getByLabel('Guide colour').selectOption({ label: 'Magenta' });
+    await window.getByLabel('Guide style').selectOption({ label: 'Solid' });
+    // The first crop mark reaches from 8 mm above the first card down to it.
+    await drawn('[d^="M10.5 8.5L10.5 16.5"]');
+
+    await window.getByLabel('Sides').selectOption({ label: 'Fronts and backs, to print on both sides' });
+    await window.getByRole('button', { name: 'Backs' }).click();
+    assert.equal(await window.locator('.home-guides').count(), 0, 'the backs have no guides');
+    // The first card is at the left of the fronts and so at the right of the backs, at 136.5 of 210 mm.
+    assert.match(await window.locator('.home-slot').first().getAttribute('style') ?? '', /left: 65%/);
+    await window.getByRole('button', { name: 'Backs' }).click();
+    await window.getByLabel('Sides').selectOption({ label: 'Fronts only' });
+    await window.getByRole('button', { name: 'Backs' }).waitFor({ state: 'detached' });
+    await window.getByLabel('Darken edges').waitFor();
 
     await window.getByRole('button', { name: 'Fill with tokens' }).click();
     await window.getByText(/on the last page/).waitFor({ state: 'detached' });
@@ -696,6 +753,36 @@ test('a card is added from Scryfall to an order without cards and opens in the c
     await window.locator('.card-row', { hasText: 'Sol Ring' }).getByText('Added here').waitFor();
 });
 
+test('a Magic order switches its cards to their printings in another language, and the card editor shows printings of any language', async () => {
+    await app.evaluate(({ }, german) => {
+        const real = globalThis.fetch;
+        globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+            const url = decodeURIComponent(String(input));
+            if (url === 'https://api.scryfall.com/cards/tst/1/de') return Response.json(german);
+            if (url.startsWith('https://api.scryfall.com/cards/search') && url.includes('lang:de')) return Response.json({ data: [german], has_more: false });
+            return real(input, init);
+        }) as typeof fetch;
+    }, { ...pricedPrinting('sol-ring-de', '2.00'), name: 'Sol Ring', oracle_id: 'oracle-sol-ring', lang: 'de', image_status: 'lowres' });
+    await window.getByRole('button', { name: /^singles/ }).click();
+    await window.getByRole('tab', { name: 'Setup' }).click();
+
+    const language = window.getByLabel('Card language');
+    await language.selectOption({ label: 'German' });
+    for (let attempt = 0; attempt < 50 && await language.isDisabled(); attempt++) await window.waitForTimeout(100);
+    assert.equal(await language.inputValue(), 'de');
+
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.locator('.card-row', { hasText: 'Sol Ring' }).locator('.card-name').click();
+    const editor = window.locator('.card-editor');
+    const current = editor.locator('.printing.current');
+    await current.getByText('TST #1, German').waitFor();
+    await current.getByText('Low-res scan').waitFor();
+    assert.equal(await editor.getByLabel('Language').inputValue(), 'de', 'the printings come in the language of the card');
+    await editor.getByLabel('Language').selectOption({ label: 'English' });
+    await editor.locator('.printing:not(.current)').first().waitFor();
+    await editor.getByRole('button', { name: 'Close' }).click();
+});
+
 test('one click fills all blank slots of the pack with copies of the tokens', async () => {
     await window.getByRole('button', { name: /fill deck/ }).click();
     await window.getByRole('tab', { name: 'Cards' }).click();
@@ -773,6 +860,61 @@ test('Yu-Gi-Oh orders print at home only, from a pasted deck list, at 59 × 86 m
     assert.equal((await PDFDocument.load(await fs.readFile(target))).getPageCount(), 1);
     const slot = await window.locator('.home-slot').first().boundingBox();
     assert.ok(Math.abs(slot!.width / slot!.height - 59 / 86) < 0.01, `a slot is ${slot!.width} × ${slot!.height}`);
+
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('meinspiel.de');
+    await window.getByRole('button', { name: /^test/ }).waitFor();
+});
+
+test('other cards print at home from own images in a size of their own, with the marks and cut file of a Silhouette cutter', async () => {
+    const images = ['tarot one.png', 'tarot two.png'].map(name => path.join(root, name));
+    for (const image of images) await fs.writeFile(image, Buffer.from(PIXEL.split(',')[1]!, 'base64'));
+    const cutFile = path.join(root, 'tarot cut.dxf');
+    await app.evaluate(({ dialog }, { images, cutFile }) => {
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: images })) as typeof dialog.showOpenDialog;
+        dialog.showSaveDialog = (async () => ({ canceled: false, filePath: cutFile })) as typeof dialog.showSaveDialog;
+    }, { images, cutFile });
+    await window.getByRole('button', { name: 'Switch print shop' }).click();
+    await chooseShop('Home printer');
+
+    await window.getByRole('button', { name: 'New order' }).click();
+    await window.getByRole('button', { name: 'Other cards', exact: true }).click();
+    await window.getByPlaceholder('Order name').fill('tarot');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await window.getByRole('heading', { name: 'Card size' }).waitFor();
+    await window.getByLabel('Size', { exact: true }).selectOption({ label: 'Standard tarot, 69.8 × 120.7 mm' });
+    await window.getByRole('tab', { name: 'Cards' }).click();
+    await window.getByRole('button', { name: 'Add images…' }).click();
+    await window.getByText('tarot two').first().waitFor();
+
+    await window.getByRole('tab', { name: 'Print' }).click();
+    await window.getByText(/come out at 69\.8 × 120\.7 mm/).waitFor();
+    assert.equal(await window.getByLabel('Cards per page').inputValue(), '2x2');
+    await window.getByLabel('Cutter').selectOption({ label: 'Silhouette Cameo or Portrait, print and cut' });
+    await window.locator('.home-guides rect').nth(4).waitFor({ state: 'attached' });
+    assert.equal(await window.getByLabel('Move the cards down').count(), 0);
+    await window.getByRole('button', { name: 'Save cut file' }).click();
+    await window.getByText(`Saved the cut file as ${cutFile}`).waitFor();
+    assert.match(await fs.readFile(cutFile, 'utf-8'), /\nARC\n/);
+});
+
+test('Lorcana orders take a pasted deck list, with the cards from Lorcast', async () => {
+    await app.evaluate(({ }, elsa) => {
+        const real = globalThis.fetch;
+        globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
+            String(input).startsWith('https://api.lorcast.com/') ? Response.json({ results: [elsa] }) : real(input, init)) as typeof fetch;
+    }, { id: 'crd_elsa', name: 'Elsa', version: 'Snow Queen', collector_number: '41', set: { code: '1', name: 'The First Chapter' },
+        image_uris: { digital: { large: 'https://cards.lorcast.io/card/digital/large/crd_a6f3c215973844fc8ae5cbc2a4ea388f.avif' } } });
+
+    await window.getByRole('button', { name: 'New order' }).click();
+    await window.getByRole('button', { name: 'Lorcana', exact: true }).click();
+    await window.getByPlaceholder('Order name').fill('ink');
+    await window.getByRole('button', { name: 'Create order' }).click();
+    await window.getByLabel('New deck list').fill('4 Elsa - Snow Queen');
+    await window.getByRole('button', { name: 'Add and import' }).click();
+    await window.locator('.deck').getByText('4 cards').waitFor();
+    await window.getByRole('button', { name: 'Next: Cards' }).click();
+    await window.getByText('Elsa - Snow Queen').first().waitFor();
 
     await window.getByRole('button', { name: 'Switch print shop' }).click();
     await chooseShop('meinspiel.de');

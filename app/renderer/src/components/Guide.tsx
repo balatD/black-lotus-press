@@ -23,6 +23,11 @@ export function startStep(creating: boolean): GuideStep {
 }
 
 export function orderStep(order: Order, tab: 'Setup' | 'Cards' | 'Print', importing: boolean): GuideStep {
+    if (order.cards.length === 0 && order.tcg === 'other') {
+        return { number: 2, target: 'deck', text: tab === 'Cards'
+            ? 'Add the images of your cards with the highlighted button, one card each.'
+            : 'Choose the size of your cards here, then add their images on the Cards tab.' };
+    }
     if (order.cards.length === 0) {
         if (tab !== 'Setup') return { number: 2, text: 'The decks go in on the Setup tab.', target: 'setup' };
         if (importing) {

@@ -6,7 +6,7 @@ import { dataPath } from "../config/paths.js";
 import { exists } from "../utils/fs.js";
 
 // Orders come from files too, so their image URLs are only followed to these hosts.
-const TCG_IMAGE_HOSTS = ['images.ygoprodeck.com', 'assets.tcgdex.net'];
+const TCG_IMAGE_HOSTS = ['images.ygoprodeck.com', 'assets.tcgdex.net', 'cards.lorcast.io', 'optcgapi.com'];
 
 // YGOPRODeck blacklists heavy image traffic and asks for each image to be downloaded once and kept.
 const tcgImageBottleneck = new Bottleneck({
@@ -22,7 +22,7 @@ export function tcgImageFile(url: string) {
 
 // The file of the card image, downloaded unless it is there; calls for the same image share the download.
 export async function cacheTcgImage(url: string): Promise<string> {
-    if (!TCG_IMAGE_HOSTS.includes(new URL(url).host)) throw new Error(`Card images only come from YGOPRODeck and TCGdex, not from ${url}`);
+    if (!TCG_IMAGE_HOSTS.includes(new URL(url).host)) throw new Error(`Card images only come from YGOPRODeck, TCGdex, Lorcast and optcgapi.com, not from ${url}`);
     const file = tcgImageFile(url);
     if (await exists(file)) return file;
 

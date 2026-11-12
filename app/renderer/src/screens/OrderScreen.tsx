@@ -1,7 +1,7 @@
 import { type CSSProperties, type FormEvent, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { ArrowRight, ArrowRightLeft, Check, Ellipsis, PencilLine, Share2, Trash, X } from "lucide-react";
-import { CARD_SIZES, type Order, type ProcessingProfile, type Shop } from "../../../../src/model.js";
+import { cardSize, type Order, type ProcessingProfile, type Shop } from "../../../../src/model.js";
 import { SetupTab } from "./SetupTab.js";
 import { CardsTab, isNotOnScryfall } from "./CardsTab.js";
 import { PrintTab } from "./PrintTab.js";
@@ -126,7 +126,7 @@ export function OrderScreen({ order, orders, profiles, onChange, onFlush, onDele
                 </div>
             </header>
             {/* The card images of the order in the shape of its cards, also in the dialogs opened from here. */}
-            <div className="screen-body" style={{ '--card-mm-width': CARD_SIZES[order.tcg].width, '--card-mm-height': CARD_SIZES[order.tcg].height } as CSSProperties}>
+            <div className="screen-body" style={{ '--card-mm-width': cardSize(order).width, '--card-mm-height': cardSize(order).height } as CSSProperties}>
                 {tab === 'Setup' && <SetupTab order={order} profiles={profiles} update={update} onEditProfile={onEditProfile}/>}
                 {tab === 'Cards' && <CardsTab order={order} update={update} search={search} onSetup={() => setTab('Setup')}/>}
                 {tab === 'Print' && <PrintTab order={order} update={update} onFlush={onFlush} onSetup={() => setTab('Setup')}/>}

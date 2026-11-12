@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Lorcana and One Piece: home printer orders take Lorcana deck lists, as Dreamborn and Inkdecks export them, with the cards from Lorcast, and One Piece deck lists, as OPTCGSim and Limitless export them, with the cards from optcgapi.com. The card editor shows the other printings and artworks.
+- Other cards: a home printer order of *Other cards* prints your own images, one card each, in a size of its own: standard, Japanese, tarot, mini, square, jumbo, business card and more, or any size from 20 mm to 190 × 260 mm.
+- Print at home on both sides: *Sides* adds a page of backs after every page of fronts, laid out for turning the paper over on the long or short edge, with an offset of its own for the backs.
+- Print and cut with a Silhouette Cameo or Portrait: the pages get the registration marks of Silhouette Studio, and *Save cut file* saves the cut lines of the cards as a DXF or SVG.
+- *Darken edges* on the *Print* tab darkens the bleed and border of every card, so black borders print deep black.
+- The card editor upscales a single card on request and shows the result next to the Scryfall scan.
+- Magic cards in other languages: *Card language* on the *Setup* tab switches every card of the order to its printing in German, French, Italian, Spanish, Portuguese, Japanese, Korean, Russian or Chinese, where Scryfall has it, and decks then import and update in it. The *Printings* tab of the card editor lists the printings of any language.
+- Print at home: the guides come in the colour, width and style you choose, magenta, cyan, black or grey, 0.25 to 2 pt, solid, dashed or dotted, and the crop marks in the length and at the distance from the cards you choose. Orders saved before keep their guides as they were.
+- Print at home: new page guides run from the paper edges to the cuts of the outer cards, or as *Cut lines outside the cards* through the margins and the space between the cards but never over a card.
+- Print at home: *Card guides* mark the cut of every card, at its corners or all around it, with square corners or round ones like the card's, outside the cut in the bleed, on it or inside it.
+
 ## 2.7.0
 
 notmpc.eu is gone, as the shop closed; its orders carry on at printerstudio.de.

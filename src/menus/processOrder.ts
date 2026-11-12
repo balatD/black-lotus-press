@@ -48,7 +48,7 @@ async function importMissingDecks(order: Order) {
     const decks = order.decks.filter(deck => !order.cards.some(card => card.deck === deck.url));
 
     for (const deck of decks) {
-        const { name, cards } = await runTask(`Loading ${chalk.green(deck.url)}`, onProgress => importDeck(deck, order.profile.playwrightChannel, onProgress));
+        const { name, cards } = await runTask(`Loading ${chalk.green(deck.url)}`, onProgress => importDeck(deck, order.profile.playwrightChannel, order.language, onProgress));
         deck.name = name;
         order.cards = replaceDeckCards(order.cards, deck.url, cards);
         await saveOrder(order);

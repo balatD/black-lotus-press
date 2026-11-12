@@ -71,7 +71,7 @@ test('cacheTcgImage downloads a card image once into the data folder and refuses
     assert.match(first, /cache[/\\]tcg[/\\][0-9a-f]{16}\.jpg$/);
     assert.deepEqual([...await fs.readFile(first)], [0xff, 0xd8, 0xff]);
     assert.equal(fetchMock.mock.callCount(), 1);
-    await assert.rejects(cacheTcgImage('https://example.com/card.jpg'), /only come from YGOPRODeck and TCGdex/);
+    await assert.rejects(cacheTcgImage('https://example.com/card.jpg'), /only come from YGOPRODeck, TCGdex, Lorcast and optcgapi.com/);
 });
 
 test('searchTcgdexCards leaves out the cards of Pokémon TCG Pocket, which are no paper cards', async () => {

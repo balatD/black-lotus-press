@@ -129,6 +129,8 @@ export enum DeckData {
 export interface Adjustments {
     brightness: number;
     contrast: number;
+    // Of the order only: how far the outer band of every card is darkened, from 0 to 1; missing is not at all.
+    edges?: number;
 }
 
 // Print comes out darker than the screen, so orders start 10 % brighter.
@@ -140,7 +142,8 @@ export function combineAdjustments(order: Adjustments, card: Adjustments | undef
     const percent = (value: number) => Math.round(value * 100) / 100;
     return {
         brightness: percent(order.brightness * (card?.brightness ?? 1)),
-        contrast: percent(order.contrast * (card?.contrast ?? 1))
+        contrast: percent(order.contrast * (card?.contrast ?? 1)),
+        ...(order.edges ? { edges: percent(order.edges) } : {})
     };
 }
 
@@ -185,16 +188,42 @@ export interface ImportedState {
 
 export type Shop = 'meinspiel' | 'printerstudio' | 'home';
 
-export type Tcg = 'magic' | 'yugioh' | 'pokemon';
+// Other cards print from own images, in a size of their own.
+export type Tcg = 'magic' | 'yugioh' | 'pokemon' | 'lorcana' | 'onepiece' | 'other';
 
-export const TCG_NAMES: Record<Tcg, string> = { magic: 'Magic', yugioh: 'Yu-Gi-Oh', pokemon: 'Pokémon' };
+export const TCG_NAMES: Record<Tcg, string> = { magic: 'Magic', yugioh: 'Yu-Gi-Oh', pokemon: 'Pokémon', lorcana: 'Lorcana', onepiece: 'One Piece', other: 'Other cards' };
+
+// Where the cards of a pasted deck list come from.
+export type ListTcg = Exclude<Tcg, 'magic' | 'other'>;
+export const TCG_SOURCES: Record<ListTcg, string> = { yugioh: 'YGOPRODeck', pokemon: 'TCGdex', lorcana: 'Lorcast', onepiece: 'optcgapi.com' };
+
+export interface CardSize { width: number, height: number }
 
 // Millimetres, without bleed.
-export const CARD_SIZES: Record<Tcg, { width: number, height: number }> = {
+export const CARD_SIZES: Record<Tcg, CardSize> = {
     magic: { width: 63, height: 88 },
     yugioh: { width: 59, height: 86 },
-    pokemon: { width: 63, height: 88 }
+    pokemon: { width: 63, height: 88 },
+    lorcana: { width: 63, height: 88 },
+    onepiece: { width: 63, height: 88 },
+    other: { width: 63, height: 88 }
 };
+
+// Common sizes of other cards, in millimetres.
+export const CARD_SIZE_PRESETS: [name: string, size: CardSize][] = [
+    ['Standard', { width: 63, height: 88 }], ['Japanese', { width: 59, height: 86 }], ['Standard tarot', { width: 69.8, height: 120.7 }],
+    ['Large tarot', { width: 88.9, height: 146.1 }], ['Mini tarot', { width: 44.5, height: 73 }], ['US game', { width: 55.9, height: 87.1 }],
+    ['Mini US game', { width: 41, height: 63 }], ['Mini European', { width: 44, height: 67 }], ['Skat', { width: 58.9, height: 90.9 }],
+    ['Square', { width: 63, height: 63 }], ['Large square', { width: 89, height: 89 }], ['Jumbo', { width: 89, height: 127 }],
+    ['Business card', { width: 85, height: 55 }]
+];
+// One card with bleed fits inside the margins of Letter, the smaller paper.
+export const MAX_CARD_SIZE: CardSize = { width: 190, height: 260 };
+export const MIN_CARD_SIZE = 20;
+
+export function cardSize(order: Pick<Order, 'tcg' | 'cardSize'>): CardSize {
+    return order.tcg === 'other' && order.cardSize ? order.cardSize : CARD_SIZES[order.tcg];
+}
 
 export function printsAt(tcg: Tcg, shop: Shop) {
     return tcg === 'magic' || shop === 'home';
@@ -203,13 +232,22 @@ export function printsAt(tcg: Tcg, shop: Shop) {
 // The languages TCGdex has Pokémon card images in.
 export const POKEMON_LANGUAGES: [code: string, name: string][] = [['en', 'English'], ['de', 'German'], ['fr', 'French'], ['it', 'Italian'], ['es', 'Spanish']];
 
-// A Yu-Gi-Oh artwork from YGOPRODeck, its id the passcode of the artwork, or a Pokémon card from TCGdex, its id like "sv03-125".
+// The languages Scryfall has Magic printings in, by its codes.
+export const MAGIC_LANGUAGES: [code: string, name: string][] = [
+    ['en', 'English'], ['de', 'German'], ['fr', 'French'], ['it', 'Italian'], ['es', 'Spanish'], ['pt', 'Portuguese'],
+    ['ja', 'Japanese'], ['ko', 'Korean'], ['ru', 'Russian'], ['zhs', 'Simplified Chinese'], ['zht', 'Traditional Chinese']
+];
+
+// A Yu-Gi-Oh artwork from YGOPRODeck, its id the passcode of the artwork, a Pokémon card from TCGdex, its id like "sv03-125",
+// a Lorcana printing from Lorcast, its id like "crd_a6f3…", or a One Piece card from optcgapi.com, its id like "OP01-001_p1" for a parallel art.
 export type TcgCard =
     | { tcg: 'yugioh', id: number, image: string }
-    | { tcg: 'pokemon', id: string, lang: string, image: string };
+    | { tcg: 'pokemon', id: string, lang: string, image: string }
+    | { tcg: 'lorcana', id: string, image: string }
+    | { tcg: 'onepiece', id: string, image: string };
 
 export function tcgCardKey(card: TcgCard) {
-    return card.tcg === 'yugioh' ? String(card.id) : `${card.lang}-${card.id}`;
+    return card.tcg === 'pokemon' ? `${card.lang}-${card.id}` : String(card.id);
 }
 
 // The printing a card prints in, whatever the game.
@@ -218,6 +256,7 @@ export function printingId(card: Pick<OrderCard, 'printing' | 'tcgCard'>) {
 }
 
 export type Paper = 'a4' | 'letter';
+export type GuideColor = 'magenta' | 'cyan' | 'black' | 'grey';
 
 // The PDF of an order printed at home, lengths in millimetres.
 export interface HomePrint {
@@ -228,7 +267,32 @@ export interface HomePrint {
     gap: number;
     // Of the 3 mm the print images have around the card.
     bleed: number;
-    guides: 'none' | 'crop-marks' | 'cut-lines';
+    // Guides on the page, along the cuts.
+    guides: 'none' | 'crop-marks' | 'edges' | 'cut-lines' | 'cut-lines-outside';
+    // Guides at the cut of every card, at its corners or all around.
+    cardGuides: 'none' | 'corners' | 'full';
+    cardGuideCorners: 'square' | 'round';
+    cardGuideLength: number;
+    cardGuidePlacement: 'outside' | 'center' | 'inside';
+    guideColor: GuideColor;
+    // In points.
+    guideWidth: number;
+    guideStyle: 'solid' | 'dashed' | 'dotted';
+    markLength: number;
+    // Between the crop marks and the cards.
+    markOffset: number;
+    // A Silhouette cutter finds the cards by the registration marks of Silhouette Studio, three points, printed with them.
+    cutter: 'none' | 'silhouette';
+    regInset: number;
+    regLength: number;
+    regThickness: number;
+    cutCorners: 'round' | 'square';
+    // With both sides, every page of fronts is followed by one of backs, laid out for turning the paper over on the long or short edge.
+    sides: 'fronts' | 'both';
+    flip: 'long' | 'short';
+    // Moves the backs right and down, for a printer that puts them a little off the fronts.
+    backOffsetX: number;
+    backOffsetY: number;
     // The PDF repeats all its pages this many times.
     copies: number;
     // Moves the cards right and down, for printers that pull the paper in early or late; orders saved before have none.
@@ -238,14 +302,19 @@ export interface HomePrint {
 }
 
 export const DEFAULT_HOME_PRINT: HomePrint = {
-    paper: 'a4', landscape: false, columns: 3, rows: 3, gap: 0, bleed: 0, guides: 'crop-marks', copies: 1, cards: 'all'
+    paper: 'a4', landscape: false, columns: 3, rows: 3, gap: 0, bleed: 0, guides: 'crop-marks',
+    cardGuides: 'none', cardGuideCorners: 'square', cardGuideLength: 6, cardGuidePlacement: 'outside', guideColor: 'magenta', guideWidth: 0.5, guideStyle: 'solid', markLength: 4, markOffset: 1,
+    cutter: 'none', regInset: 10, regLength: 10, regThickness: 1, cutCorners: 'round',
+    sides: 'fronts', flip: 'long', backOffsetX: 0, backOffsetY: 0, copies: 1, cards: 'all'
 };
 
 export interface Order {
     name: string;
     shop: Shop;
     tcg: Tcg;
-    // The language of the Pokémon cards' images, English when missing.
+    // Of other cards; missing is 63 × 88 mm.
+    cardSize?: CardSize;
+    // The language of the Pokémon cards' images, English when missing. Magic cards take printings in it; when missing, those the deck names.
     language?: string;
     profile: ProcessingProfile;
     decks: DeckConfig[];
@@ -461,6 +530,18 @@ export function changePrinting(cards: OrderCard[], id: string, printing: Scryfal
 
     const split = { ...changed, id: crypto.randomUUID(), quantity: moved, printing };
     return { cards: cards.flatMap(other => other === card ? [{ ...card, quantity: card.quantity - moved }, split] : [other]), id: split.id };
+}
+
+// The cards take the printing the map has for theirs, by its id, and drop the images picked for the old one.
+// A printing that came from the deck still counts as one, so an update may change it again.
+export function switchPrintings(cards: OrderCard[], printings: Record<string, ScryfallCard>): OrderCard[] {
+    return cards.map(card => {
+        const printing = card.printing && printings[card.printing.id];
+        if (!printing) return card;
+        const { mpcfill: _, ...rest } = card;
+        const fromDeck = card.imported?.printingId === card.printing!.id;
+        return { ...rest, printing, ...(fromDeck ? { imported: { ...card.imported!, printingId: printing.id } } : {}) };
+    });
 }
 
 // An image picked for one face; when it shows another printing, the card takes that printing and drops the images of the old one.

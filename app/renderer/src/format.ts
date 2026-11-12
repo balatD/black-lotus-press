@@ -1,4 +1,4 @@
-import type { OrderCard, ProcessingProfile } from "../../../src/model.js";
+import type { OrderCard, ProcessingProfile, TcgCard } from "../../../src/model.js";
 
 const euro = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' });
 
@@ -37,10 +37,19 @@ export function describeCopyright({ copyrightBehavior, copyrightText }: Processi
     }
 }
 
+export function describeTcgCard(card: TcgCard) {
+    switch (card.tcg) {
+        case 'yugioh': return `YGOPRODeck artwork ${card.id}`;
+        case 'pokemon': return `TCGdex ${card.id} (${card.lang})`;
+        case 'lorcana': return `Lorcast printing ${card.id}`;
+        case 'onepiece': return `optcgapi.com artwork ${card.id}`;
+    }
+}
+
 export function describePrinting(card: OrderCard) {
     const printing = card.printing;
     const tcg = card.tcgCard;
-    if (tcg) return tcg.tcg === 'yugioh' ? `YGOPRODeck artwork ${tcg.id}` : `TCGdex ${tcg.id} (${tcg.lang})`;
+    if (tcg) return describeTcgCard(tcg);
     if (!printing) return 'No Scryfall printing';
     return `${printing.set_name ?? printing.set.toUpperCase()} (${printing.set.toUpperCase()}) #${printing.collector_number}`;
 }
