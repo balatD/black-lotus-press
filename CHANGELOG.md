@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.8.0
+
+Lorcana and One Piece decks, your own cards in any size, printing on both sides and for Silhouette cutters, and Magic cards in other languages.
 
 - Lorcana and One Piece: home printer orders take Lorcana deck lists, as Dreamborn and Inkdecks export them, with the cards from Lorcast, and One Piece deck lists, as OPTCGSim and Limitless export them, with the cards from optcgapi.com. The card editor shows the other printings and artworks.
 - Other cards: a home printer order of *Other cards* prints your own images, one card each, in a size of its own: standard, Japanese, tarot, mini, square, jumbo, business card and more, or any size from 20 mm to 190 × 260 mm.
